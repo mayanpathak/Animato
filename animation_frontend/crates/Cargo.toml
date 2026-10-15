@@ -1,0 +1,46 @@
+# Workspace for the crates the Animato web app compiles to WebAssembly.
+#
+# Only the members listed here are built by `npm run wasm:build`. The other
+# crates in this folder (GPU compositor, vello renderer, OPFS demuxer, ...)
+# are kept for reference; see animation_frontend/DESIGN_NOTES.md, "Crates audit".
+[workspace]
+resolver = "2"
+members = [
+    "animato-wasm",
+    "types",
+    "keyframe",
+    "offcut-types",
+    "offcut-text",
+    "offcut-dsp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.dependencies]
+tooscut-types = { path = "types" }
+tooscut-keyframe = { path = "keyframe" }
+offcut-types = { path = "offcut-types" }
+offcut-text = { path = "offcut-text" }
+offcut-dsp = { path = "offcut-dsp" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+glam = { version = "0.29", features = ["serde"] }
+wasm-bindgen = "=0.2.100"
+serde-wasm-bindgen = "0.6"
+tsify-next = { version = "0.5", features = ["js"] }
+thiserror = "2"
+ts-rs = "10"
+uuid = "1"
+rubato = "5"
+proptest = { version = "1", default-features = false }
+trybuild = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1

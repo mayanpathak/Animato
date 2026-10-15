@@ -1,0 +1,10 @@
+dist
+node_modules
+src/wasm/pkg
+public/mockServiceWorker.js
+crates
+screenshots
+test-results
+playwright-report
+package-lock.json
+*.md

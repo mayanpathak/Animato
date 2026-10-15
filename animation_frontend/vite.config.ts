@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
@@ -11,6 +12,23 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    },
+    worker: { format: 'es' },
+    build: {
+      target: 'es2022',
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes('node_modules/gsap')) return 'gsap'
+            if (id.includes('node_modules/motion') || id.includes('node_modules/framer-motion')) return 'motion'
+            if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'react'
+            return undefined
+          },
+        },
+      },
+    },
     server: {
       // The API server's CORS origin and the reset-email link assume this port.
       port: 5173,
@@ -21,5 +39,6 @@ export default defineConfig(({ mode }) => {
         '/api': { target: apiTarget },
       },
     },
+    preview: { port: 4173, strictPort: true },
   }
 })

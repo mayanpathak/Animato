@@ -2,23 +2,27 @@
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Playwright
+test-results
+playwright-report
+blob-report
+
+# Rust build output for crates/ (the generated src/wasm/pkg IS committed)
+crates/target
+
+# The repo root ignores .env.*; these two hold no secrets and document the flags.
+!.env.development
+!.env.example
+
+.DS_Store
+
+# Editor directories
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
