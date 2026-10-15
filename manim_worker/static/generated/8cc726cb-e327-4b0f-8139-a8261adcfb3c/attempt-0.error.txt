@@ -1,0 +1,55 @@
+manim exited with exit code: 1
+--- STDERR ---
+render/commands.py:125 in  │
+│ render                                                                       │
+│                                                                              │
+│   122 │   │   │   try:                                                       │
+│   123 │   │   │   │   with tempconfig({}):                                   │
+│   124 │   │   │   │   │   scene = SceneClass()                               │
+│ ❱ 125 │   │   │   │   │   scene.render()                                     │
+│   126 │   │   │   except Exception:                                          │
+│   127 │   │   │   │   error_console.print_exception()                        │
+│   128 │   │   │   │   sys.exit(1)                                            │
+│                                                                              │
+│ /usr/local/lib/python3.11/site-packages/manim/scene/scene.py:259 in render   │
+│                                                                              │
+│    256 │   │   """                                                           │
+│    257 │   │   self.setup()                                                  │
+│    258 │   │   try:                                                          │
+│ ❱  259 │   │   │   self.construct()                                          │
+│    260 │   │   except EndSceneEarlyException:                                │
+│    261 │   │   │   pass                                                      │
+│    262 │   │   except RerunSceneException:                                   │
+│                                                                              │
+│ /workspace/scene.py:65 in construct                                          │
+│                                                                              │
+│   62 │   │   │   run_time=0.8                                                │
+│   63 │   │   )                                                               │
+│   64 │   │   self.play(                                                      │
+│ ❱ 65 │   │   │   VGroup(square_5, area_5_text).animate.set_color(ORANGE_C),  │
+│   66 │   │   │   run_time=0.8                                                │
+│   67 │   │   )                                                               │
+│   68 │   │   self.wait(0.3)                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+NameError: name 'ORANGE_C' is not defined
+--- STDOUT ---
+      
+                             '/workspace/media/videos/s                         
+                             cene/480p15/partial_movie_                         
+                             files/GeneratedScene/40728                         
+                             20271_2704698401_254890666                         
+                             8.mp4'                                             
+                    INFO     Animation 3 : Partial      scene_file_writer.py:601
+                             movie file written in                              
+                             '/workspace/media/videos/s                         
+                             cene/480p15/partial_movie_                         
+                             files/GeneratedScene/40728                         
+                             20271_2318836581_354565342                         
+                             .mp4'                                              
+                    INFO     Animation 4 : Partial      scene_file_writer.py:601
+                             movie file written in                              
+                             '/workspace/media/videos/s                         
+                             cene/480p15/partial_movie_                         
+                             files/GeneratedScene/40728                         
+                             20271_2566475707_311814894                         
+                             8.mp4'

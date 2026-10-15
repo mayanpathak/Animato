@@ -1,0 +1,44 @@
+manim exited with exit code: 1
+--- STDERR ---
+                                          │
+│   269 │   │   │                                                              │
+│   270 │   │   │   else:                                                      │
+│ ❱ 271 │   │   │   │   self.add_numbers(                                      │
+│   272 │   │   │   │   │   x_values=self.numbers_to_include,                  │
+│   273 │   │   │   │   │   excluding=self.numbers_to_exclude,                 │
+│   274 │   │   │   │   │   font_size=self.font_size,                          │
+│                                                                              │
+│ /usr/local/lib/python3.11/site-packages/manim/mobject/graphing/number_line.p │
+│ y:557 in add_numbers                                                         │
+│                                                                              │
+│   554 │   │   │   if x in excluding:                                         │
+│   555 │   │   │   │   continue                                               │
+│   556 │   │   │   numbers.add(                                               │
+│ ❱ 557 │   │   │   │   self.get_number_mobject(                               │
+│   558 │   │   │   │   │   x,                                                 │
+│   559 │   │   │   │   │   font_size=font_size,                               │
+│   560 │   │   │   │   │   label_constructor=label_constructor,               │
+│                                                                              │
+│ /usr/local/lib/python3.11/site-packages/manim/mobject/graphing/number_line.p │
+│ y:492 in get_number_mobject                                                  │
+│                                                                              │
+│   489 │   │   if label_constructor is None:                                  │
+│   490 │   │   │   label_constructor = self.label_constructor                 │
+│   491 │   │                                                                  │
+│ ❱ 492 │   │   num_mob = DecimalNumber(                                       │
+│   493 │   │   │   x,                                                         │
+│   494 │   │   │   font_size=font_size,                                       │
+│   495 │   │   │   mob_class=label_constructor,                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+TypeError: manim.mobject.text.numbers.DecimalNumber() got multiple values for 
+keyword argument 'font_size'
+--- STDOUT ---
+Manim Community v0.20.1
+
+[09/23/26 19:49:24] INFO     Writing                     tex_file_writing.py:110
+                             \special{dvisvgm:raw <g                            
+                             id='unique000'>}-3 +                               
+                             5\special{dvisvgm:raw </g>}                        
+                             to                                                 
+                             media/Tex/883f7d16928e0c94.                        
+                             tex

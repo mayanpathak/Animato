@@ -1,0 +1,43 @@
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Rust build artifacts
+target/
+**/target/
+
+# Cargo backup files
+**/*.rs.bk
+
+# Logs
+*.log
+**/*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Node.js
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+
+# Render output (optional)
+media/
+renders/
+
+# Docker local overrides
+docker-compose.override.yml

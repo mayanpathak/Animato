@@ -1,0 +1,44 @@
+manim exited with exit code: 1
+--- STDERR ---
+                              │
+│    256 │   │   """                                                           │
+│    257 │   │   self.setup()                                                  │
+│    258 │   │   try:                                                          │
+│ ❱  259 │   │   │   self.construct()                                          │
+│    260 │   │   except EndSceneEarlyException:                                │
+│    261 │   │   │   pass                                                      │
+│    262 │   │   except RerunSceneException:                                   │
+│                                                                              │
+│ /workspace/scene.py:19 in construct                                          │
+│                                                                              │
+│    16 │   │   beta = np.arctan(11 / 14)                                      │
+│    17 │   │   gamma = np.pi - alpha - beta                                   │
+│    18 │   │                                                                  │
+│ ❱  19 │   │   wedge_a = Sector(                                              │
+│    20 │   │   │   outer_radius=0.7,                                          │
+│    21 │   │   │   start_angle=0,                                             │
+│    22 │   │   │   angle=alpha,                                               │
+│                                                                              │
+│ /usr/local/lib/python3.11/site-packages/manim/mobject/geometry/arc.py:1039   │
+│ in __init__                                                                  │
+│                                                                              │
+│   1036 │   """                                                               │
+│   1037 │                                                                     │
+│   1038 │   def __init__(self, radius: float = 1, **kwargs: Any) -> None:     │
+│ ❱ 1039 │   │   super().__init__(inner_radius=0, outer_radius=radius, **kwarg │
+│   1040                                                                       │
+│   1041                                                                       │
+│   1042 class Annulus(Circle):                                                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+TypeError: manim.mobject.geometry.arc.AnnularSector.__init__() got multiple 
+values for keyword argument 'outer_radius'
+--- STDOUT ---
+Manim Community v0.20.1
+
+[09/23/26 19:49:34] INFO     Writing                     tex_file_writing.py:110
+                             \special{dvisvgm:raw <g                            
+                             id='unique000'>}Angles of a                        
+                             Triangle\special{dvisvgm:ra                        
+                             w </g>} to                                         
+                             media/Tex/08ed02d59681e5a2.                        
+                             tex

@@ -1,0 +1,36 @@
+manim exited with exit code: 1
+--- STDERR ---
+render/commands.py:125 in  │
+│ render                                                                       │
+│                                                                              │
+│   122 │   │   │   try:                                                       │
+│   123 │   │   │   │   with tempconfig({}):                                   │
+│   124 │   │   │   │   │   scene = SceneClass()                               │
+│ ❱ 125 │   │   │   │   │   scene.render()                                     │
+│   126 │   │   │   except Exception:                                          │
+│   127 │   │   │   │   error_console.print_exception()                        │
+│   128 │   │   │   │   sys.exit(1)                                            │
+│                                                                              │
+│ /usr/local/lib/python3.11/site-packages/manim/scene/scene.py:259 in render   │
+│                                                                              │
+│    256 │   │   """                                                           │
+│    257 │   │   self.setup()                                                  │
+│    258 │   │   try:                                                          │
+│ ❱  259 │   │   │   self.construct()                                          │
+│    260 │   │   except EndSceneEarlyException:                                │
+│    261 │   │   │   pass                                                      │
+│    262 │   │   except RerunSceneException:                                   │
+│                                                                              │
+│ /workspace/scene.py:21 in construct                                          │
+│                                                                              │
+│   18 │   │   )                                                               │
+│   19 │   │                                                                   │
+│   20 │   │   ra_size = 0.2                                                   │
+│ ❱ 21 │   │   ra = Polyline(                                                  │
+│   22 │   │   │   v_c + np.array([ra_size, 0, 0]),                            │
+│   23 │   │   │   v_c + np.array([ra_size, ra_size, 0]),                      │
+│   24 │   │   │   v_c + np.array([0, ra_size, 0]),                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+NameError: name 'Polyline' is not defined
+--- STDOUT ---
+Manim Community v0.20.1
