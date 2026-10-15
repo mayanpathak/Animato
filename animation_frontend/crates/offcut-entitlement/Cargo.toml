@@ -1,0 +1,23 @@
+[package]
+name = "offcut-entitlement"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[features]
+# Signing is the server's (V6). The browser bundle is built without it.
+sign = []
+
+[dependencies]
+offcut-types = { workspace = true }
+base64 = { workspace = true }
+# Verification only, and no `rand_core`: this crate draws no random number
+# (D-54). Not inherited from the workspace: that entry keeps the default
+# features the server signs with, and a member cannot turn them off.
+ed25519-dalek = { version = "3.0.0", default-features = false }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

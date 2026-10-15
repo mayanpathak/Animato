@@ -1,0 +1,17 @@
+[package]
+name = "offcut-dsp"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+offcut-types = { workspace = true }
+# The FFT resampler: synchronous, for a fixed pair of rates.
+rubato = { workspace = true, features = ["fft_resampler"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true, features = ["std"] }

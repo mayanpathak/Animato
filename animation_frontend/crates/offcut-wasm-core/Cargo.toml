@@ -1,0 +1,28 @@
+[package]
+name = "offcut-wasm-core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+# A WebAssembly module for the browser. scripts/build-wasm.sh builds it.
+crate-type = ["cdylib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+offcut-types = { workspace = true }
+offcut-mp4 = { workspace = true }
+offcut-dsp = { workspace = true }
+offcut-text = { workspace = true }
+wasm-bindgen = { workspace = true }
+js-sys = { workspace = true }
+# The synchronous OPFS handle the demuxer reads through.
+web-sys = { workspace = true, features = ["FileSystemReadWriteOptions", "FileSystemSyncAccessHandle"] }
+serde = { workspace = true, features = ["derive"] }
+serde-wasm-bindgen = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "offcut-render"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+offcut-types = { workspace = true }
+offcut-scene = { workspace = true }
+thiserror = { workspace = true }
+vello = { workspace = true, features = ["wgpu"] }
+wgpu = { workspace = true, features = ["std", "webgpu", "wgsl"] }
+# The canvas a frame is drawn to, and the decoded frame that is drawn.
+web-sys = { workspace = true, features = ["OffscreenCanvas", "VideoFrame"] }

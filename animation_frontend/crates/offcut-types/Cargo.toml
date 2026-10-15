@@ -1,0 +1,20 @@
+[package]
+name = "offcut-types"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+# `no-serde-warnings`: ts-rs does not know `#[serde(transparent)]` and prints a warning for
+# every use. On a one-field struct it already emits the inner type, so nothing is lost.
+ts-rs = { workspace = true, features = ["no-serde-warnings"] }
+# `serde` only: no `v4`, no `v7`. A pure crate must not pull in randomness or a clock.
+uuid = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+trybuild = { workspace = true }

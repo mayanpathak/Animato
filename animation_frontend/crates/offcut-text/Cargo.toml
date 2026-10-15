@@ -1,0 +1,13 @@
+[package]
+name = "offcut-text"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+offcut-types = { workspace = true }
+# For `RawWord`, which arrives from JavaScript.
+serde = { workspace = true, features = ["derive"] }
