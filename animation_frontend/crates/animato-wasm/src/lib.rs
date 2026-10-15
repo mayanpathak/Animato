@@ -1,4 +1,5 @@
-//! The WebAssembly module the Animato editor loads.
+//! The WebAssembly module the Animato editor loads: one module for the whole
+//! editor (timeline core, MP4 demuxing, GPU compositor, audio mixer).
 //!
 //! Every function here has a TypeScript twin in
 //! `animation_frontend/src/wasm/fallback.ts` with the same inputs and outputs,
@@ -11,8 +12,24 @@ use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
 
 use offcut_text::{normalize_transcript, RawWord};
-use offcut_types::Hz;
 use tooscut_keyframe::{evaluate_keyframes, EasingPreset, Keyframe};
+
+mod demux;
+
+pub use demux::Mp4Demuxer;
+// Linked into this module so their wasm-bindgen exports ship with it:
+// `Compositor` (wgpu), `AudioEngine` (mixer), and offcut-wasm-core's
+// `probe_and_validate`, `open_demuxer`, `resample`, `normalize_transcript`,
+// `Sha256Stream`.
+pub use offcut_wasm_core as media_core;
+pub use tooscut_audio_engine::AudioEngine;
+pub use tooscut_compositor::Compositor;
+
+/// Runs once when the module is instantiated.
+#[wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+}
 
 /// Version string shown in the editor's performance badge.
 #[wasm_bindgen]
@@ -306,15 +323,6 @@ pub fn waveform_peaks(pcm: &[f32], buckets: u32) -> Vec<f32> {
     out
 }
 
-/// Mono resampling with the FFT resampler from `offcut-dsp`.
-#[wasm_bindgen]
-pub fn resample(pcm: &[f32], from_hz: u32, to_hz: u32) -> Vec<f32> {
-    if from_hz == 0 || to_hz == 0 {
-        return Vec::new();
-    }
-    offcut_dsp::resample::resample_mono(pcm, Hz::new(from_hz), Hz::new(to_hz))
-}
-
 // ---------------------------------------------------------------------------
 // Keyframes
 // ---------------------------------------------------------------------------
@@ -381,67 +389,5 @@ mod tests {
         let cues = parse_srt("1\n00:00:01,000 --> 00:00:02,500\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nWorld\n").unwrap();
         let back = to_srt(&cues).unwrap();
         assert!(back.contains("00:00:01,000 --> 00:00:02,500\nHello"));
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Export
-// ---------------------------------------------------------------------------
-
-/// Animated GIF encoder for the editor's local export. Frames are RGBA,
-/// quantized per frame with NeuQuant (the `gif` crate). Runs in a worker.
-#[wasm_bindgen]
-pub struct GifWriter {
-    width: u16,
-    height: u16,
-    delay_cs: u16,
-    speed: i32,
-    encoder: Option<gif::Encoder<Vec<u8>>>,
-}
-
-#[wasm_bindgen]
-impl GifWriter {
-    /// `delay_cs`: frame delay in hundredths of a second. `speed`: 1 (best)
-    /// to 30 (fastest) quantization.
-    #[wasm_bindgen(constructor)]
-    pub fn new(width: u16, height: u16, delay_cs: u16, speed: i32) -> Result<GifWriter, JsValue> {
-        let mut encoder = gif::Encoder::new(Vec::new(), width, height, &[])
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        encoder
-            .set_repeat(gif::Repeat::Infinite)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        Ok(GifWriter { width, height, delay_cs, speed: speed.clamp(1, 30), encoder: Some(encoder) })
-    }
-
-    /// Appends one RGBA frame of exactly `width * height * 4` bytes.
-    pub fn add_frame(&mut self, rgba: &[u8]) -> Result<(), JsValue> {
-        let expected = self.width as usize * self.height as usize * 4;
-        if rgba.len() != expected {
-            return Err(JsValue::from_str("frame size does not match"));
-        }
-        let mut pixels = rgba.to_vec();
-        let mut frame = gif::Frame::from_rgba_speed(self.width, self.height, &mut pixels, self.speed);
-        frame.delay = self.delay_cs;
-        let encoder = self.encoder.as_mut().ok_or_else(|| JsValue::from_str("writer is finished"))?;
-        encoder.write_frame(&frame).map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-
-    /// The finished file. The writer cannot be used afterwards.
-    pub fn finish(&mut self) -> Result<Vec<u8>, JsValue> {
-        let encoder = self.encoder.take().ok_or_else(|| JsValue::from_str("writer is finished"))?;
-        encoder.into_inner().map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-}
-
-#[cfg(test)]
-mod gif_tests {
-    use super::*;
-
-    #[test]
-    fn writes_a_gif() {
-        let mut w = GifWriter::new(4, 2, 10, 10).ok().unwrap();
-        w.add_frame(&[255u8; 32]).ok().unwrap();
-        let bytes = w.finish().ok().unwrap();
-        assert_eq!(&bytes[..6], b"GIF89a");
     }
 }

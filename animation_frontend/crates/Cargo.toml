@@ -12,6 +12,10 @@ members = [
     "offcut-types",
     "offcut-text",
     "offcut-dsp",
+    "offcut-mp4",
+    "compositor",
+    "audio-engine",
+    "offcut-wasm-core",
 ]
 
 [workspace.package]
@@ -27,6 +31,11 @@ tooscut-keyframe = { path = "keyframe" }
 offcut-types = { path = "offcut-types" }
 offcut-text = { path = "offcut-text" }
 offcut-dsp = { path = "offcut-dsp" }
+offcut-mp4 = { path = "offcut-mp4" }
+offcut-wasm-core = { path = "offcut-wasm-core", default-features = false }
+tooscut-compositor = { path = "compositor", default-features = false }
+tooscut-audio-engine = { path = "audio-engine", default-features = false }
+sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 glam = { version = "0.29", features = ["serde"] }
@@ -39,6 +48,21 @@ uuid = "1"
 rubato = "5"
 proptest = { version = "1", default-features = false }
 trybuild = "1"
+js-sys = "=0.3.77"
+wasm-bindgen-futures = "=0.4.50"
+web-sys = { version = "=0.3.77", features = [
+    "Window", "Document", "HtmlCanvasElement", "OffscreenCanvas", "HtmlVideoElement",
+    "ImageBitmap", "VideoFrame", "console",
+    "FileSystemReadWriteOptions", "FileSystemSyncAccessHandle",
+] }
+wgpu = { version = "24", default-features = false, features = ["webgpu", "webgl", "wgsl"] }
+glyphon = "0.8"
+cosmic-text = "0.12"
+bytemuck = { version = "1", features = ["derive"] }
+log = "0.4"
+console_log = "1"
+console_error_panic_hook = "0.1"
+futures = "0.3"
 
 [profile.release]
 opt-level = "s"

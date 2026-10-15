@@ -15,7 +15,7 @@ use mixer::AudioMixer;
 use wasm_bindgen::prelude::*;
 
 /// Initialize panic hook and logging for better WASM debugging
-#[wasm_bindgen(start)]
+#[cfg_attr(feature = "start", wasm_bindgen(start))]
 pub fn init() {
     console_error_panic_hook::set_once();
     console_log::init_with_level(log::Level::Debug).ok();

@@ -6,7 +6,7 @@ publish = false
 
 [lib]
 # A WebAssembly module for the browser. scripts/build-wasm.sh builds it.
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [lints]
 workspace = true
@@ -26,3 +26,8 @@ sha2 = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+
+[features]
+# Off when linked into animato-wasm, which has its own start function.
+default = ["start"]
+start = []
