@@ -1,51 +1,43 @@
-export interface User {
-  email: string
-  username: string
-  isVerified: boolean
-}
+// Constants shared by the API layer, the mocks and the UI.
 
 export const LIBRARIES = ['remotion', 'manim'] as const
 export type Library = (typeof LIBRARIES)[number]
 
 // Exactly the strings the API serialises for a job's status.
-export const JOB_STATUSES = [
-  'Pending',
-  'GeneratingCode',
-  'Rendering',
-  'Uploading',
-  'Completed',
-  'Failed',
-] as const
+export const JOB_STATUSES = ['Pending', 'GeneratingCode', 'Rendering', 'Uploading', 'Completed', 'Failed'] as const
 export type JobStatus = (typeof JOB_STATUSES)[number]
 
-export interface Job {
-  jobId: string
-  prompt: string
-  library: Library
-  status: JobStatus
-  createdAt: number
-  errorMessage: string | null
-  // The player could not load the file (not served yet, or cleaned up).
-  videoMissing: boolean
+export const STATUS_LABELS: Record<JobStatus, string> = {
+  Pending: 'Queued',
+  GeneratingCode: 'Planning scenes',
+  Rendering: 'Rendering',
+  Uploading: 'Encoding',
+  Completed: 'Ready',
+  Failed: 'Failed',
 }
 
-export function isLibrary(value: unknown): value is Library {
-  return LIBRARIES.includes(value as Library)
-}
+export type StatusTone = 'queued' | 'planning' | 'rendering' | 'succeeded' | 'failed'
 
-export function isJobStatus(value: unknown): value is JobStatus {
-  return JOB_STATUSES.includes(value as JobStatus)
+export const STATUS_TONE: Record<JobStatus, StatusTone> = {
+  Pending: 'queued',
+  GeneratingCode: 'planning',
+  Rendering: 'rendering',
+  Uploading: 'rendering',
+  Completed: 'succeeded',
+  Failed: 'failed',
 }
 
 export function isFinished(status: JobStatus): boolean {
   return status === 'Completed' || status === 'Failed'
 }
 
-export const STATUS_LABELS: Record<JobStatus, string> = {
-  Pending: 'Queued',
-  GeneratingCode: 'Writing the animation code',
-  Rendering: 'Rendering the video',
-  Uploading: 'Finishing up',
-  Completed: 'Ready',
-  Failed: 'Failed',
-}
+export const ASPECTS = ['16:9', '9:16', '1:1'] as const
+export type Aspect = (typeof ASPECTS)[number]
+
+export const RESOLUTIONS = ['720p', '1080p', '1440p', '4K'] as const
+export type Resolution = (typeof RESOLUTIONS)[number]
+
+export const STYLES = ['Minimal', 'Cinematic', 'Playful', 'Technical', 'Editorial'] as const
+export type VisualStyle = (typeof STYLES)[number]
+
+export type Engine = Library | 'auto'
