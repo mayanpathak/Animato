@@ -13,7 +13,7 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 | P3 | Landing, pricing, first-run flow, Create, Rendering state, entitlements, analytics seam | done | `64b2a9f` |
 | P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | done | `c4c447a` |
 | P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | done | `0cb6229` |
-| P6 | Finish, simple mode, export | todo | |
+| P6 | Finish, simple mode, export | done | `a39a85c`, `db9c3fa`, `c14b2e5` |
 | P7 | Voice and captions | todo | |
 | P8 | Fine-tune mode and assets | todo | |
 | P9 | AI editor seams | todo | |
@@ -99,4 +99,24 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
 - **Not verified here:** the GPU budgets on a real mid-range GPU; presenting to an OffscreenCanvas on wgpu 30 (still
   readback); colour emoji (Noto Emoji is monochrome, as planned); preview/export parity by pixel hash (both paths call
   the same `FrameRenderer` with the same document at their own size; no hash test yet).
+
+## P6 notes
+
+- typecheck, lint (token gate), build: pass. vitest 167 (looks × formats through the real WASM scene, Finish undo,
+  share helpers, font magic bytes). Playwright: `npm run test:e2e` 44/44; `npm run test:e2e:slow` 2/2 (the 1080×1920
+  Finish export: title, logo and watermark drawn by WebGPU + Vello, 6.1 min on SwiftShader; an uploaded font and the
+  logo reaching the brand preview and an export).
+- Acceptance 6.6: Ready → 9:16 → Export gives a 1080×1920 MP4 with defaults only (e2e). Three format switches undo to
+  the original exactly (unit + e2e). **Not measured:** "every inspector change previews in under 50 ms on a mid-range
+  GPU" (SwiftShader only here).
+- Acceptance 6.7: **not met here / not measured**: the 18 s 1080×1920 export under 60 s needs a real GPU (SwiftShader
+  ran the 6 s video in about 6 min); QuickTime and Android playback not checkable in the sandbox; no pixel-identity
+  snapshot between preview and export yet (both use the same `FrameRenderer` and graphics document at their own
+  size).
+- Acceptance 6.8: an uploaded font appears in the preview and in an export, and the logo on the end card (e2e @slow).
+- Screenshots reviewed at both sizes: Finish (`video-ready-*`), `finish-9x16-preview.png`, `brand-graphics-preview.png`.
+  Fixed from review: black first frame and thumbnails, uneven Format control, perf badge in simple mode, missing logo,
+  brand copy that named the wrong default colours, low-contrast title card.
+- Known weak spot: the plan's title rule (first clause, 6 words, 32 characters) can stop mid-phrase ("Gradient Descent
+  Finds"); the title is editable and the rule is as specified.
 
