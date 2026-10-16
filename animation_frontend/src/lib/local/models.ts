@@ -69,6 +69,11 @@ export interface Project {
   /** Job id of the take used as the main clip. */
   selectedTake?: string | null
   format?: '16:9' | '9:16' | '1:1'
+  /**
+   * A video waiting for its first job (plan 3.4 `drafting`). `autoStart` is set
+   * only for the very first video after signup: it starts after a 3 s Cancel.
+   */
+  draft?: { prompt: string; engine: 'auto' | 'manim' | 'remotion'; autoStart: boolean; error?: string } | null
   tags: string[]
   createdAt: number
   updatedAt: number

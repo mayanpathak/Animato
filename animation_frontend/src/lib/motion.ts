@@ -1,5 +1,5 @@
-// Motion tokens shared by Framer Motion and GSAP, mirroring
-// src/styles/tokens.css so CSS, Framer and GSAP animations feel the same.
+// Motion tokens for Framer Motion, mirroring src/styles/tokens.css so CSS
+// and Framer animations feel the same.
 import type { Transition } from 'motion/react'
 
 export const ease = {
@@ -16,14 +16,6 @@ export const duration = {
   base: 0.24,
   slow: 0.42,
   slower: 0.7,
-} as const
-
-/** GSAP accepts CSS-like strings; these are the same curves expressed as GSAP eases. */
-export const gsapEase = {
-  outExpo: 'expo.out',
-  outQuart: 'quart.out',
-  inOutQuart: 'quart.inOut',
-  spring: 'back.out(1.6)',
 } as const
 
 export const spring = {

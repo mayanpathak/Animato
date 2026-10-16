@@ -1,24 +1,51 @@
-// Prompt Studio logic that runs entirely in the browser. The server accepts
-// only { prompt, library }, so every option is folded into the prompt text,
-// and "Enhance" is a deterministic local rewrite, not a model call.
-import type { Engine, Library, VisualStyle } from '@/lib/api/types'
+// Create's logic, all in the browser. The server accepts only
+// { prompt, library }: length and style become a hint line, brand colours a
+// second one, and "Tidy up my prompt" is a deterministic local rewrite.
+import type { Engine, Library } from '@/lib/api/types'
 import type { BrandKit } from '@/lib/local/models'
 import { charCount, PROMPT_MAX } from '@/lib/validation'
 
 export type { Engine }
-export type AspectOption = '16:9' | '9:16' | '1:1'
 
-export interface StudioOptions {
-  aspect: AspectOption
-  duration: number
-  style: VisualStyle
-  captions: boolean
+export type LengthId = 'short' | 'medium' | 'long'
+export const LENGTHS: { id: LengthId; label: string; seconds: number }[] = [
+  { id: 'short', label: 'Short', seconds: 10 },
+  { id: 'medium', label: 'Medium', seconds: 20 },
+  { id: 'long', label: 'Long', seconds: 45 },
+]
+
+export type StyleId = 'Clean' | 'Bold' | 'Playful' | 'Technical'
+export const STYLE_IDS: StyleId[] = ['Clean', 'Bold', 'Playful', 'Technical']
+
+export interface CreateOptions {
+  length: LengthId
+  style: StyleId
+  /** Add the brand kit's colours, fonts and tone (only offered when a kit exists). */
+  useBrand: boolean
 }
 
-export const ASPECT_LABEL: Record<AspectOption, string> = {
-  '16:9': 'landscape',
-  '9:16': 'vertical',
-  '1:1': 'square',
+export const DEFAULT_OPTIONS: CreateOptions = { length: 'medium', style: 'Clean', useBrand: false }
+
+export function lengthSeconds(id: LengthId): number {
+  return LENGTHS.find((l) => l.id === id)?.seconds ?? 20
+}
+
+/** The options as stored on the local job record. */
+export function recordOptions(o: CreateOptions, brandKitId: string | null) {
+  return { aspect: '16:9', duration: lengthSeconds(o.length), style: o.style, brandKitId }
+}
+
+/** Maps a stored job record's options back to Create's (for "Try again"). */
+export function optionsFromRecord(o: {
+  duration: number
+  style: string
+  brandKitId: string | null
+}): CreateOptions {
+  const length = [...LENGTHS].sort(
+    (a, b) => Math.abs(a.seconds - o.duration) - Math.abs(b.seconds - o.duration),
+  )[0].id
+  const style = STYLE_IDS.includes(o.style as StyleId) ? (o.style as StyleId) : 'Clean'
+  return { length, style, useBrand: o.brandKitId !== null }
 }
 
 // ---------------------------------------------------------------- engine pick
@@ -78,7 +105,7 @@ export function resolveLibrary(engine: Engine, prompt: string): Library {
 // -------------------------------------------------------------- server prompt
 
 export function brandSuffix(kit: BrandKit | null | undefined): string {
-  if (!kit || !kit.appendToPrompts) return ''
+  if (!kit) return ''
   const parts: string[] = []
   const colors = kit.colors.filter(Boolean).slice(0, 5)
   if (colors.length) parts.push(`Brand colors: ${colors.join(', ')}.`)
@@ -91,18 +118,18 @@ export function brandSuffix(kit: BrandKit | null | undefined): string {
   return parts.join(' ')
 }
 
-/** The exact text sent as `prompt` to POST /api/jobs. */
+/**
+ * The exact text sent as `prompt` to POST /api/jobs. No aspect ratio: the
+ * workers always render a 16:9 stage (plan 2.3); formats are a Finish feature.
+ */
 export function buildServerPrompt(
   prompt: string,
-  options: StudioOptions,
+  options: CreateOptions,
   kit: BrandKit | null | undefined,
 ): string {
-  // No aspect ratio: the workers always render a 16:9 stage (plan 2.3).
-  // Formats are a Finish feature, laid out in the browser.
-  const lines = [`About ${options.duration} seconds. Style: ${options.style}.`]
-  const brand = brandSuffix(kit)
+  const lines = [`About ${lengthSeconds(options.length)} seconds. Style: ${options.style.toLowerCase()}.`]
+  const brand = options.useBrand ? brandSuffix(kit) : ''
   if (brand) lines.push(brand)
-  if (options.captions) lines.push('Include short on-screen captions that summarise each beat.')
   return `${prompt.trim()}\n\n${lines.join(' ')}`
 }
 
@@ -129,13 +156,12 @@ const VAGUE: Record<string, string> = {
   pretty: 'refined',
 }
 
-const STYLE_MOTION: Record<VisualStyle, string> = {
-  Minimal:
+const STYLE_MOTION: Record<StyleId, string> = {
+  Clean:
     'Keep motion restrained: one idea on screen at a time, generous negative space, soft ease-out fades.',
-  Cinematic: 'Use a slow dolly-in camera, soft depth, gentle ease-in-out moves and a held final frame.',
+  Bold: 'Use large type, high contrast, punchy cuts and confident, fast entrances.',
   Playful: 'Use bouncy overshoot easing, quick staggered entrances and a little squash and stretch.',
   Technical: 'Use precise linear timing, a grid-aligned layout and monospaced labels.',
-  Editorial: 'Use measured fades, strong typographic hierarchy, thin rules and calm pacing.',
 }
 
 const ENGINE_VOCAB: Record<Library, string> = {
@@ -173,14 +199,14 @@ function seconds(n: number): string {
  * Deterministic rewrite: sharpens vague words, structures the idea into timed
  * beats, and adds camera, motion and engine vocabulary. Same input, same output.
  */
-export function enhancePrompt(prompt: string, library: Library, options: StudioOptions): string {
+export function enhancePrompt(prompt: string, library: Library, options: CreateOptions): string {
   // Already structured by a previous rewrite: only sharpen words, keep the layout.
   if (/\bBeat 1\b/.test(prompt)) return sharpen(prompt.trim())
   const clean = sharpen(prompt.replace(/\s+/g, ' ').trim())
   if (!clean) return prompt
 
   const parts = sentences(clean).map((s) => endWithPeriod(capitalise(s)))
-  const d = options.duration
+  const d = lengthSeconds(options.length)
   const t1 = Math.max(1, Math.round(d * 0.2 * 2) / 2)
   const t2 = Math.max(t1 + 1, Math.round(d * 0.8 * 2) / 2)
 
@@ -216,94 +242,3 @@ export function enhancePrompt(prompt: string, library: Library, options: StudioO
   }
   return charCount(out) <= PROMPT_MAX ? out : clean
 }
-
-// ------------------------------------------------------------------ word diff
-
-export type DiffOp = { type: 'same' | 'add' | 'del'; text: string }
-
-const MAX_TOKENS = 1200
-
-/** Word-level LCS diff. Whitespace is kept with the token before it. */
-export function wordDiff(before: string, after: string): DiffOp[] {
-  const a = before.match(/\S+\s*/g) ?? []
-  const b = after.match(/\S+\s*/g) ?? []
-  if (a.length > MAX_TOKENS || b.length > MAX_TOKENS) {
-    return [
-      { type: 'del', text: before },
-      { type: 'add', text: after },
-    ]
-  }
-  const key = (t: string) => t.trim()
-  const n = a.length
-  const m = b.length
-  // lcs[i][j] = LCS length of a[i..] and b[j..]
-  const lcs: Uint16Array[] = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1))
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      lcs[i][j] = key(a[i]) === key(b[j]) ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1])
-    }
-  }
-  const ops: DiffOp[] = []
-  const push = (type: DiffOp['type'], text: string) => {
-    const last = ops[ops.length - 1]
-    if (last && last.type === type) last.text += text
-    else ops.push({ type, text })
-  }
-  let i = 0
-  let j = 0
-  while (i < n && j < m) {
-    if (key(a[i]) === key(b[j])) {
-      push('same', b[j])
-      i++
-      j++
-    } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
-      push('del', a[i++])
-    } else {
-      push('add', b[j++])
-    }
-  }
-  while (i < n) push('del', a[i++])
-  while (j < m) push('add', b[j++])
-  return ops
-}
-
-// ------------------------------------------------------------------- examples
-
-export const EXAMPLES: { label: string; prompt: string; engine: Library }[] = [
-  {
-    label: 'Fourier epicycles',
-    engine: 'manim',
-    prompt:
-      'Draw a heart with Fourier epicycles: 40 rotating circles chained tip to tail, tracing the outline as the circles spin, then fade the circles and leave the glowing path.',
-  },
-  {
-    label: 'Derivative as slope',
-    engine: 'manim',
-    prompt:
-      'Plot y = sin(x) on axes and slide a tangent line along the curve, showing its slope as a number, while a second graph of the derivative draws itself underneath.',
-  },
-  {
-    label: 'Binary search',
-    engine: 'manim',
-    prompt:
-      'Explain binary search on a sorted row of 16 numbered boxes, highlighting the low, mid and high pointers at each step until the target 42 is found.',
-  },
-  {
-    label: 'Kinetic quote',
-    engine: 'remotion',
-    prompt:
-      'Kinetic typography for the quote "Make it simple, but significant." Each word lands on its own beat with a soft blur-in, over a slowly drifting gradient.',
-  },
-  {
-    label: 'App launch promo',
-    engine: 'remotion',
-    prompt:
-      'A vertical launch promo for a habit-tracking app: a phone mockup slides in, three feature callouts pop beside it, and it ends on the app icon with "Available today".',
-  },
-  {
-    label: 'Podcast audiogram',
-    engine: 'remotion',
-    prompt:
-      'A square podcast teaser: episode title in large type, an animated waveform bar along the bottom, guest name lower third, and a "Listen now" end card.',
-  },
-]

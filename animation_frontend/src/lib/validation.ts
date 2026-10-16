@@ -50,3 +50,18 @@ export function passwordStrength(password: string): { score: 0 | 1 | 2 | 3 | 4; 
   const s = Math.min(4, score) as 0 | 1 | 2 | 3 | 4
   return { score: s, label: ['Too short', 'Weak', 'Fair', 'Strong', 'Excellent'][s] }
 }
+
+/**
+ * A prompt that arrived in a URL (remix links, plan 12.2): trimmed, capped at
+ * 2,000 characters, control characters removed. Rendered as text, never HTML.
+ */
+export function sanitizePrompt(input: string | null | undefined): string {
+  if (!input) return ''
+  // eslint-disable-next-line no-control-regex
+  const clean = input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim()
+  return [...clean].slice(0, PROMPT_MAX).join('')
+}
+
+export function sanitizeEngine(input: string | null | undefined): 'auto' | 'manim' | 'remotion' {
+  return input === 'manim' || input === 'remotion' ? input : 'auto'
+}
