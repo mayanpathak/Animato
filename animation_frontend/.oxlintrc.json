@@ -6,9 +6,7 @@
     "scripts/dev/**",
     "dist/**",
     "crates/**",
-    "public/mockServiceWorker.js",
-    "packages/**",
-    "src/workers/**"
+    "public/mockServiceWorker.js"
   ],
   "rules": {
     "react/rules-of-hooks": "error",

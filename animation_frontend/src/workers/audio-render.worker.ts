@@ -16,8 +16,8 @@
 
 import initAudioWasm, {
   AudioEngine as WasmAudioEngine,
-} from "@tooscut/render-engine/wasm/audio-engine/audio_engine.js";
-import audioWasmUrl from "@tooscut/render-engine/wasm/audio-engine/audio_engine_bg.wasm?url";
+} from "animato-wasm";
+import audioWasmUrl from "@/wasm/pkg/animato_wasm_bg.wasm?url";
 import { ALL_FORMATS, AudioSampleSink, BlobSource, Input, type AudioSample } from "mediabunny";
 
 // ===================== TYPES =====================

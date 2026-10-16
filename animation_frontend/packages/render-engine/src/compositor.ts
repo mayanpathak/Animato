@@ -9,11 +9,11 @@ import type { RenderFrame } from "./types.js";
 
 // WASM compositor instance type (from static factory methods)
 type WasmCompositor = Awaited<
-  ReturnType<typeof import("../wasm/compositor/compositor.js").Compositor.from_canvas>
+  ReturnType<typeof import("animato-wasm").Compositor.from_canvas>
 >;
 
 // WASM module - lazily loaded
-let wasmModule: typeof import("../wasm/compositor/compositor.js") | null = null;
+let wasmModule: typeof import("animato-wasm") | null = null;
 let wasmInitPromise: Promise<void> | null = null;
 
 /**
@@ -24,7 +24,7 @@ export async function initCompositorWasm(wasmUrl?: string | URL): Promise<void> 
 
   if (!wasmInitPromise) {
     wasmInitPromise = (async () => {
-      const module = await import("../wasm/compositor/compositor.js");
+      const module = await import("animato-wasm");
       if (wasmUrl) {
         await module.default(wasmUrl);
       } else {

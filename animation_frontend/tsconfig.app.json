@@ -15,7 +15,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "paths": { "@/*": ["./src/*"] },
+    "paths": { "@/*": ["./src/*"], "animato-wasm": ["./src/wasm/pkg/animato_wasm"] },
     "strict": true,
 
     /* Linting */
@@ -24,7 +24,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
-  // Orphaned Tooscut workers: merged into the editor engine and removed in Phase P4.
-  "exclude": ["src/workers"]
+  "include": ["src"]
 }

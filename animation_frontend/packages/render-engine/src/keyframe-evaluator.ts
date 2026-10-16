@@ -172,12 +172,10 @@ export function evaluateTrack(track: KeyframeTrack, time: number): number {
  * After seeking, call clearCache() for optimal performance.
  */
 export class KeyframeEvaluator {
-  private tracks: KeyframeTracks;
   private trackMap: Map<string, KeyframeTrack>;
   private cache: Map<string, number>; // property -> last keyframe index
 
   constructor(tracks: KeyframeTracks) {
-    this.tracks = tracks;
     this.trackMap = new Map();
     this.cache = new Map();
 

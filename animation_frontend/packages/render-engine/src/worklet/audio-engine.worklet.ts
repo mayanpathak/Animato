@@ -1,6 +1,6 @@
 /// <reference types="@types/audioworklet" />
 import "./polyfills";
-import { AudioEngine, initSync } from "../../wasm/audio-engine/audio_engine.js";
+import { AudioEngine, initSync } from "animato-wasm";
 
 interface InitMessage {
   type: "init";

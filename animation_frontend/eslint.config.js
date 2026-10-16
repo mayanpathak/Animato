@@ -13,9 +13,6 @@ export default tseslint.config(
       'crates',
       'test-results',
       'playwright-report',
-      // Not wired yet: Phase P4 makes these a workspace package and merges the workers.
-      'packages',
-      'src/workers',
     ],
   },
   {

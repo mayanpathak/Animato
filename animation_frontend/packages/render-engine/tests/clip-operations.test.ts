@@ -420,7 +420,7 @@ describe("clip-operations", () => {
         createClip("b", 15, 10), // 15-25 (overlaps with a)
       ];
       const crossTransitions = [
-        { id: "ct-1", outgoingClipId: "a", incomingClipId: "b", duration: 5 },
+        { id: "ct-1", outgoingClipId: "a", incomingClipId: "b", duration: 5, type: "Dissolve" as const, boundary: 0, easing: { preset: "Linear" as const } },
       ];
       const overlaps = findOverlappingClips(clips, crossTransitions);
       expect(overlaps).toHaveLength(0); // Overlap is allowed due to cross transition
@@ -434,7 +434,7 @@ describe("clip-operations", () => {
       ];
       const crossTransitions = [
         // Cross transition between b and c, but NOT a and b
-        { id: "ct-1", outgoingClipId: "b", incomingClipId: "c", duration: 5 },
+        { id: "ct-1", outgoingClipId: "b", incomingClipId: "c", duration: 5, type: "Dissolve" as const, boundary: 0, easing: { preset: "Linear" as const } },
       ];
       const overlaps = findOverlappingClips(clips, crossTransitions);
       expect(overlaps).toHaveLength(1);
@@ -466,7 +466,7 @@ describe("clip-operations", () => {
       const clips = [createClip("a", 10, 10)]; // 10-20
       const newClip = createClip("b", 15, 10); // 15-25
       const crossTransitions = [
-        { id: "ct-1", outgoingClipId: "a", incomingClipId: "b", duration: 5 },
+        { id: "ct-1", outgoingClipId: "a", incomingClipId: "b", duration: 5, type: "Dissolve" as const, boundary: 0, easing: { preset: "Linear" as const } },
       ];
       expect(canPlaceClip(clips, newClip, crossTransitions)).toBe(true);
     });

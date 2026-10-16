@@ -8,6 +8,3 @@ test-results
 playwright-report
 package-lock.json
 *.md
-# Not wired yet (Phase P4)
-packages
-src/workers

@@ -13,7 +13,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
-      alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        // The one WASM build (plan 18.2): @tooscut/render-engine imports it by name.
+        'animato-wasm': fileURLToPath(new URL('./src/wasm/pkg/animato_wasm.js', import.meta.url)),
+      },
     },
     worker: { format: 'es' },
     build: {
