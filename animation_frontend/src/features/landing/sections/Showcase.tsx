@@ -57,6 +57,7 @@ function RenderCard({ render, onOpen, tall }: { render: Render; onOpen: () => vo
         <video
           ref={video}
           src={render.src}
+          poster={render.src.replace(/\.webm$/, '.jpg')}
           muted
           loop
           playsInline

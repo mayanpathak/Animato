@@ -67,6 +67,11 @@ render remotion-life \
   "life=size=320x180:rate=30:mold=10:ratio=0.2:death_color=0x1b1b24:life_color=0x22d3ee,scale=1280:720:flags=neighbor,$(title 'Growth, visualised' 300 64)" \
   6 294
 
+# Poster frames (real frames at 3 s) for lazily loaded <video> elements.
+for f in "$REN"/*.webm; do
+  "${FF[@]}" -ss 3 -i "$f" -frames:v 1 -vf scale=640:-1 -q:v 9 "${f%.webm}.jpg"
+done
+
 # --- Fonts for the compositor ---------------------------------------------
 cp "$INTER/Inter-Regular.otf" "$INTER/Inter-Bold.otf" "$FONTS/"
 cp /usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf "$FONTS/" 2>/dev/null || true

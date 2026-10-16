@@ -60,6 +60,8 @@ export async function createProject(page: Page, name = 'E2E project'): Promise<s
 
 /** No horizontal overflow at the current viewport. */
 export async function expectNoHorizontalScroll(page: Page): Promise<void> {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-  expect(overflow).toBeLessThanOrEqual(1)
+  // Compare with the configured viewport: on mobile, innerWidth grows with overflowing content.
+  const width = page.viewportSize()?.width ?? 0
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+  expect(scrollWidth - width).toBeLessThanOrEqual(1)
 }

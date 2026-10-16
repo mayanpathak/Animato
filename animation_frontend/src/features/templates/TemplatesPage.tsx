@@ -207,6 +207,7 @@ function TemplateCard({
         <video
           ref={video}
           src={t.video}
+          poster={t.video.replace(/\.webm$/, '.jpg')}
           muted
           loop
           playsInline
@@ -214,10 +215,7 @@ function TemplateCard({
           aria-hidden
           tabIndex={-1}
           onPlaying={() => setPlaying(true)}
-          className={cn(
-            'absolute inset-0 size-full object-cover transition-opacity duration-500',
-            playing ? 'opacity-100' : 'opacity-0',
-          )}
+          className="absolute inset-0 size-full object-cover"
         />
         <div
           className={cn(

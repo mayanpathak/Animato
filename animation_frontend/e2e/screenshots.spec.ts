@@ -14,7 +14,20 @@ async function shot(page: Page, name: string, size: keyof typeof VIEWPORTS) {
   await page.waitForLoadState('networkidle').catch(() => undefined)
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(600)
-  await page.screenshot({ path: `screenshots/${name}-${size}.png`, fullPage: true, animations: 'disabled' })
+  // Headless Chromium repeats tiles in captures taller than ~8k px, so long
+  // pages are saved in parts: <page>-<size>.png, <page>-<size>-2.png, ...
+  const PART = 6000
+  const height = await page.evaluate(() => document.documentElement.scrollHeight)
+  const width = page.viewportSize()?.width ?? 1440
+  for (let i = 0, y = 0; y < height; i++, y += PART) {
+    const suffix = i === 0 ? '' : `-${i + 1}`
+    await page.screenshot({
+      path: `screenshots/${name}-${size}${suffix}.png`,
+      fullPage: true,
+      animations: 'disabled',
+      clip: { x: 0, y, width, height: Math.min(PART, height - y) },
+    })
+  }
 }
 
 for (const [size, viewport] of Object.entries(VIEWPORTS) as [

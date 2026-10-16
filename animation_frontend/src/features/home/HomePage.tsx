@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/field'
 import { Ring, Skeleton } from '@/components/ui/misc'
-import { cn } from '@/lib/cn'
 import { formatBytes, timeAgo } from '@/lib/format'
 import { useJobHistory, useProjects } from '@/lib/local/hooks'
 import type { Project } from '@/lib/local/models'
@@ -278,7 +277,7 @@ export default function HomePage() {
           <HomeEmpty />
         ) : (
           <>
-            <div className={cn('grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]')}>
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
               <RecentJobs jobs={jobs.slice(0, 6)} loading={history.isPending} />
               <StorageCard
                 projects={projects.isPending ? null : list.length}
