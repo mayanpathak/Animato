@@ -126,14 +126,14 @@ function ClipView({
   const label = clip.type === 'media' ? clip.name : clip.text
   const tone =
     clip.type === 'text'
-      ? 'bg-accent-violet/25 border-accent-violet/50'
+      ? 'bg-track-text/25 border-track-text/50'
       : clip.type === 'caption'
-        ? 'bg-accent-magenta/20 border-accent-magenta/40'
+        ? 'bg-track-text/15 border-track-text/40'
         : track.kind === 'voice'
-          ? 'bg-accent-cyan/15 border-accent-cyan/45'
+          ? 'bg-track-voice/20 border-track-voice/45'
           : track.kind === 'audio'
-            ? 'bg-status-succeeded/10 border-status-succeeded/35'
-            : 'bg-surface-4 border-line-strong'
+            ? 'bg-track-audio/20 border-track-audio/45'
+            : 'bg-track-video/25 border-track-video/50'
   return (
     <div
       role="button"
@@ -297,7 +297,7 @@ export function Timeline() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-1" data-testid="timeline">
       <div className="flex h-9 shrink-0 items-center gap-1 border-b border-line px-2">
-        <span className="px-1 text-2xs font-medium tracking-wide text-fg-faint uppercase">Timeline</span>
+        <span className="px-1 text-2xs font-medium tracking-wide text-fg-subtle uppercase">Timeline</span>
         <div className="ml-auto flex items-center gap-1">
           <Tooltip content={snapping ? 'Snapping on (N)' : 'Snapping off (N)'}>
             <IconButton
@@ -358,7 +358,7 @@ export function Timeline() {
               {Array.from({ length: Math.ceil(contentW / zoom / step) + 1 }, (_, i) => i * step).map((t) => (
                 <span
                   key={t}
-                  className="absolute top-0 h-full border-l border-line pl-1 font-mono text-[10px] leading-7 text-fg-faint"
+                  className="absolute top-0 h-full border-l border-line pl-1 font-mono text-[10px] leading-7 text-fg-subtle"
                   style={{ left: t * zoom }}
                 >
                   {t >= 60
@@ -448,10 +448,10 @@ export function Timeline() {
             <div
               aria-hidden
               data-testid="playhead"
-              className="pointer-events-none absolute top-[-28px] bottom-0 z-30 w-px bg-accent-magenta shadow-[0_0_8px_var(--color-accent-magenta)]"
+              className="pointer-events-none absolute top-[-28px] bottom-0 z-30 w-px bg-accent"
               style={{ left: HEADER_W + playhead * zoom }}
             >
-              <span className="absolute -top-px -left-[5px] size-[11px] rotate-45 rounded-[2px] bg-accent-magenta" />
+              <span className="absolute -top-px -left-[5px] size-[11px] rotate-45 rounded-[2px] bg-accent" />
             </div>
           </div>
         </div>

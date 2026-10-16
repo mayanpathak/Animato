@@ -175,7 +175,7 @@ export function VoicePanel() {
           <div
             className={cn(
               'h-full rounded-full transition-[width] duration-75',
-              level > 0.9 ? 'bg-status-failed' : 'bg-gradient-accent',
+              level > 0.9 ? 'bg-status-failed' : 'bg-accent-fill',
             )}
             style={{ width: `${Math.min(100, level * 140)}%` }}
           />

@@ -34,30 +34,26 @@ export function Pipeline({ status, lastRunning }: { status: JobStatus; lastRunni
   const fill = unknownStage ? 0 : Math.max(0, activeIndex) / (PIPELINE.length - 1)
 
   return (
-    <div data-testid="job-pipeline" className="relative" role="list" aria-label="Render pipeline">
+    <div data-testid="job-pipeline" className="relative">
       {/* Track sits between the first and last node centres. */}
       <div
         className="absolute top-4 right-[10%] left-[10%] h-0.5 -translate-y-1/2 rounded-full bg-surface-3"
         aria-hidden
       >
         <motion.div
-          className={cn(
-            'h-full origin-left rounded-full',
-            failed ? 'bg-status-failed/60' : 'bg-gradient-accent',
-          )}
+          className={cn('h-full origin-left rounded-full', failed ? 'bg-status-failed/60' : 'bg-accent-fill')}
           initial={false}
           animate={{ scaleX: fill }}
           transition={{ duration: reduced ? 0 : 0.8, ease: ease.outExpo }}
         />
       </div>
-      <ol className="relative grid grid-cols-5">
+      <ol className="relative grid grid-cols-5" aria-label="Render pipeline">
         {PIPELINE.map((stage, i) => {
           const state = stateOf(i)
           const label = state === 'failed' ? 'Failed' : SHORT_LABEL[stage]
           return (
             <li
               key={stage}
-              role="listitem"
               aria-current={state === 'active' ? 'step' : undefined}
               className="flex min-w-0 flex-col items-center gap-2"
             >
@@ -76,9 +72,9 @@ export function Pipeline({ status, lastRunning }: { status: JobStatus; lastRunni
                   transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                   className={cn(
                     'relative grid size-8 place-items-center rounded-full border text-2xs font-semibold transition-colors duration-300',
-                    state === 'done' && 'border-transparent bg-gradient-accent text-white',
-                    state === 'active' && 'border-accent bg-surface-2 text-accent shadow-glow',
-                    state === 'todo' && 'border-line-strong bg-surface-1 text-fg-faint',
+                    state === 'done' && 'border-transparent bg-accent-fill text-white',
+                    state === 'active' && 'border-accent bg-surface-2 text-accent',
+                    state === 'todo' && 'border-line-strong bg-surface-1 text-fg-subtle',
                     state === 'failed' && 'border-status-failed/60 bg-status-failed/15 text-status-failed',
                   )}
                 >
@@ -103,7 +99,7 @@ export function Pipeline({ status, lastRunning }: { status: JobStatus; lastRunni
                 className={cn(
                   'max-w-full truncate text-center text-2xs font-medium sm:text-xs',
                   state === 'todo'
-                    ? 'text-fg-faint'
+                    ? 'text-fg-subtle'
                     : state === 'failed'
                       ? 'text-status-failed'
                       : 'text-fg-muted',

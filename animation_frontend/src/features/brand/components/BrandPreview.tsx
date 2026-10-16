@@ -31,7 +31,7 @@ export function BrandPreview({ kit }: { kit: BrandKit }) {
         role="img"
         aria-label={`Style preview for ${kit.name}: title in ${fontLabel(kit.headingFont)}, body in ${fontLabel(kit.bodyFont)}`}
       >
-        <div className="absolute inset-0 grid-bg opacity-30 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+        <div className="absolute inset-0 opacity-30 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
 
         <div className="absolute top-[6cqw] right-[6cqw] left-[6cqw] flex items-center justify-between">
           {kit.logoDataUrl ? (

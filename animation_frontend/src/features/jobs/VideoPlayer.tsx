@@ -391,7 +391,7 @@ export function VideoPlayer({
               <div className="absolute inset-y-0 left-0 bg-white/20" style={{ width: hover.x }} />
             ) : null}
             <div
-              className="absolute inset-y-0 left-0 bg-gradient-accent"
+              className="absolute inset-y-0 left-0 bg-accent-fill"
               style={{ width: `${progress * 100}%` }}
             />
           </div>

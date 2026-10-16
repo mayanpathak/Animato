@@ -55,7 +55,7 @@ function HistoryToast() {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: [0, 1, 1, 0], y: [6, 0, 0, 0] }}
       transition={{ duration: 1.6, times: [0, 0.12, 0.8, 1] }}
-      className="pointer-events-none fixed bottom-4 left-1/2 z-[var(--z-toast)] -translate-x-1/2 rounded-full border border-line-strong bg-glass-strong px-3 py-1 text-2xs text-fg-muted backdrop-blur-xl"
+      className="pointer-events-none fixed bottom-4 left-1/2 z-[var(--z-toast)] -translate-x-1/2 rounded-full border border-line-strong bg-surface-2 px-3 py-1 text-2xs text-fg-muted backdrop-blur-xl"
       aria-hidden
     >
       {label}
@@ -303,14 +303,14 @@ export default function EditorPage() {
     return (
       <div className="grid min-h-dvh place-items-center bg-canvas p-6">
         <ErrorState
-          title={projectQuery.data === null ? 'Project not found' : 'The editor could not start'}
+          title={projectQuery.data === null ? 'Video not found' : 'The editor could not start'}
           body={
             loadError ??
-            'This project is not in this browser. Projects live locally, so they do not follow you to other browsers.'
+            'This video isn’t in this browser. Videos are stored locally, so they don’t follow you to other browsers.'
           }
           action={
-            <Link to="/app/projects" className={buttonClass('secondary')}>
-              Back to projects
+            <Link to="/app" className={buttonClass('secondary')}>
+              Back to videos
             </Link>
           }
         />
@@ -329,15 +329,19 @@ export default function EditorPage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-canvas text-fg" data-testid="editor">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface-1/80 px-2 backdrop-blur-xl sm:px-3">
-        <Link to="/app/projects" className={buttonClass('ghost', 'sm', 'px-2')} aria-label="Back to projects">
+        <Link
+          to={project.takes?.length ? `/app/v/${project.id}` : '/app'}
+          className={buttonClass('ghost', 'sm', 'px-2')}
+          aria-label={project.takes?.length ? 'Back to the video' : 'Back to videos'}
+        >
           <ArrowLeft className="size-4" />
         </Link>
         <input
-          aria-label="Project name"
+          aria-label="Video title"
           defaultValue={project.name}
           key={project.id}
           onBlur={(e) => {
-            const name = e.target.value.trim() || 'Untitled project'
+            const name = e.target.value.trim() || 'Untitled video'
             useEditor.setState({ project: { ...project, name } })
             void projectsTable.put({
               ...project,

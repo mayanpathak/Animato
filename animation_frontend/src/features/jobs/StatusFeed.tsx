@@ -76,7 +76,7 @@ export function StatusFeed({ lines, live }: { lines: FeedLine[]; live: boolean }
                 transition={{ duration: 0.25 }}
                 className="flex gap-3"
               >
-                <span className="shrink-0 text-fg-faint tabular-nums">{formatClock(line.at / 1000)}</span>
+                <span className="shrink-0 text-fg-subtle tabular-nums">{formatClock(line.at / 1000)}</span>
                 <span className={cn('min-w-0 break-words', tone ? TONE_TEXT[tone] : 'text-fg-subtle')}>
                   {line.text}
                 </span>
@@ -85,14 +85,14 @@ export function StatusFeed({ lines, live }: { lines: FeedLine[]; live: boolean }
           })}
         </AnimatePresence>
         {live && lines.length > 0 && !isFinished(lines[lines.length - 1].status ?? 'Pending') ? (
-          <div className="flex gap-3 text-fg-faint" aria-hidden>
+          <div className="flex gap-3 text-fg-subtle" aria-hidden>
             <span className="invisible tabular-nums">00:00.0</span>
             <span className="animate-pulse-soft">▍</span>
           </div>
         ) : null}
       </div>
-      <p className="border-t border-line px-4 py-2 text-2xs text-fg-faint">
-        Status changes this page observed while polling every 2.5 s. The server does not publish worker logs.
+      <p className="border-t border-line px-4 py-2 text-2xs text-fg-subtle">
+        Status changes this page saw while checking the server. Animato’s server does not publish worker logs.
       </p>
     </section>
   )

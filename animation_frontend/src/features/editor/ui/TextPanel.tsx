@@ -54,7 +54,7 @@ export function TextPanel() {
           </span>
         </button>
       ) : null}
-      <p className="pt-2 text-2xs text-fg-faint">
+      <p className="pt-2 text-2xs text-fg-subtle">
         Text is placed at the playhead. Edit it in the inspector on the right.
       </p>
     </div>

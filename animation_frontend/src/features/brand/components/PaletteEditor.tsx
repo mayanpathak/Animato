@@ -132,7 +132,7 @@ function SwatchRow({
           aria-hidden
           tabIndex={-1}
           onPointerDown={(e) => controls.start(e)}
-          className="hidden cursor-grab touch-none text-fg-faint hover:text-fg-muted active:cursor-grabbing sm:block"
+          className="hidden cursor-grab touch-none text-fg-subtle hover:text-fg-muted active:cursor-grabbing sm:block"
         >
           <GripVertical className="size-4" />
         </button>

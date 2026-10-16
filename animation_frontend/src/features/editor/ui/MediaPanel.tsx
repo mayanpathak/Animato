@@ -143,7 +143,9 @@ export function MediaPanel({ library }: { library: MediaAsset[] }) {
         ))}
       </AnimatePresence>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        <h3 className="mb-2 text-2xs font-semibold tracking-wide text-fg-faint uppercase">In this browser</h3>
+        <h3 className="mb-2 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
+          In this browser
+        </h3>
         {library.length === 0 ? (
           <p className="rounded-lg border border-line bg-surface-1 p-3 text-xs text-fg-subtle">
             No media yet. Import a file or add one of your renders below.
@@ -173,7 +175,7 @@ export function MediaPanel({ library }: { library: MediaAsset[] }) {
                         draggable={false}
                       />
                     ) : (
-                      <div className="grid h-full place-items-center text-fg-faint [&_svg]:size-5">
+                      <div className="grid h-full place-items-center text-fg-subtle [&_svg]:size-5">
                         <KindIcon kind={a.kind} />
                       </div>
                     )}
@@ -197,7 +199,7 @@ export function MediaPanel({ library }: { library: MediaAsset[] }) {
             ))}
           </ul>
         )}
-        <h3 className="mt-5 mb-2 flex items-center gap-1.5 text-2xs font-semibold tracking-wide text-fg-faint uppercase">
+        <h3 className="mt-5 mb-2 flex items-center gap-1.5 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
           <Sparkles className="size-3" /> From your renders
         </h3>
         {jobs.data?.length ? (
@@ -209,7 +211,7 @@ export function MediaPanel({ library }: { library: MediaAsset[] }) {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs">{j.prompt}</p>
-                  <p className="text-2xs text-fg-faint">
+                  <p className="text-2xs text-fg-subtle">
                     {j.library} · {timeAgo(j.createdAt)}
                   </p>
                 </div>

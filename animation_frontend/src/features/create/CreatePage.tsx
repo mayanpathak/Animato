@@ -5,6 +5,7 @@ import { AlertCircle, ChevronDown, Copy, LayoutTemplate, Lightbulb, Sparkles, Wa
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/misc'
 import { mapCreateJobError } from '@/lib/api/errors'
+import { ROUTES } from '@/app/nav'
 import { formatWait } from '@/lib/api/http'
 import { useRenderWait, useQuota } from '@/lib/quota'
 import { useSession } from '@/stores/session'
@@ -109,7 +110,7 @@ export default function CreatePage() {
       return
     }
     try {
-      const job = await createJob.mutateAsync({
+      const { video } = await createJob.mutateAsync({
         prompt: prompt.trim(),
         library,
         serverPrompt,
@@ -120,7 +121,7 @@ export default function CreatePage() {
           brandKitId: kit?.id ?? null,
         },
       })
-      navigate(`/app/jobs/${job.id}`)
+      navigate(ROUTES.video(video.id))
     } catch (err) {
       const mapped = mapCreateJobError(err)
       if (mapped.action === 'login') {
@@ -180,7 +181,7 @@ export default function CreatePage() {
             layoutId="job-hero"
             transition={{ duration: 0.5, ease: ease.outExpo }}
             className={cn(
-              'relative overflow-hidden rounded-2xl border bg-surface-1 shadow-inner-highlight transition-[border-color,box-shadow] duration-200 focus-within:border-accent/50 focus-within:shadow-glow',
+              'relative overflow-hidden rounded-2xl border bg-surface-1 shadow-inner-highlight transition-[border-color,box-shadow] duration-200 focus-within:border-accent/50 focus-within:',
               shownError ? 'border-status-failed/50' : 'border-line-strong',
             )}
           >
@@ -201,7 +202,7 @@ export default function CreatePage() {
                       type="button"
                       onClick={() => setTemplate(null)}
                       aria-label="Dismiss template label"
-                      className="ml-auto rounded p-0.5 text-fg-faint hover:text-fg"
+                      className="ml-auto rounded p-0.5 text-fg-subtle hover:text-fg"
                     >
                       <X className="size-3.5" />
                     </button>
@@ -248,7 +249,7 @@ export default function CreatePage() {
                 data-testid="create-enhance"
               >
                 Enhance
-                <span className="hidden rounded border border-line px-1 text-2xs text-fg-faint sm:inline">
+                <span className="hidden rounded border border-line px-1 text-2xs text-fg-subtle sm:inline">
                   Local rewrite
                 </span>
               </Button>
@@ -258,7 +259,7 @@ export default function CreatePage() {
                   count > PROMPT_MAX
                     ? 'text-status-failed'
                     : count < PROMPT_MIN
-                      ? 'text-fg-faint'
+                      ? 'text-fg-subtle'
                       : 'text-fg-subtle',
                 )}
                 aria-live="polite"
@@ -266,7 +267,7 @@ export default function CreatePage() {
                 {count < PROMPT_MIN && count > 0 ? `${PROMPT_MIN - count} more to go · ` : ''}
                 {count}/{PROMPT_MAX}
               </span>
-              <span className="hidden items-center gap-1 text-2xs text-fg-faint md:inline-flex">
+              <span className="hidden items-center gap-1 text-2xs text-fg-subtle md:inline-flex">
                 <Kbd>⌘</Kbd>
                 <Kbd>↵</Kbd>
               </span>
@@ -333,7 +334,7 @@ export default function CreatePage() {
                 </button>
               ))}
               <Link
-                to="/app/templates"
+                to="/app/new"
                 className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-accent hover:text-fg"
               >
                 <LayoutTemplate className="size-3.5" /> Browse templates
@@ -387,7 +388,7 @@ export default function CreatePage() {
                   <span
                     className={cn(
                       'ml-auto font-mono tabular-nums',
-                      charCount(serverPrompt) > PROMPT_MAX ? 'text-status-failed' : 'text-fg-faint',
+                      charCount(serverPrompt) > PROMPT_MAX ? 'text-status-failed' : 'text-fg-subtle',
                     )}
                   >
                     {charCount(serverPrompt)}/{PROMPT_MAX}
@@ -418,7 +419,7 @@ export default function CreatePage() {
             brandKitId={brandKitId}
             onBrandKit={(id) => setKitChoice(id)}
           />
-          <p className="mt-3 px-1 text-2xs leading-relaxed text-fg-faint">
+          <p className="mt-3 px-1 text-2xs leading-relaxed text-fg-subtle">
             Each account can start 5 renders an hour and 15 a day. Finished videos open straight into the
             editor.
           </p>

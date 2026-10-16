@@ -70,7 +70,7 @@ export function OptionsPanel({
     <div className="surface-card overflow-hidden rounded-2xl">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <h2 className="font-display text-sm font-semibold tracking-tight">Output</h2>
-        <span className="text-2xs text-fg-faint">Added to the prompt</span>
+        <span className="text-2xs text-fg-subtle">Added to the prompt</span>
       </div>
 
       <Row icon={<Ratio />} label="Aspect ratio">
@@ -103,7 +103,7 @@ export function OptionsPanel({
           value={options.duration}
           onChange={(duration) => onChange({ duration })}
         />
-        <div className="mt-1.5 flex justify-between font-mono text-2xs text-fg-faint">
+        <div className="mt-1.5 flex justify-between font-mono text-2xs text-fg-subtle">
           <span>5s</span>
           <span>60s</span>
         </div>
@@ -171,8 +171,8 @@ export function OptionsPanel({
           </p>
         ) : null}
         {!kitsLoading && kits.length === 0 ? (
-          <p className="mt-2 text-2xs text-fg-faint">
-            <Link to="/app/brand" className="text-accent hover:text-fg">
+          <p className="mt-2 text-2xs text-fg-subtle">
+            <Link to="/app/brand" className="text-accent underline underline-offset-2 hover:text-fg">
               Create a brand kit
             </Link>{' '}
             to add your colours and fonts to every prompt.
@@ -193,7 +193,7 @@ export function OptionsPanel({
           />
         }
       >
-        <p className="text-2xs leading-relaxed text-fg-faint">
+        <p className="text-2xs leading-relaxed text-fg-subtle">
           {options.captions
             ? 'Asks the renderer to write short captions into the video.'
             : 'Off. You can still add and style captions on the timeline in the editor.'}

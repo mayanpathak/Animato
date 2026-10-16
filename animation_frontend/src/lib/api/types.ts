@@ -16,9 +16,9 @@ export type JobStatus = (typeof JOB_STATUSES)[number]
 
 export const STATUS_LABELS: Record<JobStatus, string> = {
   Pending: 'Queued',
-  GeneratingCode: 'Planning scenes',
+  GeneratingCode: 'Writing',
   Rendering: 'Rendering',
-  Uploading: 'Encoding',
+  Uploading: 'Finishing',
   Completed: 'Ready',
   Failed: 'Failed',
 }

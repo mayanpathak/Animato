@@ -156,7 +156,7 @@ export function CaptionsPanel() {
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-line">
         {sorted.length === 0 ? (
           <div className="flex flex-col items-center px-6 py-10 text-center">
-            <Languages className="size-5 text-fg-faint" />
+            <Languages className="size-5 text-fg-subtle" />
             <p className="mt-2 text-sm font-medium">No captions yet</p>
             <p className="mt-1 text-xs text-fg-subtle">
               Generate them from the audio, or import an SRT file.
@@ -193,7 +193,7 @@ export function CaptionsPanel() {
                   type="button"
                   aria-label="Delete caption"
                   onClick={() => useEditor.getState().remove(c.id)}
-                  className="text-fg-faint opacity-0 group-hover:opacity-100 hover:text-status-failed focus:opacity-100 [&_svg]:size-3.5"
+                  className="text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-status-failed focus:opacity-100 [&_svg]:size-3.5"
                 >
                   <Trash2 />
                 </button>

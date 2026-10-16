@@ -1,24 +1,22 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
-  ArrowLeft,
   ChevronDown,
   Clapperboard,
   Clock3,
   Copy,
   Download,
   FileQuestion,
-  FolderPlus,
   HardDrive,
   RotateCcw,
   Sparkles,
   Timer,
 } from 'lucide-react'
 import { Button, buttonClass } from '@/components/ui/button'
-import { Badge, ErrorState, Progress, Skeleton, StatusChip } from '@/components/ui/misc'
+import { Badge, ErrorState, Skeleton, StatusChip } from '@/components/ui/misc'
 import {
   classifyGetJobError,
   FAILED_TITLE,
@@ -42,17 +40,17 @@ import {
 import { cn } from '@/lib/cn'
 import { formatBytes, formatDuration, timeAgo } from '@/lib/format'
 import { keys, useBrandKits, useCreateJob, useJob, useOwner } from '@/lib/local/hooks'
-import { jobsTable, type JobRecord } from '@/lib/local/models'
+import { jobsTable, type JobRecord, type Project } from '@/lib/local/models'
 import { ease } from '@/lib/motion'
 import { useTitle } from '@/lib/useTitle'
 import { toast } from '@/stores/toast'
-import { createProjectFromJob } from '@/features/editor/projects'
+import { addJobToProject } from '@/features/editor/projects'
+import { ROUTES } from '@/app/nav'
 import { buildServerPrompt, type AspectOption } from '@/features/create/prompt'
-import { AddToProjectDialog } from './AddToProjectDialog'
 import { Pipeline } from './Pipeline'
 import { StatusFeed, type FeedLine } from './StatusFeed'
 import { VideoPlayer } from './VideoPlayer'
-import { estimateRemaining, feedText, formatEta, type Observation } from './stages'
+import { feedText, formatEta, type Observation } from './stages'
 
 const ASPECTS: AspectOption[] = ['16:9', '9:16', '1:1']
 const ENGINE_NAME: Record<Library, string> = { manim: 'Manim', remotion: 'Remotion' }
@@ -69,14 +67,6 @@ const feeds = new Map<string, Feed>()
 function aspectOf(record: JobRecord | null | undefined): AspectOption {
   const a = record?.options.aspect as AspectOption | undefined
   return a && ASPECTS.includes(a) ? a : '16:9'
-}
-
-function projectName(record: JobRecord | null | undefined, id: string): string {
-  const text = record?.prompt.replace(/\s+/g, ' ').trim()
-  if (!text) return `Animation ${id.slice(0, 8)}`
-  if (text.length <= 56) return text
-  const cut = text.slice(0, 56)
-  return `${cut.slice(0, cut.lastIndexOf(' ') > 30 ? cut.lastIndexOf(' ') : 56)}…`
 }
 
 function useNow(active: boolean, ms = 1000): number {
@@ -173,12 +163,7 @@ function HeroCard({
     }
   }
   return (
-    <motion.div
-      layoutId="job-hero"
-      transition={{ duration: 0.5, ease: ease.outExpo }}
-      className="relative overflow-hidden rounded-2xl border border-line-strong bg-surface-1 shadow-inner-highlight"
-    >
-      <div className="pointer-events-none absolute -top-24 -right-24 size-64 rounded-full bg-accent-violet/10 blur-3xl" />
+    <motion.div className="relative overflow-hidden rounded-2xl border border-line bg-surface-1 shadow-inner-highlight">
       <div className="relative p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <span data-testid="job-status">
@@ -193,7 +178,7 @@ function HeroCard({
           <button
             type="button"
             onClick={() => void copyId()}
-            className="ml-auto rounded font-mono text-2xs text-fg-faint transition-colors hover:text-fg-muted"
+            className="ml-auto rounded font-mono text-2xs text-fg-subtle transition-colors hover:text-fg-muted"
             title="Copy job id"
           >
             {id.slice(0, 8)}…
@@ -239,7 +224,6 @@ function HeroCard({
 
 function ProgressCard({ job, feed, now }: { job: Job; feed: Feed | null; now: number }) {
   const running = !isFinished(job.status)
-  const eta = feed ? estimateRemaining(feed.observed, now - feed.origin) : null
   const elapsed = feed ? Math.max(0, (now - feed.origin) / 1000) : 0
   return (
     <section aria-label="Progress" className="surface-card rounded-2xl p-5 sm:p-6">
@@ -262,24 +246,16 @@ function ProgressCard({ job, feed, now }: { job: Job; feed: Feed | null; now: nu
           </AnimatePresence>
         </div>
         {running ? (
+          // Real elapsed time only: the server reports no progress, so there is no estimate.
           <div className="text-right">
-            <p className="text-xs text-fg-subtle">Time left</p>
-            <p className="font-mono text-sm text-fg tabular-nums">
-              {eta !== null ? `≈ ${formatEta(eta)}` : '—'}{' '}
-              <span className="text-2xs text-fg-faint">estimate</span>
+            <p className="text-xs text-fg-subtle">Elapsed</p>
+            <p className="font-mono text-sm text-fg tabular-nums" data-testid="job-elapsed">
+              {formatEta(Math.round(elapsed))}
             </p>
           </div>
         ) : null}
       </div>
       <Pipeline status={job.status} lastRunning={lastRunning(feed)} />
-      {running ? (
-        <div className="mt-6 flex items-center gap-3">
-          <Progress value={0} indeterminate label="Rendering in progress" />
-          <span className="shrink-0 font-mono text-2xs text-fg-faint tabular-nums">
-            {formatEta(Math.round(elapsed))}
-          </span>
-        </div>
-      ) : null}
     </section>
   )
 }
@@ -331,7 +307,7 @@ function FailurePanel({
               </Button>
             ) : null}
             <Link
-              to={prompt ? `/app/create?prompt=${encodeURIComponent(prompt)}` : '/app/create'}
+              to={prompt ? `${ROUTES.newVideo}?prompt=${encodeURIComponent(prompt)}` : ROUTES.newVideo}
               className={buttonClass('secondary')}
             >
               Edit prompt
@@ -383,7 +359,8 @@ function Fact({ icon, label, value }: { icon: ReactNode; label: string; value: s
   )
 }
 
-function JobView({ id }: { id: string }) {
+/** The selected take of a video: rendering, failed or ready (plan 3.4). */
+export function JobView({ id, video }: { id: string; video: Project }) {
   const navigate = useNavigate()
   const owner = useOwner()
   const qc = useQueryClient()
@@ -393,7 +370,6 @@ function JobView({ id }: { id: string }) {
   const brandKits = useBrandKits()
   const createJob = useCreateJob()
   const [opening, setOpening] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
   const [retryError, setRetryError] = useState<string | null>(null)
   const [importError, setImportError] = useState(false)
 
@@ -403,17 +379,18 @@ function JobView({ id }: { id: string }) {
   const now = useNow(Boolean(status && !isFinished(status)))
   useTitle(status ? `${STATUS_LABELS[status]} · Job` : 'Job')
 
-  const name = projectName(record, id)
-
   const openInEditor = async () => {
     if (opening) return
     setOpening(true)
     setImportError(false)
     try {
-      const project = await createProjectFromJob(id, owner, name, aspectOf(record))
+      // The render lands on this video's own timeline (once; re-opening reuses it).
+      const hasClip = video.timeline.tracks.some((t) => t.clips.length > 0)
+      if (!hasClip) await addJobToProject(id, video.id, owner, video.name)
       void qc.invalidateQueries({ queryKey: keys.projects(owner) })
       void qc.invalidateQueries({ queryKey: keys.media(owner) })
-      navigate(`/app/projects/${project.id}/edit`)
+      void qc.invalidateQueries({ queryKey: keys.project(video.id) })
+      navigate(`${ROUTES.video(video.id)}?mode=timeline`)
     } catch {
       // Usually CORS on the S3 redirect or a network drop. The <video> player
       // keeps working (it needs no CORS); finishing needs the bytes.
@@ -440,8 +417,10 @@ function JobView({ id }: { id: string }) {
         library: record.library,
         options: record.options,
         serverPrompt,
+        videoId: video.id,
       })
-      navigate(`/app/jobs/${next.id}`)
+      // The video page follows its selected take, which is now the new job.
+      navigate(ROUTES.video(next.video.id), { replace: true })
     } catch (e) {
       setRetryError(errorMessage(e))
     }
@@ -461,7 +440,7 @@ function JobView({ id }: { id: string }) {
   if (job.error && (loadState === 'gone' || !job.data)) {
     if (loadState === 'gone') {
       return (
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 pt-4 pb-12 sm:px-6">
           <div className="flex flex-col items-center rounded-2xl border border-dashed border-line-strong bg-surface-1/50 px-6 py-16 text-center">
             <span className="grid size-12 place-items-center rounded-xl border border-line bg-surface-2 text-fg-subtle">
               <FileQuestion className="size-5" />
@@ -472,14 +451,14 @@ function JobView({ id }: { id: string }) {
               account that started them.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <Link to="/app" className={buttonClass('secondary')}>
-                Back to Home
+              <Link to={ROUTES.videos} className={buttonClass('secondary')}>
+                Back to Videos
               </Link>
               <Link
                 to={
                   record
-                    ? `/app/create?prompt=${encodeURIComponent(record.prompt)}&engine=${record.library}`
-                    : '/app/create'
+                    ? `${ROUTES.newVideo}?prompt=${encodeURIComponent(record.prompt)}&engine=${record.library}`
+                    : ROUTES.newVideo
                 }
                 className={buttonClass('primary')}
               >
@@ -491,7 +470,7 @@ function JobView({ id }: { id: string }) {
       )
     }
     return (
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 pt-4 pb-12 sm:px-6">
         <ErrorState
           title="Could not load this job"
           body={
@@ -522,14 +501,7 @@ function JobView({ id }: { id: string }) {
   const videoUrl = jobsApi.videoUrl(id)
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <Link
-        to="/app"
-        className="mb-5 inline-flex items-center gap-1.5 rounded-sm text-xs text-fg-subtle transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="size-3.5" /> Home
-      </Link>
-
+    <div className="mx-auto max-w-6xl px-4 pt-4 pb-12 sm:px-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-6">
           <HeroCard id={id} record={record} job={data} recordLoading={recordQuery.isPending} />
@@ -619,16 +591,7 @@ function JobView({ id }: { id: string }) {
                 leftIcon={<Clapperboard className="size-4" />}
                 data-testid="job-open-editor"
               >
-                {opening ? 'Importing video…' : 'Open in Editor'}
-              </Button>
-              <Button
-                variant="secondary"
-                className="mt-2 w-full"
-                onClick={() => setAddOpen(true)}
-                leftIcon={<FolderPlus className="size-4" />}
-                data-testid="job-add-to-project"
-              >
-                Add to project
+                {opening ? 'Importing video…' : 'Open in editor'}
               </Button>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <a href={videoUrl} download className={buttonClass('ghost', 'sm', 'justify-start')}>
@@ -637,8 +600,8 @@ function JobView({ id }: { id: string }) {
                 <Link
                   to={
                     record
-                      ? `/app/create?prompt=${encodeURIComponent(record.prompt)}&engine=${library}`
-                      : '/app/create'
+                      ? `${ROUTES.newVideo}?prompt=${encodeURIComponent(record.prompt)}&engine=${library}`
+                      : ROUTES.newVideo
                   }
                   className={buttonClass('ghost', 'sm', 'justify-start')}
                 >
@@ -666,7 +629,7 @@ function JobView({ id }: { id: string }) {
                 </div>
               ) : null}
               {opening ? (
-                <p className="mt-2 text-2xs text-fg-faint" aria-live="polite">
+                <p className="mt-2 text-2xs text-fg-subtle" aria-live="polite">
                   Downloading the render into this browser and building thumbnails…
                 </p>
               ) : null}
@@ -694,8 +657,8 @@ function JobView({ id }: { id: string }) {
               <Link
                 to={
                   record
-                    ? `/app/create?prompt=${encodeURIComponent(record.prompt)}&engine=${library}`
-                    : '/app/create'
+                    ? `${ROUTES.newVideo}?prompt=${encodeURIComponent(record.prompt)}&engine=${library}`
+                    : ROUTES.newVideo
                 }
                 className={buttonClass('ghost', 'sm')}
               >
@@ -727,23 +690,6 @@ function JobView({ id }: { id: string }) {
           <StatusFeed lines={feed?.lines ?? []} live={Boolean(status && !isFinished(status))} />
         </aside>
       </div>
-
-      {completed ? (
-        <AddToProjectDialog
-          open={addOpen}
-          onClose={() => setAddOpen(false)}
-          jobId={id}
-          clipName={name}
-          creatingNew={opening}
-          onCreateNew={() => void openInEditor()}
-        />
-      ) : null}
     </div>
   )
-}
-
-export default function JobPage() {
-  const { id = '' } = useParams()
-  // Keyed so a retry (new id) starts with a fresh feed and state.
-  return <JobView key={id} id={id} />
 }

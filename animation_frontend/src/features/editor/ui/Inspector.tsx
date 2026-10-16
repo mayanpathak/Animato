@@ -96,7 +96,7 @@ function MediaInspector({ clip, trackKind }: { clip: MediaClip; trackKind: strin
             onChange={(v) => up({ fadeOut: v }, 'fadeout')}
           />
         </Row>
-        <p className="font-mono text-2xs text-fg-faint">
+        <p className="font-mono text-2xs text-fg-subtle">
           Source {clip.offset.toFixed(2)}s → {(clip.offset + clip.duration * clip.speed).toFixed(2)}s · on
           timeline {clip.duration.toFixed(2)}s
         </p>
@@ -460,7 +460,7 @@ function TextInspector({ clip }: { clip: TextClip }) {
             </Button>
           ))}
         </div>
-        <p className="mt-1.5 text-2xs text-fg-faint">
+        <p className="mt-1.5 text-2xs text-fg-subtle">
           Animation curves are evaluated by the Rust keyframe engine.
         </p>
       </Row>
@@ -530,7 +530,7 @@ export function Inspector() {
   if (!sel || !timeline) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <Scissors className="size-5 text-fg-faint" />
+        <Scissors className="size-5 text-fg-subtle" />
         <p className="mt-3 text-sm font-medium">Nothing selected</p>
         <p className="mt-1 text-xs text-fg-subtle">
           Select a clip on the timeline to adjust timing, transform, color, audio or text.
