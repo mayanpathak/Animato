@@ -1,0 +1,92 @@
+import type { Page } from '@playwright/test'
+import { createJob, createProject, expect, login, test } from './fixtures'
+
+// Full-page screenshots of every page, desktop and mobile, into screenshots/.
+// Reduced motion is emulated so scroll-driven sections render in their final state.
+test.describe.configure({ mode: 'serial', timeout: 240_000 })
+
+const VIEWPORTS = {
+  desktop: { width: 1440, height: 900 },
+  mobile: { width: 390, height: 844 },
+} as const
+
+async function shot(page: Page, name: string, size: keyof typeof VIEWPORTS) {
+  await page.waitForLoadState('networkidle').catch(() => undefined)
+  await page.evaluate(() => document.fonts.ready)
+  await page.waitForTimeout(600)
+  await page.screenshot({ path: `screenshots/${name}-${size}.png`, fullPage: true, animations: 'disabled' })
+}
+
+for (const [size, viewport] of Object.entries(VIEWPORTS) as [
+  keyof typeof VIEWPORTS,
+  (typeof VIEWPORTS)[keyof typeof VIEWPORTS],
+][]) {
+  test.describe(size, () => {
+    test.use({ viewport, reducedMotion: 'reduce', isMobile: size === 'mobile', hasTouch: size === 'mobile' })
+
+    test(`public pages (${size})`, async ({ page }) => {
+      for (const [name, path] of [
+        ['landing', '/'],
+        ['pricing', '/pricing'],
+        ['login', '/login'],
+        ['signup', '/signup'],
+        ['forgot-password', '/forgot-password'],
+        ['reset-password', `/reset-password/${'b'.repeat(40)}`],
+        ['404', '/this-page-does-not-exist'],
+      ]) {
+        await page.goto(path)
+        await expect(page.locator('h1, h2').first()).toBeVisible()
+        await shot(page, name, size)
+      }
+      // Verify email needs a fresh, unverified account.
+      await page.goto('/signup')
+      const id = `${size}${Date.now().toString(36)}`
+      await page.getByTestId('signup-username').fill(`shot_${id}`)
+      await page.getByTestId('signup-email').fill(`shot-${id}@animato.dev`)
+      await page.getByTestId('signup-password').fill('Screenshot-Pass-77')
+      await page.getByTestId('signup-submit').click()
+      await expect(page).toHaveURL(/verify-email/)
+      await shot(page, 'verify-email', size)
+    })
+
+    test(`app pages (${size})`, async ({ page }) => {
+      await login(page)
+      await shot(page, 'dashboard-empty', size)
+      await createJob(page, 'Visualise how gradient descent finds the bottom of a valley')
+      await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
+      await shot(page, 'job', size)
+      await page.goto('/app')
+      await expect(page.getByTestId('recent-jobs')).toBeVisible()
+      await shot(page, 'dashboard', size)
+      await page.goto('/app/create')
+      await page
+        .getByTestId('create-prompt')
+        .fill('A 20-second product teaser for a note-taking app, bold type, quick cuts')
+      await shot(page, 'create', size)
+      for (const [name, path] of [
+        ['templates', '/app/templates'],
+        ['brand', '/app/brand'],
+        ['settings', '/app/settings'],
+      ]) {
+        await page.goto(path)
+        await expect(page.locator('h1, h2').first()).toBeVisible()
+        await shot(page, name, size)
+      }
+      const projectId = await createProject(page, 'Launch teaser')
+      await page.goto(`/app/projects/${projectId}/edit?compositor=canvas2d`)
+      await page
+        .getByTestId('media-import-input')
+        .setInputFiles(['e2e/fixtures/clip.webm', 'e2e/fixtures/speech.webm'])
+      await expect(page.locator('[data-testid=clip]')).toHaveCount(2, { timeout: 60_000 })
+      if (size === 'desktop') {
+        await page.locator('[data-testid=track-video] [data-testid=clip]').first().click()
+        await page.getByTestId('timeline-ruler').click({ position: { x: 120, y: 10 } })
+      }
+      await page.waitForTimeout(1200)
+      await shot(page, 'editor', size)
+      await page.goto('/app/projects')
+      await expect(page.getByTestId('project-card').first()).toBeVisible()
+      await shot(page, 'projects', size)
+    })
+  })
+}
