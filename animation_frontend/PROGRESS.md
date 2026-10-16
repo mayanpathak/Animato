@@ -9,7 +9,7 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 |---|---|---|---|
 | P0 | Repo and build health: root `CLAUDE.md`, setup hook, `.gitattributes`, rebuilt `editor/media/`, green build from a clean clone | done | `c8e7f9b` |
 | P1 | Real backend: mocks off, contract tests (vitest), polling, error mapping, import fallback, `LOCAL_DEV.md` | done | `711f3ce` |
-| P2 | Design system and shell: tokens, components, top bar, routes and redirects, Videos home, Settings, system screens | todo | |
+| P2 | Design system and shell: tokens, components, top bar, routes and redirects, Videos home, Settings, system screens | done | `c0f202c` |
 | P3 | Landing, pricing, first-run flow, Create, Rendering state, entitlements, analytics seam | todo | |
 | P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | todo | |
 | P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | todo | |
@@ -38,6 +38,16 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 - **Not verified here:** J1 and J2 against the real stack. That is the owner's run, `LOCAL_DEV.md` section 6.
 - Job page screenshots (failure, import failure) were reviewed at 1440×900 and 390×844 for the new states only; the page
   itself is restyled in P2 and becomes the video page in P6.
+
+## P2 notes
+
+- typecheck, lint (now including the token gate), build: pass. vitest 28. Playwright e2e 30/30, including axe
+  (`e2e/a11y.spec.ts`: no serious or critical violations on Videos, video page, Settings, Create, 404).
+- Screenshots in `screenshots/` at 1440×900 and 390×844 were reviewed. Fixes made from the review: a fake "Time left"
+  estimate and progress bar removed from the job page, quieter storage prompt, vertical-video posters on a blurred
+  backdrop, a stray hairline in Settings, white-on-blue contrast.
+- Landing, pricing and auth only inherit the tokens (their gradient blobs now render nothing); they are rebuilt in P3.
+- The job page is restyled to tokens only; its render view is P3 and Finish is P6.
 
 ## Verification commands
 
