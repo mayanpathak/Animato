@@ -68,7 +68,7 @@ for (const [size, viewport] of Object.entries(VIEWPORTS) as [
       await shot(page, 'videos-empty', size)
       await createJob(page, 'Visualise how gradient descent finds the bottom of a valley')
       await shot(page, 'video-rendering', size)
-      await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
+      await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
       await shot(page, 'video-ready', size)
       await createJob(page, 'A render that times out on purpose [e2e:timeout]')
       await expect(page.getByText("That one didn't render.")).toBeVisible({ timeout: 30_000 })

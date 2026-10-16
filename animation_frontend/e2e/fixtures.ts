@@ -3,7 +3,7 @@ import { test as base, expect, type Page } from '@playwright/test'
 // Resource errors the real API produces on purpose (logged out, not found,
 // quota) show up as console errors in Chromium; everything else fails a test.
 const ALLOWED = [
-  /Failed to load resource: the server responded with a status of (400|401|404|422|429|500|502)/,
+  /Failed to load resource: the server responded with a status of (400|401|404|409|422|429|500|502)/,
 ]
 
 export const DEMO = { email: 'demo@animato.dev', password: 'animato-demo' }

@@ -4,17 +4,16 @@ test('prompt → options → render → live status → result → open in edito
   await login(page)
   await page.goto('/app/new')
   await page.getByTestId('create-prompt').fill('Show how binary search halves a sorted array, step by step')
-  await page.getByTestId('create-engine-manim').click()
-  await page.getByTestId('create-sent-preview').click()
+  await page.getByRole('tab', { name: 'Explainer' }).click()
+  await page.getByRole('button', { name: 'What we send' }).click()
   // The workers always render 16:9: no aspect ratio is ever sent (plan 2.3).
   await expect(page.getByTestId('create-sent-preview')).not.toContainText(/9:16|16:9|1:1/)
 
   await page.getByTestId('create-submit').click()
   await expect(page).toHaveURL(/\/app\/v\/vid_/)
-  await expect(page.getByTestId('job-pipeline')).toBeVisible()
+  await expect(page.getByTestId('render-view').or(page.getByTestId('job-open-editor'))).toBeVisible()
   // The mock walks the real status sequence; the page polls GET /api/jobs/:id.
-  await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
-  await expect(page.getByTestId('job-feed')).toContainText(/Ready|Completed/i)
+  await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
 
   // Player controls on the real render.
   const time = page.getByTestId('player-time')
@@ -37,7 +36,7 @@ test('a failing prompt shows the error state with retry', async ({ page }) => {
   await page.goto('/app/new')
   await page.getByTestId('create-prompt').fill('This render should fail on purpose, please')
   await page.getByTestId('create-submit').click()
-  await expect(page.getByTestId('job-status')).toContainText('Failed', { timeout: 30_000 })
+  await expect(page.getByText("That one didn't render.")).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('job-retry')).toHaveText(/Try again/)
   await expect(page.getByText("That one didn't render.")).toBeVisible()
 })

@@ -9,7 +9,7 @@ test('Videos: empty state, composer strip, card actions', async ({ page }) => {
   await page.getByTestId('composer-generate').click()
   await expect(page).toHaveURL(/\/app\/v\/vid_/)
   await expect(page.getByTestId('video-title')).toHaveText('Heart with Fourier Epicycles')
-  await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
+  await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
 
   await page.getByRole('link', { name: 'Back to videos' }).click()
   const card = page.getByTestId('video-card')

@@ -20,7 +20,7 @@ test('app screens have no serious axe violations', async ({ page }) => {
   await login(page)
   await audit(page, 'videos-empty')
   await createJob(page, 'Visualise how gradient descent finds the bottom of a valley')
-  await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
+  await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
   await audit(page, 'video-ready')
   await page.goto('/app')
   await expect(page.getByTestId('video-card')).toHaveCount(1)
@@ -31,4 +31,22 @@ test('app screens have no serious axe violations', async ({ page }) => {
   await audit(page, 'create')
   await page.goto('/no-such-page')
   await audit(page, '404')
+})
+
+test('public screens have no serious axe violations', async ({ page }) => {
+  for (const [name, path] of [
+    ['landing', '/'],
+    ['pricing', '/pricing'],
+    ['login', '/login'],
+    ['signup', '/signup'],
+    ['forgot', '/forgot-password'],
+  ] as const) {
+    await page.goto(path)
+    await audit(page, name)
+  }
+  await page.goto('/')
+  await page.getByTestId('hero-prompt-input').fill('Binary search on 16 boxes, find 42')
+  await page.getByTestId('hero-prompt-generate').click()
+  await expect(page.getByTestId('auth-sheet')).toBeVisible()
+  await audit(page, 'auth-sheet')
 })

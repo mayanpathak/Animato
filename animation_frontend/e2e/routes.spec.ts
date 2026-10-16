@@ -1,7 +1,7 @@
 import { createJob, createProject, expect, login, test } from './fixtures'
 
 const PUBLIC = [
-  ['/', /Describe it/i],
+  ['/', /Explain anything/i],
   ['/pricing', /pricing|plan/i],
   ['/login', /log in|welcome back|sign in/i],
   ['/signup', /create|sign up|start/i],
@@ -36,7 +36,7 @@ test('app routes render for a signed-in user', async ({ page }) => {
   await page.goto('/app/new')
   await expect(page.getByTestId('create-prompt')).toBeVisible()
   const videoId = await createJob(page)
-  await expect(page.getByTestId('job-pipeline')).toBeVisible()
+  await expect(page.getByTestId('render-view').or(page.getByTestId('job-open-editor'))).toBeVisible()
   expect(videoId).toMatch(/^vid_/)
   await createProject(page)
   await expect(page.getByTestId('editor')).toBeVisible()

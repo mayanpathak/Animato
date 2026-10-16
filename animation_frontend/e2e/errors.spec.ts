@@ -48,13 +48,19 @@ test('get job: unknown id shows "no longer available"', async ({ page }) => {
 test('import failure falls back to the plain player with Retry import', async ({ page }) => {
   await login(page)
   await createJob(page, 'Kinetic quote that cannot be imported [e2e:importfail]')
-  await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
-  await page.getByTestId('job-open-editor').click()
+  // The import starts by itself when the render is ready (plan 6.5 prefetch).
   await expect(page.getByTestId('import-failed')).toContainText("Couldn't load the video for finishing.")
   await expect(page.getByRole('button', { name: 'Retry import' })).toBeVisible()
   await expect(page.getByText('The video could not be loaded.')).toHaveCount(0)
-  await page.getByTestId('player-play').click()
+  // The plain <video> needs no CORS: it plays (it autoplays muted on Ready).
   await expect
-    .poll(async () => (await page.getByTestId('player-time').textContent())?.trim(), { timeout: 15_000 })
-    .not.toMatch(/^00:00\.0\b/)
+    .poll(
+      () =>
+        page
+          .locator('video')
+          .first()
+          .evaluate((v: HTMLVideoElement) => v.currentTime),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThan(0)
 })

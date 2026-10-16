@@ -17,6 +17,6 @@ test('Videos, Create and a video page fit a phone', async ({ page }) => {
   await expect(page.getByTestId('create-prompt')).toBeVisible()
   await expectNoHorizontalScroll(page)
   await createJob(page)
-  await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
+  await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
   await expectNoHorizontalScroll(page)
 })
