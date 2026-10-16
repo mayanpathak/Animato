@@ -4,6 +4,8 @@ import { ApiError } from '@/lib/api/http'
 import { jobsApi, type Job } from '@/lib/api/jobs'
 import { isLost, nextPoll, observe, type PollState } from '@/lib/api/polling'
 import { isFinished, type JobStatus, type Library } from '@/lib/api/types'
+import { addTake, createVideo, markTakeStatus, takeFrom } from '@/features/videos/model'
+import { usePreferences } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
 import {
   brandTable,
@@ -83,6 +85,8 @@ export function useJob(id: string | undefined) {
         const job = await jobsApi.get(id as string)
         state.failures = 0
         await recordObserved(job.id, job.status).catch(() => undefined)
+        if (job.status === 'Completed' || job.status === 'Failed')
+          await markTakeStatus(job.id, job.status).catch(() => undefined)
         return job
       } catch (e) {
         if (!isGone(e)) state.failures += 1
@@ -113,6 +117,10 @@ export function useJob(id: string | undefined) {
   return { ...query, lost, checkAgain }
 }
 
+/**
+ * POST /api/jobs, then records the job locally and attaches it to a Video:
+ * a new one, or `videoId` for another take of an existing one (plan 3.3).
+ */
 export function useCreateJob() {
   const owner = useOwner()
   const qc = useQueryClient()
@@ -122,7 +130,8 @@ export function useCreateJob() {
       library: Library
       options: JobRecord['options']
       serverPrompt: string
-    }) => {
+      videoId?: string
+    }): Promise<{ record: JobRecord; video: Project }> => {
       const created = await jobsApi.create(input.serverPrompt, input.library)
       const record: JobRecord = {
         id: created.id,
@@ -131,11 +140,21 @@ export function useCreateJob() {
         library: created.library,
         createdAt: Date.now(),
         options: input.options,
+        observed: [{ status: created.status, at: Date.now() }],
       }
       await jobsTable.put(record)
-      return record
+      const existing = input.videoId ? await projectsTable.get(input.videoId) : undefined
+      const video =
+        existing && existing.owner === owner
+          ? await addTake(existing, takeFrom(record))
+          : await createVideo(owner, takeFrom(record), usePreferences.getState().defaultFormat)
+      return { record, video }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.jobHistory(owner) }),
+    onSuccess: ({ video }) => {
+      void qc.invalidateQueries({ queryKey: keys.jobHistory(owner) })
+      void qc.invalidateQueries({ queryKey: keys.projects(owner) })
+      qc.setQueryData(keys.project(video.id), video)
+    },
   })
 }
 

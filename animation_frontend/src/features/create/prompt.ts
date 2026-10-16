@@ -97,9 +97,9 @@ export function buildServerPrompt(
   options: StudioOptions,
   kit: BrandKit | null | undefined,
 ): string {
-  const lines = [
-    `Format: ${options.aspect} ${ASPECT_LABEL[options.aspect]}, about ${options.duration} seconds. Style: ${options.style}.`,
-  ]
+  // No aspect ratio: the workers always render a 16:9 stage (plan 2.3).
+  // Formats are a Finish feature, laid out in the browser.
+  const lines = [`About ${options.duration} seconds. Style: ${options.style}.`]
   const brand = brandSuffix(kit)
   if (brand) lines.push(brand)
   if (options.captions) lines.push('Include short on-screen captions that summarise each beat.')

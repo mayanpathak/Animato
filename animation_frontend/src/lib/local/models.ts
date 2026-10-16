@@ -46,10 +46,29 @@ export interface MediaAsset {
   waveform: number[]
 }
 
+/** One render of a video (plan 3.3). The job's live status comes from polling. */
+export interface Take {
+  jobId: string
+  prompt: string
+  library: Library
+  createdAt: number
+  /** Last terminal status seen; finished takes are not polled again from the grid. */
+  status?: 'Completed' | 'Failed'
+}
+
+/**
+ * A Video in the UI (plan 3.3). The store keeps the name `projects` so no
+ * IndexedDB migration is needed; `takes`, `selectedTake` and `format` are
+ * optional so records written before plan v2 still load.
+ */
 export interface Project {
   id: string
   owner: string
   name: string
+  takes?: Take[]
+  /** Job id of the take used as the main clip. */
+  selectedTake?: string | null
+  format?: '16:9' | '9:16' | '1:1'
   tags: string[]
   createdAt: number
   updatedAt: number
