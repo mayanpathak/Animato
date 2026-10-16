@@ -48,7 +48,7 @@ for (const [size, viewport] of Object.entries(VIEWPORTS) as [
         ['404', '/this-page-does-not-exist'],
       ]) {
         await page.goto(path)
-        await expect(page.locator('h1, h2').first()).toBeVisible()
+        await expect(page.locator('main, h1, h2').first()).toBeVisible()
         await shot(page, name, size)
       }
       // Verify email needs a fresh, unverified account.
@@ -64,20 +64,28 @@ for (const [size, viewport] of Object.entries(VIEWPORTS) as [
 
     test(`app pages (${size})`, async ({ page }) => {
       await login(page)
-      await shot(page, 'dashboard-empty', size)
+      await expect(page.getByTestId('composer-strip')).toBeVisible()
+      await shot(page, 'videos-empty', size)
       await createJob(page, 'Visualise how gradient descent finds the bottom of a valley')
+      await shot(page, 'video-rendering', size)
       await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
-      await shot(page, 'job', size)
+      await shot(page, 'video-ready', size)
+      await createJob(page, 'A render that times out on purpose [e2e:timeout]')
+      await expect(page.getByText("That one didn't render.")).toBeVisible({ timeout: 30_000 })
+      await shot(page, 'video-failed', size)
+      await createJob(page, 'Kinetic quote: Make it simple, but significant')
       await page.goto('/app')
-      await expect(page.getByTestId('recent-jobs')).toBeVisible()
-      await shot(page, 'dashboard', size)
-      await page.goto('/app/create')
+      await expect(page.getByTestId('video-card')).toHaveCount(3)
+      await shot(page, 'videos', size)
+      await page.getByTestId('account-menu').click()
+      await shot(page, 'account-menu', size)
+      await page.keyboard.press('Escape')
+      await page.goto('/app/new')
       await page
         .getByTestId('create-prompt')
         .fill('A 20-second product teaser for a note-taking app, bold type, quick cuts')
       await shot(page, 'create', size)
       for (const [name, path] of [
-        ['templates', '/app/templates'],
         ['brand', '/app/brand'],
         ['settings', '/app/settings'],
       ]) {
@@ -85,8 +93,8 @@ for (const [size, viewport] of Object.entries(VIEWPORTS) as [
         await expect(page.locator('h1, h2').first()).toBeVisible()
         await shot(page, name, size)
       }
-      const projectId = await createProject(page, 'Launch teaser')
-      await page.goto(`/app/projects/${projectId}/edit?compositor=canvas2d`)
+      const videoId = await createProject(page, 'Launch teaser')
+      await page.goto(`/app/v/${videoId}?mode=timeline&compositor=canvas2d`)
       await page
         .getByTestId('media-import-input')
         .setInputFiles(['e2e/fixtures/clip.webm', 'e2e/fixtures/speech.webm'])
@@ -97,9 +105,6 @@ for (const [size, viewport] of Object.entries(VIEWPORTS) as [
       }
       await page.waitForTimeout(1200)
       await shot(page, 'editor', size)
-      await page.goto('/app/projects')
-      await expect(page.getByTestId('project-card').first()).toBeVisible()
-      await shot(page, 'projects', size)
     })
   })
 }

@@ -4,7 +4,7 @@ import { createJob, expect, login, test } from './fixtures'
 // real status codes; `[e2e:…]` markers in a prompt pick the failure.
 
 async function submit(page: import('@playwright/test').Page, prompt: string) {
-  await page.goto('/app/create')
+  await page.goto('/app/new')
   await page.getByTestId('create-prompt').fill(prompt)
   await page.getByTestId('create-submit').click()
 }

@@ -48,7 +48,7 @@ test('real media: import, edit, undo/redo, export and verify the file', async ({
   await login(page)
   const id = await createProject(page, 'Editor e2e')
   // Canvas2D compositor keeps this long test fast under SwiftShader; the WebGPU test below covers the GPU path.
-  await page.goto(`/app/projects/${id}/edit?compositor=canvas2d`)
+  await page.goto(`/app/v/${id}?mode=timeline&compositor=canvas2d`)
   await expect(page.getByTestId('perf-badge')).toHaveAttribute('data-compositor', /Canvas2D/)
 
   await page
@@ -159,7 +159,7 @@ test('MP4 import goes through the Rust demuxer and the WebGPU compositor preview
 }, testInfo) => {
   await login(page)
   const id = await createProject(page, 'GPU e2e')
-  await page.goto(`/app/projects/${id}/edit`)
+  await page.goto(`/app/v/${id}?mode=timeline`)
   await page.getByTestId('media-import-input').setInputFiles('e2e/fixtures/clip.mp4')
   const video = await clipsOn(page, 'video')
   await expect(video).toHaveCount(1, { timeout: 60_000 })

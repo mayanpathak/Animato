@@ -6,7 +6,7 @@ test.describe.configure({ timeout: 300_000 })
 test('voiceover, audio tools, SRT round trip and on-device auto-captions', async ({ page }, testInfo) => {
   await login(page)
   const id = await createProject(page, 'Voice e2e')
-  await page.goto(`/app/projects/${id}/edit?compositor=canvas2d`)
+  await page.goto(`/app/v/${id}?mode=timeline&compositor=canvas2d`)
   await page.getByTestId('media-import-input').setInputFiles('e2e/fixtures/speech.webm')
   const audio = page.locator('[data-testid=track-audio] [data-testid=clip]')
   await expect(audio).toHaveCount(1, { timeout: 60_000 })

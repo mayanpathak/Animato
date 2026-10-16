@@ -10,10 +10,10 @@ test('landing fits a phone', async ({ page }) => {
   await expectNoHorizontalScroll(page)
 })
 
-test('dashboard, Prompt Studio and a job fit a phone', async ({ page }) => {
+test('Videos, Create and a video page fit a phone', async ({ page }) => {
   await login(page)
   await expectNoHorizontalScroll(page)
-  await page.goto('/app/create')
+  await page.goto('/app/new')
   await expect(page.getByTestId('create-prompt')).toBeVisible()
   await expectNoHorizontalScroll(page)
   await createJob(page)
