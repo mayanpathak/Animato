@@ -24,6 +24,7 @@ export async function brandRender(kit: BrandKit): Promise<BrandRender> {
     // The id changes with the kit, so an edited logo is registered again.
     logo: size ? { id: `logo_${kit.id}_${kit.updatedAt}`, ...size } : null,
     logoUrl: size ? kit.logoDataUrl : null,
+    fonts: (kit.fonts ?? []).map((f) => ({ family: f.family, source: `opfs:${f.path}` })),
   }
 }
 

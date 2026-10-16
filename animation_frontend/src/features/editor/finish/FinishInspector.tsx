@@ -26,6 +26,7 @@ import { cn } from '@/lib/cn'
 import { getEntitlements } from '@/lib/entitlements'
 import { useBrandKits, useOwner } from '@/lib/local/hooks'
 import { toast } from '@/stores/toast'
+import { usePreferences } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
 import { CAPTION_STYLES, LOOKS } from '../graphics/looks'
 import { importFile } from '../media/client'
@@ -140,6 +141,7 @@ export function FinishInspector({ onAddVoice }: { onAddVoice: () => void }) {
           value={aspect}
           onChange={(v) => {
             s.setFormat(v)
+            usePreferences.getState().setDefaultFormat(v)
             track('format_change', { format: v })
           }}
           items={FORMATS}
@@ -163,6 +165,7 @@ export function FinishInspector({ onAddVoice }: { onAddVoice: () => void }) {
                 disabled={needsKit}
                 onClick={() => {
                   s.setLook(l.id)
+                  usePreferences.getState().setDefaultLook(l.id)
                   track('look_change', { look: l.id })
                 }}
                 className={cn(

@@ -101,6 +101,15 @@ export interface BrandKit {
   tone: string
   appendToPrompts: boolean
   updatedAt: number
+  /** Fonts uploaded to this kit (TTF/OTF in OPFS), by the family name the file reports. */
+  fonts?: UploadedFont[]
+}
+
+export interface UploadedFont {
+  family: string
+  /** OPFS path of the file. */
+  path: string
+  fileName: string
 }
 
 export interface ExportRecord {

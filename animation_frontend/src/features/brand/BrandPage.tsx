@@ -9,7 +9,6 @@ import {
   MoreHorizontal,
   Palette,
   PencilLine,
-  Plus,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -21,7 +20,8 @@ import { Menu } from '@/components/ui/menu'
 import { Badge, Card, EmptyState, ErrorState, Skeleton, Switch } from '@/components/ui/misc'
 import { Spinner } from '@/components/ui/spinner'
 import { keys, useBrandKits, useOwner, useSaveBrandKit } from '@/lib/local/hooks'
-import { brandTable, uid, type BrandKit } from '@/lib/local/models'
+import { brandTable, uid, type BrandKit, type UploadedFont } from '@/lib/local/models'
+import { readFile } from '@/lib/local/opfs'
 import { cn } from '@/lib/cn'
 import { errorMessage } from '@/lib/api/http'
 import { spring } from '@/lib/motion'
@@ -31,7 +31,8 @@ import { ConfirmDialog, RenameDialog } from '@/components/ui/confirm'
 import { defaultKit, FONTS, fontLabel, kitSignature } from './lib'
 import { PaletteEditor } from './components/PaletteEditor'
 import { LogoField } from './components/LogoField'
-import { BrandPreview } from './components/BrandPreview'
+import { GraphicsPreview } from './components/GraphicsPreview'
+import { uploadFont } from './fontUpload'
 
 type SaveStatus = 'saved' | 'pending' | 'saving' | 'error'
 
@@ -190,7 +191,7 @@ export default function BrandPage() {
     try {
       await autosave.flush()
       const kit: BrandKit = base
-        ? { ...structuredClone(base), id: uid('brd'), name: `${base.name} (copy)`, updatedAt: Date.now() }
+        ? { ...structuredClone(base), id: uid('brd'), name: `${base.name} (copy)`, updatedAt: stamp() }
         : defaultKit(owner, kits.length ? `Brand kit ${kits.length + 1}` : 'My brand')
       await brandTable.put(kit)
       // Refresh first so the new kit is in the list when it becomes the selection.
@@ -216,21 +217,12 @@ export default function BrandPage() {
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-semibold tracking-tight">Brand kit</h1>
           <p className="mt-1 max-w-xl text-sm text-fg-muted">
-            Colours, type, logo and voice in one place. Kits apply to text overlays and caption style in the
-            editor, and to your prompts when you switch that on.
+            Colours, type, logo and voice in one place. Your kit styles the Brand look, titles, captions and
+            end cards, and your prompts when you switch that on.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {draft ? <SaveIndicator status={autosave.status} onRetry={() => void autosave.flush()} /> : null}
-          <Button
-            variant="secondary"
-            leftIcon={<Plus className="size-4" />}
-            onClick={() => create()}
-            loading={creating}
-            data-testid="brand-new"
-          >
-            New kit
-          </Button>
         </div>
       </header>
 
@@ -264,9 +256,14 @@ export default function BrandPage() {
           <EmptyState
             icon={<Palette />}
             title="Set up your brand once"
-            body="Start from Animato's violet, cyan and magenta with Inter, then make it yours. Everything stays in this browser."
+            body="Start from Animato's calm blue with Inter, then make it yours. Everything stays in this browser."
             action={
-              <Button leftIcon={<Sparkles className="size-4" />} onClick={() => create()} loading={creating}>
+              <Button
+                leftIcon={<Sparkles className="size-4" />}
+                onClick={() => create()}
+                loading={creating}
+                data-testid="brand-new"
+              >
                 Create my brand kit
               </Button>
             }
@@ -274,70 +271,73 @@ export default function BrandPage() {
           />
         ) : (
           <div className="flex flex-col gap-6">
-            <nav aria-label="Brand kits" className="min-w-0">
-              <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1 no-scrollbar sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-                {kits.map((stored) => {
-                  const k = latest(stored)
-                  const active = k.id === draft.id
-                  return (
-                    <li key={k.id} className="relative w-56 shrink-0">
-                      {active ? (
-                        <motion.span
-                          layoutId="brand-kit-active"
-                          transition={spring.layout}
-                          className="absolute inset-0 rounded-lg border border-line-strong bg-surface-2 shadow-inner-highlight"
-                        />
-                      ) : null}
-                      <button
-                        type="button"
-                        aria-current={active ? 'true' : undefined}
-                        onClick={() => void select(stored)}
-                        className={cn(
-                          'relative flex w-full items-center gap-3 rounded-lg border border-transparent py-2.5 pr-10 pl-3 text-left transition-colors',
-                          active ? 'text-fg' : 'text-fg-muted hover:bg-surface-1 hover:text-fg',
-                        )}
-                      >
-                        <span className="grid size-8 shrink-0 grid-cols-2 overflow-hidden rounded-md border border-line-strong">
-                          {[0, 1, 2, 3].map((i) => (
-                            <span
-                              key={i}
-                              style={{ background: k.colors[i] ?? k.colors[i % k.colors.length] }}
-                            />
-                          ))}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium">{k.name}</span>
-                          <span className="block truncate text-2xs text-fg-subtle">
-                            {fontLabel(k.headingFont)}
-                            {k.appendToPrompts ? ' · in prompts' : ''}
-                          </span>
-                        </span>
-                      </button>
-                      <div className="absolute top-1/2 right-1.5 -translate-y-1/2">
-                        <Menu
-                          items={[
-                            { label: 'Rename', icon: <PencilLine />, onSelect: () => setRenaming(k) },
-                            { label: 'Duplicate', icon: <Copy />, onSelect: () => void create(k) },
-                            'separator',
-                            {
-                              label: 'Delete',
-                              icon: <Trash2 />,
-                              danger: true,
-                              onSelect: () => setDeleting(k),
-                            },
-                          ]}
-                          trigger={(p) => (
-                            <IconButton {...p} label={`Actions for ${k.name}`} size="sm">
-                              <MoreHorizontal />
-                            </IconButton>
+            {/* One kit in the UI (plan 6.8); kits made before keep a switcher. */}
+            {kits.length > 1 ? (
+              <nav aria-label="Brand kits" className="min-w-0">
+                <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 py-1 no-scrollbar sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+                  {kits.map((stored) => {
+                    const k = latest(stored)
+                    const active = k.id === draft.id
+                    return (
+                      <li key={k.id} className="relative w-56 shrink-0">
+                        {active ? (
+                          <motion.span
+                            layoutId="brand-kit-active"
+                            transition={spring.layout}
+                            className="absolute inset-0 rounded-lg border border-line-strong bg-surface-2 shadow-inner-highlight"
+                          />
+                        ) : null}
+                        <button
+                          type="button"
+                          aria-current={active ? 'true' : undefined}
+                          onClick={() => void select(stored)}
+                          className={cn(
+                            'relative flex w-full items-center gap-3 rounded-lg border border-transparent py-2.5 pr-10 pl-3 text-left transition-colors',
+                            active ? 'text-fg' : 'text-fg-muted hover:bg-surface-1 hover:text-fg',
                           )}
-                        />
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            </nav>
+                        >
+                          <span className="grid size-8 shrink-0 grid-cols-2 overflow-hidden rounded-md border border-line-strong">
+                            {[0, 1, 2, 3].map((i) => (
+                              <span
+                                key={i}
+                                style={{ background: k.colors[i] ?? k.colors[i % k.colors.length] }}
+                              />
+                            ))}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">{k.name}</span>
+                            <span className="block truncate text-2xs text-fg-subtle">
+                              {fontLabel(k.headingFont)}
+                              {k.appendToPrompts ? ' · in prompts' : ''}
+                            </span>
+                          </span>
+                        </button>
+                        <div className="absolute top-1/2 right-1.5 -translate-y-1/2">
+                          <Menu
+                            items={[
+                              { label: 'Rename', icon: <PencilLine />, onSelect: () => setRenaming(k) },
+                              { label: 'Duplicate', icon: <Copy />, onSelect: () => void create(k) },
+                              'separator',
+                              {
+                                label: 'Delete',
+                                icon: <Trash2 />,
+                                danger: true,
+                                onSelect: () => setDeleting(k),
+                              },
+                            ]}
+                            trigger={(p) => (
+                              <IconButton {...p} label={`Actions for ${k.name}`} size="sm">
+                                <MoreHorizontal />
+                              </IconButton>
+                            )}
+                          />
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </nav>
+            ) : null}
 
             <KitEditor key={draft.id} kit={draft} onChange={update} />
           </div>
@@ -406,17 +406,25 @@ function Section({
   )
 }
 
+/** Now, for records (a function so lint sees it is not read during render). */
+function stamp(): number {
+  return Date.now()
+}
+
 function FontSelect({
   id,
   label,
   value,
   onChange,
+  uploaded,
 }: {
   id: string
   label: string
   value: string
   onChange: (v: string) => void
+  uploaded: UploadedFont[]
 }) {
+  const own = uploaded.find((f) => f.family === value)
   return (
     <div className="min-w-0">
       <Label htmlFor={id}>{label}</Label>
@@ -426,11 +434,16 @@ function FontSelect({
             {f.label}
           </option>
         ))}
+        {uploaded.map((f) => (
+          <option key={f.path} value={f.family}>
+            {f.family} (uploaded)
+          </option>
+        ))}
       </Select>
       <p className="mt-1.5 flex items-center gap-1 text-2xs text-fg-subtle">
         {(() => {
           const f = FONTS.find((o) => o.value === value)
-          return !f || f.video === f.value ? (
+          return own || !f || f.video === f.value ? (
             <>
               <Check className="size-3 text-status-succeeded" aria-hidden /> Renders in exported video
             </>
@@ -443,7 +456,63 @@ function FontSelect({
   )
 }
 
+/** "Upload a font": TTF or OTF, kept in this browser and drawn by the video renderer. */
+function FontUpload({ kit, onChange }: { kit: BrandKit; onChange: (patch: Partial<BrandKit>) => void }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <input
+        ref={input}
+        type="file"
+        accept=".ttf,.otf,font/ttf,font/otf"
+        className="hidden"
+        aria-label="Upload a font"
+        data-testid="brand-font-upload"
+        onChange={async (e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (!file) return
+          setBusy(true)
+          try {
+            const font = await uploadFont(file)
+            await registerCssFont(font)
+            const fonts = [...(kit.fonts ?? []).filter((f) => f.family !== font.family), font]
+            onChange({ fonts, headingFont: font.family })
+            toast.success(`${font.family} added`, 'Set as your heading font.')
+          } catch (err) {
+            toast.error('Could not add that font', errorMessage(err))
+          } finally {
+            setBusy(false)
+          }
+        }}
+      />
+      <Button variant="secondary" size="sm" loading={busy} onClick={() => input.current?.click()}>
+        Upload a font
+      </Button>
+      <span className="text-2xs text-fg-subtle">
+        TTF or OTF. WOFF files are for websites and can’t be drawn into video.
+      </span>
+    </div>
+  )
+}
+
+/** Makes an uploaded font usable in the page's own CSS (previews, pickers). */
+async function registerCssFont(font: UploadedFont): Promise<void> {
+  const bytes = await (await readFile(font.path)).arrayBuffer()
+  const face = new FontFace(font.family, bytes)
+  await face.load()
+  document.fonts.add(face)
+}
+
 function KitEditor({ kit, onChange }: { kit: BrandKit; onChange: (patch: Partial<BrandKit>) => void }) {
+  // Uploaded fonts, for the pickers and previews on this page.
+  const fontKey = (kit.fonts ?? []).map((f) => f.path).join('|')
+  useEffect(() => {
+    for (const f of kit.fonts ?? []) void registerCssFont(f).catch(() => undefined)
+    // fontKey lists the files.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fontKey])
   return (
     <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <Card className="min-w-0 overflow-hidden">
@@ -458,7 +527,7 @@ function KitEditor({ kit, onChange }: { kit: BrandKit; onChange: (patch: Partial
         <Section
           icon={<Type />}
           title="Typography"
-          hint="Inter, Geist, JetBrains Mono and DejaVu Serif render in exported video."
+          hint="Inter, Geist, JetBrains Mono, DejaVu Serif and fonts you upload render in exported video."
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <FontSelect
@@ -466,14 +535,17 @@ function KitEditor({ kit, onChange }: { kit: BrandKit; onChange: (patch: Partial
               label="Headings"
               value={kit.headingFont}
               onChange={(headingFont) => onChange({ headingFont })}
+              uploaded={kit.fonts ?? []}
             />
             <FontSelect
               id="brand-body-font"
               label="Body and captions"
               value={kit.bodyFont}
               onChange={(bodyFont) => onChange({ bodyFont })}
+              uploaded={kit.fonts ?? []}
             />
           </div>
+          <FontUpload kit={kit} onChange={onChange} />
         </Section>
 
         <Section
@@ -525,8 +597,10 @@ function KitEditor({ kit, onChange }: { kit: BrandKit; onChange: (patch: Partial
       </Card>
 
       <div className="min-w-0 lg:sticky lg:top-20 max-lg:order-first">
-        <h2 className="mb-3 text-xs font-medium tracking-wide text-fg-subtle uppercase">Live preview</h2>
-        <BrandPreview kit={kit} />
+        <h2 className="mb-3 text-xs font-medium tracking-wide text-fg-subtle uppercase">
+          As the video draws it
+        </h2>
+        <GraphicsPreview kit={kit} />
         <div className="mt-5 rounded-xl border border-line bg-surface-1 p-4">
           <h3 className="text-sm font-semibold">Where this kit applies</h3>
           <ul className="mt-2.5 flex flex-col gap-2 text-sm text-fg-muted">

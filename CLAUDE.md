@@ -37,5 +37,6 @@
   up automatically (or set PW_CHROMIUM_PATH).
 
 ## Verify
-cd animation_frontend && npm run typecheck && npm run lint && npm run build && npm run test:e2e
+cd animation_frontend && npm run typecheck && npm run lint && npm run build && npm test && npm run test:e2e
+Before finishing a phase also run `npm run test:e2e:slow` (full-size exports through SwiftShader, ~12 min).
 cargo test --manifest-path animation_frontend/crates/Cargo.toml -p animato-wasm -p tooscut-audio-engine -p offcut-mp4 -p animato-graphics -p tooscut-compositor -p tooscut-types

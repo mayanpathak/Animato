@@ -176,7 +176,10 @@ export function buildGraphics(tl: TimelineV2, opts: BuildOptions = {}): Graphics
     duration: outputDuration(tl),
     fonts: [...families].flatMap((family) => {
       const f = builtinFont(family)
-      return f ? [{ family, source: `builtin:${f.file}` }] : []
+      if (f) return [{ family, source: `builtin:${f.file}` }]
+      // A font uploaded to the brand kit.
+      const own = brand?.fonts?.find((b) => b.family === family)
+      return own ? [own] : []
     }),
     images: usesLogo && brand?.logo ? [brand.logo] : [],
     items,

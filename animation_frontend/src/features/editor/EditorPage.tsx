@@ -34,6 +34,7 @@ import { cn } from '@/lib/cn'
 import { getEntitlements } from '@/lib/entitlements'
 import { ROUTES } from '@/app/nav'
 import { useSession } from '@/stores/session'
+import { usePreferences } from '@/stores/preferences'
 import { selectedTake, titleFromPrompt } from '@/features/videos/model'
 import { startFinish } from './model/finish'
 import { useBrandRender } from './finish/brand'
@@ -235,16 +236,23 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
         let tl = migratedTl
         const take = selectedTake(p)
         if (finishMode && !tl.finish) {
+          const kit = allKits.filter((k) => k.owner === owner).sort((a, b) => b.updatedAt - a.updatedAt)[0]
           tl = startFinish(
             tl,
             {
               title: take?.prompt ? titleFromPrompt(take.prompt) : p.name,
               watermark: getEntitlements(useSession.getState().user).watermark !== 'off',
               format: p.format,
+              look: usePreferences.getState().defaultLook,
             },
-            { assets: new Map(lib.map((a) => [a.id, a])) },
+            {
+              assets: new Map(lib.map((a) => [a.id, a])),
+              // Colours and font for the captions preset; the logo is registered later.
+              brand: kit
+                ? { kitId: kit.id, colors: kit.colors, headingFont: kit.headingFont, logo: null }
+                : null,
+            },
           )
-          const kit = allKits.filter((k) => k.owner === owner).sort((a, b) => b.updatedAt - a.updatedAt)[0]
           if (kit && tl.finish)
             tl = { ...tl, finish: { ...tl.finish, brand: { ...tl.finish.brand, kitId: kit.id } } }
         }

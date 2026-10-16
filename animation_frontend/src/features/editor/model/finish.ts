@@ -45,13 +45,15 @@ function withCaptionPreset(tl: TimelineV2, style: CaptionStyleId, ctx: FinishCon
  */
 export function startFinish(
   tl: TimelineV2,
-  opts: { title: string; watermark: boolean; format?: AspectKey },
+  opts: { title: string; watermark: boolean; format?: AspectKey; look?: LookId },
   ctx: FinishContext = {},
 ): TimelineV2 {
   if (tl.finish) return tl
   const sized = opts.format ? { ...tl, ...ASPECT_PRESETS[opts.format] } : tl
   const next = { ...sized, finish: defaultFinish(opts.title, { watermark: opts.watermark }) }
-  return { ...next, extraGraphics: withCaptionPreset(next, next.finish.captions.style, ctx) }
+  // The last-used look (J2), unless it needs a brand kit there is none of.
+  const look = opts.look === 'brand' && !ctx.brand ? 'clean' : (opts.look ?? 'clean')
+  return setLook(next, look, ctx)
 }
 
 export function updateFinish(tl: TimelineV2, patch: (f: FinishSettings) => FinishSettings): TimelineV2 {

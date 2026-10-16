@@ -18,6 +18,8 @@ export interface BrandSnapshot {
   headingFont: string
   /** The logo, registered with the renderer under this id. */
   logo: { id: string; width: number; height: number } | null
+  /** Fonts uploaded to the kit: family and `opfs:<path>`. */
+  fonts?: { family: string; source: string }[]
 }
 
 /** A snapshot plus the logo's pixels as a data URL, for the worker to register. */
