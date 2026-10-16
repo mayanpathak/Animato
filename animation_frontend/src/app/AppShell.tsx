@@ -232,7 +232,7 @@ export function AppShell() {
           </div>
         </header>
         <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
               key={location.pathname}
               initial={{ opacity: 0, y: 6 }}

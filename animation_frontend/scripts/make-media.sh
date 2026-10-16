@@ -34,6 +34,13 @@ OPUS=(-c:a libopus -b:a 96k)
 "${FF[@]}" -f lavfi -i "gradients=size=1280x720:c0=0x7c3aed:c1=0x22d3ee:c2=0xe879f9:duration=1" -frames:v 1 "$FIX/image.png"
 "${FF[@]}" -f lavfi -i "cellauto=size=320x180:rate=10:rule=110" -t 3 "$FIX/sequence/frame_%03d.png"
 
+# Spoken English for the auto-caption test (needs espeak-ng).
+if command -v espeak-ng >/dev/null; then
+  espeak-ng -s 150 -w "$FIX/speech-raw.wav" "Animato turns one sentence into a finished video. Then you edit everything in your browser."
+  "${FF[@]}" -i "$FIX/speech-raw.wav" -ar 48000 -ac 2 -c:a libopus -b:a 64k "$FIX/speech.webm"
+  rm -f "$FIX/speech-raw.wav"
+fi
+
 # --- Sample renders for the job mock ----------------------------------------
 title() { # text, y, size
   echo "drawtext=fontfile=$INTER/Inter-SemiBold.otf:text='$1':fontcolor=white:fontsize=$3:x=(w-text_w)/2:y=$2:alpha='min(1,t/0.6)'"

@@ -13,7 +13,8 @@ import { MIX_RATE } from './decode'
 import { serve } from './rpc'
 import { loadWasm } from './wasm'
 
-export const STT_MODEL = 'onnx-community/whisper-tiny.en'
+// The _timestamped export includes the cross-attentions word timestamps need.
+export const STT_MODEL = 'onnx-community/whisper-tiny.en_timestamped'
 
 env.allowLocalModels = false
 

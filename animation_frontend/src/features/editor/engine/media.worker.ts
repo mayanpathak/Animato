@@ -139,8 +139,7 @@ async function importAsset(
   try {
     if (!media.video && !media.audio)
       throw new Error('This file has no video or audio this browser can decode.')
-    if (kind === 'video' && !media.video)
-      throw new Error('This browser cannot decode the video in this file.')
+    // A .webm/.mp4 with only sound becomes an audio asset.
     const thumbnails: string[] = []
     if (media.video) {
       progress({ stage: 'thumbnails', fraction: 0 })
