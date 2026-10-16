@@ -161,6 +161,18 @@ TypeScript fallback (allowed only for timeline math and compositing):
 - **Pricing on phones** shows tier tabs and a list instead of the wide table: Chromium's mobile layout viewport grew to fit the table even inside `overflow-x: auto`.
 - **`npm install` and onnxruntime-node.** `@huggingface/transformers` pulls in `onnxruntime-node`, whose postinstall downloads binaries. The browser build does not need them. In an offline environment, use `npm install --ignore-scripts`.
 
+
+### Plan v2 decisions
+
+- **P0 · Root CLAUDE.md.** Renamed `claude.md` to `CLAUDE.md`, because Claude Code only auto-loads the upper-case name on case-sensitive file systems.
+- **P0 · Branch.** Work happens on `feat/frontend-v2` as the owner's prompt asks; one draft PR into `main`.
+- **P0 · Media import path.** Rebuilt imports write originals to `media/<id>.<ext>` (flat), because `removeFile` deletes single files and the Settings purge clears the `media` directory as a whole.
+- **P0 · Import dedupe.** A re-import with the same owner and SHA-256 deletes the new copy and returns the existing asset (keeping a job link if the new import has one), because the worker hashes after the copy.
+- **P0 · Worklet WASM hand-off.** The host posts the compiled `WebAssembly.Module`; on `messageerror` it re-sends the raw bytes and the worklet compiles them, because the sandbox Chromium (build 1194) refuses to clone a module into an AudioWorklet and the mixer silently never started.
+- **P0 · Worklet errors.** Init failures are posted back as `{ type: 'error' }` and reject at once instead of waiting for the 8 s timeout.
+- **P0 · Unwired modules excluded.** `packages/` and `src/workers/` are excluded from tsc, ESLint, oxlint and Prettier until P4 wires or deletes them, because they cannot compile before the workspace exists. One oxlint warning in `video-frame-loader.ts` was fixed since its nested `.oxlintrc.json` ignores the root ignore list.
+- **P0 · Sandbox install.** The setup hook runs `npm ci --ignore-scripts` and never `playwright install`; `playwright.config.ts` uses `/opt/pw-browsers/chromium` when present.
+
 ## 6. Mock vs real
 
 | Area | Real | Mocked / local |

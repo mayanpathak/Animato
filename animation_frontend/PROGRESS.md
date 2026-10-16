@@ -1,40 +1,41 @@
-# Animato Studio redesign: progress
+# Animato frontend v2: progress
 
-Live checklist for branch `feat/ui-redesign-studio`. A fresh session resumes from here: read `DESIGN_NOTES.md`
-first, then pick up the first row that is not done.
+Live checklist for branch `feat/frontend-v2`, following `frontendplan.md` section 16. A fresh session reads the
+repo-root `CLAUDE.md`, the plan (sections 0–4), `DESIGN_NOTES.md`, then resumes at the first row that is not `done`.
+Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of the previous plan is in git history
+(`git show d0a4df8:animation_frontend/PROGRESS.md`).
 
-| # | Feature | Status | Commit |
-|---|---------|--------|--------|
-| 0 | Study phase, architecture summary, crates audit | done | `30f6320` |
-| 1 | Tooling: deps, ESLint + oxlint + Prettier, env flags, MSW init | done | `30f6320` |
-| 2 | Rust workspace; `animato-wasm` links compositor, audio engine, keyframe, offcut-mp4/wasm-core/dsp/text; `npm run wasm:build` | done | `f9cfb4c` |
-| 3 | Design tokens, UI primitives, app shell, command palette, guards, error boundary, 404, offline banner | done | `a15c505` |
-| 4 | Typed zod API client (auth + jobs only), MSW mock of exactly those endpoints, local-first IndexedDB/OPFS stores | done | `a15c505` |
-| 5 | Real media fixtures + sample renders (`scripts/make-media.sh`) | done | `0ff50f4` |
-| 6 | Media engine: OPFS import, Rust/mediabunny demux, WebCodecs decode, thumbnails, waveform, PCM cache | done | `0ff50f4` |
-| 7 | Landing (GSAP storytelling, live WASM demo) + pricing | done | `ba56a2f` |
-| 8 | Auth (login, signup, verify, forgot, reset) | done | `ba56a2f` |
-| 9 | Home dashboard | done | `ba56a2f` |
-| 10 | Prompt Studio (engine, options folded into prompt, local enhance + diff) | done | `ba56a2f` |
-| 11 | Job page (pipeline, status feed, ETA, retry, player, Open in Editor / Add to project) | done | `ba56a2f` |
-| 12 | Library (projects, media, exports; search, tags, bulk, import/export project file) | done | `ba56a2f` |
-| 13 | Templates, Brand Kit, Settings (preferences, storage manager) | done | `ba56a2f` |
-| 14 | Editor: timeline, trims/splits/ripple/speed/fades/transform/crop/colour/text, undo/redo, shortcuts, autosave + restore | done | `ba56a2f` |
-| 15 | Compositor: Rust WebGPU + Canvas2D fallback, perf badge | done | `df5497d` |
-| 16 | Audio: AudioWorklet mixer (Rust audio engine), normalize, gate, EQ, ducking | done | `ba56a2f` |
-| 17 | Voice: voiceover recording, SRT import/export, on-device Whisper captions | done | `df5497d` |
-| 18 | Local export: WebCodecs + mediabunny, MP4/WebM, presets, progress/ETA/cancel, history | done | `ba56a2f` |
-| 19 | Playwright e2e (22 tests, real media, file probing) | done | `f3fdb88` |
-| 20 | Screenshots (every page, 1440×900 + 390×844) reviewed; visual fixes | done | `10f42df` |
-| 21 | README, DESIGN_NOTES, PROGRESS | done | (this commit) |
+| Phase | Scope | Status | Commit |
+|---|---|---|---|
+| P0 | Repo and build health: root `CLAUDE.md`, setup hook, `.gitattributes`, rebuilt `editor/media/`, green build from a clean clone | done | `c8e7f9b` |
+| P1 | Real backend: mocks off, contract tests (vitest), polling, error mapping, import fallback, `LOCAL_DEV.md` | todo | |
+| P2 | Design system and shell: tokens, components, top bar, routes and redirects, Videos home, Settings, system screens | todo | |
+| P3 | Landing, pricing, first-run flow, Create, Rendering state, entitlements, analytics seam | todo | |
+| P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | todo | |
+| P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | todo | |
+| P6 | Finish, simple mode, export | todo | |
+| P7 | Voice and captions | todo | |
+| P8 | Fine-tune mode and assets | todo | |
+| P9 | AI editor seams | todo | |
+| P10 | Growth polish | todo | |
+| P11 | Hardening | todo | |
+
+## P0 notes
+
+- `npm run typecheck`, `npm run lint`, `npm run build`: pass.
+- `npm run test:e2e`: 22/22 pass (the voice test failed before the worklet fix in `4d1b3ad`).
+- `cargo test -p animato-wasm -p tooscut-audio-engine -p offcut-mp4`: see the P0 row in `DESIGN_NOTES.md` section 5.
+- Clean clone of the pushed branch: `npm ci --ignore-scripts && npm run build` passes.
+- vitest does not exist yet; it arrives in P1 with the contract tests.
 
 ## Verification commands
 
 ```bash
+npm ci --ignore-scripts   # in the cloud sandbox (onnxruntime-node postinstall cannot download)
 npm run typecheck   # tsc -b
 npm run lint        # eslint (0 warnings) + oxlint (deny warnings) + prettier --check
 npm run build       # tsc -b && vite build
-npm run test:e2e    # 22 Playwright tests (builds with mocks, serves on :4173)
+npm run test:e2e    # Playwright (builds with mocks, serves on :4173)
 npm run screenshots # screenshots/<page>-{desktop,mobile}.png
 cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-engine -p offcut-mp4
 ```
