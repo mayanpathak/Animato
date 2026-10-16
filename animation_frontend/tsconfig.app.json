@@ -24,5 +24,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Orphaned Tooscut workers: merged into the editor engine and removed in Phase P4.
+  "exclude": ["src/workers"]
 }
