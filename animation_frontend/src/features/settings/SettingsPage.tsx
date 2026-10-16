@@ -327,7 +327,6 @@ const LICENCES: { name: string; licence: string }[] = [
   { name: 'Lucide icons', licence: 'ISC' },
   { name: 'mediabunny (media files)', licence: 'MPL-2.0' },
   { name: 'Transformers.js (on-device speech recognition)', licence: 'Apache-2.0' },
-  { name: 'GSAP (landing page animation)', licence: 'GSAP Standard License' },
 ]
 
 function About() {
