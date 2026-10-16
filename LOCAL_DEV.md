@@ -127,6 +127,15 @@ Tick each line on the real stack. Phases add lines as they land.
 - [ ] Ask for something absurd that fails: the page shows "That one didn't render." with a plain cause; the raw
       worker output is only under "Technical details".
 
+**First run and Create (P3)**
+- [ ] Logged out, type an idea on `/` and press Generate: the signup sheet shows the idea above the form.
+- [ ] After the code, the app opens the new video with "Starting your first video… 3" and Cancel, then renders.
+- [ ] A second idea from the landing page (same browser) waits for Generate instead of starting itself.
+- [ ] `/app/new`: "What we send" never mentions an aspect ratio; options persist after a reload.
+- [ ] While rendering, the stages tick with real times; after 3 completed renders of one engine,
+      "Usually takes about N min" appears.
+- [ ] Allow notifications, switch tabs: a system notification arrives when the render is ready.
+
 ## 7. Mocked e2e build (what the sandbox runs)
 
 ```bash

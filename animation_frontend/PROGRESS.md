@@ -49,6 +49,18 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 - Landing, pricing and auth only inherit the tokens (their gradient blobs now render nothing); they are rebuilt in P3.
 - The job page is restyled to tokens only; its render view is P3 and Finish is P6.
 
+## P3 notes
+
+- typecheck, lint (token gate), build: pass. vitest 33. Playwright e2e 37/37, including `first-run.spec.ts` (J1 timed
+  in the mocked build: landing → sheet signup → verify → auto-start → Ready in about 9 s, well under the 3-minute
+  budget; the real render time is the server's), cancel of the auto-start, remix link + sheet login, and the truth check.
+  axe: no serious or critical violations on landing, pricing, login, signup, forgot, the auth sheet and the app screens.
+- Screenshots reviewed at both sizes. Fixed from the review: three-line hero headline, mobile overflow, headings that
+  orphaned a word, starter cards whose text was centred vertically.
+- **Not met / not measured:** landing initial JS ≈ 194 KB gzip vs 170 KB (P11); Lighthouse not runnable in the sandbox.
+- **Owner:** render the starters on the real stack and fill `SITE_MEDIA` (`src/features/landing/content.ts`) and
+  `STARTERS[].video`, since there are no real Animato renders in the repo yet. Set `VITE_CONTACT_EMAIL` for the footer.
+
 ## Verification commands
 
 ```bash

@@ -209,6 +209,30 @@ TypeScript fallback (allowed only for timeline math and compositing):
 - **P2 · Title derivation.** `titleFromPrompt` drops a leading verb and article, keeps the first clause, caps at 6 words and 32 characters, trims a dangling connector, and uses Title Case with small words lower-case. Unit-tested; P6 reuses it.
 - **P2 · Toasts** sit bottom centre and dismiss after 4 s (errors 7 s so they can be read).
 - **P2 · axe.** `@axe-core/playwright` runs on Videos (empty and filled), the video page, Settings, Create and 404 with reduced motion emulated, so contrast is measured on settled content. No serious or critical violations.
+- **P3 · Landing rebuilt** to plan 6.1's ten sections. Removed: testimonials, logo strip, use cases, editor spotlight, showcase, comparison table, the WASM demo (not in the plan's section list) and the $49/$2,000/Enterprise tiers.
+- **P3 · No fake renders.** The bundled sample clips are ffmpeg test patterns, so the landing shows product illustrations drawn in the page (a sine scene re-laid out 16:9 → 9:16 → 1:1 with a title and word-highlighted captions, the stage list, a caption line) and labels the hero figure as an illustration. `content.ts` has `SITE_MEDIA` slots for real Animato renders.
+- **P3 · Old auth brand panel removed.** It played an ffmpeg clip captioned as a Manim render ("mandelbrot_zoom.py · Manim · Rendered"), an invented fact.
+- **P3 · OAuth buttons removed.** "Continue with Google/GitHub (coming soon)" advertised something that does not exist.
+- **P3 · GSAP removed.** Framer Motion's `whileInView` covers the landing's reveals, so GSAP (and its non-OSI licence) is gone. Reveals render statically under reduced motion.
+- **P3 · Claims audit.** The landing claims export formats, local captions and voice, which the shipped editor does. It does not claim watermark, end card, looks or one-click formats until P6 ships them. An e2e test bans "testimonial", "4K", "ETA", "trusted by", old prices and "annual" on `/` and `/pricing`.
+- **P3 · Footer.** Terms read "published before launch". The contact email comes from `VITE_CONTACT_EMAIL` and is hidden when unset, so no address is invented.
+- **P3 · Auth layout.** One centred 400 px card, wordmark above, a legal line below. The same `SignupForm`/`LoginForm` render in the page and in the landing sheet (`AuthSheet`). Switching between them carries the typed email.
+- **P3 · Password rule.** A quiet "8 to 72 characters" line ticks green once met. The strength meter is gone, because the server has no strength rule.
+- **P3 · Verify.** Resend starts on a 60 s countdown (a code was just sent), "Check your spam folder" appears after 30 s, and 5 wrong codes show "This code is locked. Send a new one."
+- **P3 · Reset.** A malformed token shows "This link is not valid" with no request. Success replaces history with `/login` and shows the toast from the plan.
+- **P3 · Pending prompt** is JSON `{ prompt, engine }` in sessionStorage. After signup+verify or login it becomes a drafting video. Only the first one in a browser auto-starts (3 s Cancel); later ones wait for Generate (flag `animato:auto-started:<email>`).
+- **P3 · Draft state.** A refused job keeps the draft with its mapped error, and a 429 also blocks Generate with the countdown.
+- **P3 · Create.** Options are Length (Short ~10 s, Medium ~20 s, Long ~45 s) and Style (Clean, Bold, Playful, Technical), remembered in localStorage, plus "Use my brand colours" shown only when a kit exists. The server prompt carries no aspect. "Tidy up my prompt" rewrites inline with Undo; the diff dialog is gone. Starters are horizontal cards and fill the prompt and engine.
+- **P3 · Engine reason.** Auto's choice is explained in a line under the control ("Picked Explainer because you mentioned 'derivative'") instead of a tooltip, so it works on touch.
+- **P3 · Render view.** Stages with real elapsed time per stage, a shimmer on the active one only, and "Fixing a render error" when `GeneratingCode` follows `Rendering`. "Usually takes about N min" appears only after 3 renders of that engine watched from Pending to Completed (median). There is no percentage.
+- **P3 · Wait actions.** Inline brand kit (logo and two colours) and "Draft your next idea", which starts another video without leaving the page.
+- **P3 · Notifications.** Offered once, after a render has started, as a text button. A system notification fires only if the tab is hidden, the preference is on and permission is granted. Tab titles: "Rendering… · Animato", "✓ Ready · Animato", "Didn’t render · Animato".
+- **P3 · Prefetch.** On Completed the render is imported into OPFS and placed on the video's timeline, so Open in editor is instant. A failed import shows the ready-remote fallback.
+- **P3 · Ready video** autoplays muted, with the player's mute state matching.
+- **P3 · Entitlements and SITE_URL.** `getEntitlements()` returns the early-access free plan. `SITE_URL` is `VITE_SITE_URL` or the current origin (D2).
+- **P3 · Analytics seam.** `track()` writes to an in-memory ring buffer (and `console.debug` in dev). Props never include prompt text or email.
+- **P3 · Remix links.** `?prompt=` and `?engine=` are sanitised (trim, 2,000 cap, control characters stripped, engine allow-list) on the landing page and in Create.
+- **P3 · Budgets (measured, not met).** Landing initial JS is about 194 KB gzip (index 42.6 + react 96.2 + motion 50.3 + page 5.4) against a 170 KB budget. Motion is the lever (lazy `LazyMotion` or CSS-only reveals); recorded for P11. Lighthouse cannot run in the sandbox (not installed, no download), so LCP/CLS/score are unmeasured.
 
 ## 6. Mock vs real
 
