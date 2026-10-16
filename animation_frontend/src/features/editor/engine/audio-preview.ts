@@ -33,6 +33,14 @@ export class AudioPreview {
           if (e.data?.type === 'ready') {
             clearTimeout(timer)
             resolve()
+          } else if (e.data?.type === 'messageerror') {
+            void fetch(wasmUrl)
+              .then((r) => r.arrayBuffer())
+              .then((bytes) => node.port.postMessage({ type: 'init-bytes', bytes }, [bytes]))
+              .catch(reject)
+          } else if (e.data?.type === 'error') {
+            clearTimeout(timer)
+            reject(new Error(`Audio engine failed to start: ${String(e.data.message)}`))
           }
         }
         node.port.postMessage({ type: 'init', module })
