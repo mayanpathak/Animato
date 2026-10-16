@@ -96,10 +96,10 @@ export function OtpInput({ value, onChange, onComplete, disabled = false, invali
             aria-label={`Digit ${index + 1} of ${LENGTH}`}
             aria-invalid={invalid || undefined}
             className={cn(
-              'h-14 w-full max-w-13 min-w-0 rounded-lg border bg-surface-1 text-center font-mono text-xl font-semibold text-fg shadow-inner-highlight caret-accent outline-none transition-[border-color,box-shadow,background-color] duration-150',
-              'focus:border-accent focus:ring-3 focus:ring-accent-soft disabled:opacity-50',
-              filled ? 'border-line-strong bg-surface-2' : 'border-line',
-              invalid && 'border-status-failed/70 focus:ring-status-failed/15',
+              'h-14 w-full max-w-13 min-w-0 rounded-control border bg-surface-2 text-center font-display text-2xl font-semibold text-fg tabular-nums caret-accent outline-none transition-[border-color,box-shadow] duration-[var(--duration-fast)]',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ring disabled:opacity-50',
+              filled ? 'border-line-strong' : 'border-line',
+              invalid && 'border-status-failed/60',
             )}
           />
         )

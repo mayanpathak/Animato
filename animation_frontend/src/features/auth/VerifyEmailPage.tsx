@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { CheckCircle2, FlaskConical, RotateCw } from 'lucide-react'
+import { CheckCircle2, FlaskConical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { authApi } from '@/lib/api/auth'
@@ -11,7 +11,7 @@ import { useTitle } from '@/lib/useTitle'
 import { useSession } from '@/stores/session'
 import { AuthBanner, AuthLayout } from './AuthLayout'
 import { OtpInput } from './OtpInput'
-import { createPathFor, readPendingPrompt } from './pendingPrompt'
+import { useAfterAuth } from './afterAuth'
 
 const RESEND_COOLDOWN_SECS = 60
 // The server locks a code after this many wrong guesses.
@@ -31,7 +31,15 @@ export default function VerifyEmailPage() {
   const [wrongGuesses, setWrongGuesses] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [cooldown, setCooldown] = useState(0)
+  // A code was just sent with signup: resend opens after 60 s (plan 6.2).
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECS)
+  const [showSpamHint, setShowSpamHint] = useState(false)
+  const afterAuth = useAfterAuth()
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowSpamHint(true), 30_000)
+    return () => clearTimeout(t)
+  }, [])
   const [resending, setResending] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
@@ -47,11 +55,9 @@ export default function VerifyEmailPage() {
     setError(null)
     setNotice(null)
     try {
-      await verifyEmail(value)
+      const verifiedUser = await verifyEmail(value)
       setVerified(true)
-      const pending = readPendingPrompt()
-      // The verify guard sends verified users to /app as well; Home then forwards a pending prompt.
-      navigate(pending ? createPathFor(pending) : '/app', { replace: true })
+      await afterAuth(verifiedUser)
     } catch (e) {
       setError(errorMessage(e))
       setCode('')
@@ -99,7 +105,7 @@ export default function VerifyEmailPage() {
       title="Check your email"
       subtitle={
         <>
-          Enter the 6-digit code we sent to{' '}
+          We sent a 6-digit code to{' '}
           <span className="font-medium break-all text-fg">{user?.email ?? 'your email'}</span>.
         </>
       }
@@ -118,7 +124,7 @@ export default function VerifyEmailPage() {
       }
     >
       {MOCKS ? (
-        <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft px-3 py-1 text-xs text-accent">
+        <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs text-fg-muted">
           <FlaskConical className="size-3.5" /> Demo mode: the code is 123456
         </p>
       ) : null}
@@ -145,7 +151,7 @@ export default function VerifyEmailPage() {
                 animate={{ opacity: 1 }}
                 className="inline-flex items-center gap-1.5 text-status-succeeded"
               >
-                <CheckCircle2 className="size-3.5" /> Verified. Opening your studio…
+                <CheckCircle2 className="size-3.5" /> Verified.
               </motion.span>
             ) : verifying ? (
               <motion.span
@@ -174,7 +180,7 @@ export default function VerifyEmailPage() {
             transition={{ duration: 0.24, ease: ease.outExpo }}
             className="mt-4 overflow-hidden text-sm text-status-warning"
           >
-            After {MAX_ATTEMPTS} wrong tries a code stops working. Request a new one below.
+            This code is locked. Send a new one.
           </motion.p>
         ) : null}
       </AnimatePresence>
@@ -186,13 +192,14 @@ export default function VerifyEmailPage() {
         onClick={() => void resend()}
         loading={resending}
         disabled={cooldown > 0 || verified}
-        leftIcon={<RotateCw className="size-4" />}
       >
         {cooldown > 0 ? `Resend code in ${formatWait(cooldown)}` : 'Resend code'}
       </Button>
-      <p className="mt-3 text-center text-xs text-fg-faint">
-        Codes expire after 15 minutes. Check your spam folder if nothing arrives.
-      </p>
+      {showSpamHint ? (
+        <p className="mt-3 text-center text-sm text-fg-muted" data-testid="spam-hint">
+          Nothing yet? Check your spam folder.
+        </p>
+      ) : null}
     </AuthLayout>
   )
 }

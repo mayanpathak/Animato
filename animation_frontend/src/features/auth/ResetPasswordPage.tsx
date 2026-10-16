@@ -3,13 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, LinkIcon } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { Button, buttonClass } from '@/components/ui/button'
 import { authApi } from '@/lib/api/auth'
 import { errorMessage } from '@/lib/api/http'
 import { useTitle } from '@/lib/useTitle'
+import { toast } from '@/stores/toast'
 import { isResetToken, passwordError } from '@/lib/validation'
-import { AuthBanner, AuthLayout, linkClass, PasswordField, StrengthMeter } from './AuthLayout'
+import { AuthBanner, AuthLayout, linkClass, PasswordField, PasswordRules } from './AuthLayout'
 
 const schema = z
   .object({
@@ -45,10 +46,8 @@ function ResetForm({ token }: { token: string }) {
     try {
       await authApi.resetPassword(token, values.password)
       // Replace, so the URL holding the token is dropped from history.
-      navigate('/login', {
-        replace: true,
-        state: { notice: 'Password updated. Log in with your new password.' },
-      })
+      toast.success('Password changed. Log in with your new password.')
+      navigate('/login', { replace: true })
     } catch (e) {
       setServerError(errorMessage(e))
       reset({ password: '', confirm: '' })
@@ -75,7 +74,7 @@ function ResetForm({ token }: { token: string }) {
             error={errors.password?.message}
             {...register('password')}
           />
-          <StrengthMeter password={password} />
+          <PasswordRules password={password} />
         </div>
         <PasswordField
           label="Confirm new password"
@@ -98,16 +97,12 @@ export default function ResetPasswordPage() {
   // A token of the wrong shape cannot be valid, so nothing is sent.
   if (!isResetToken(token)) {
     return (
-      <AuthLayout title="This link does not work" footer={backToLogin}>
-        <div role="alert" className="rounded-xl border border-line bg-surface-1 p-5">
-          <div className="grid size-11 place-items-center rounded-xl border border-status-failed/30 bg-status-failed/10 text-status-failed">
-            <LinkIcon className="size-5" />
-          </div>
-          <p className="mt-4 text-sm text-fg">The reset link is incomplete or malformed.</p>
-          <p className="mt-1 text-xs text-fg-subtle">
+      <AuthLayout title="This link is not valid" footer={backToLogin}>
+        <div role="alert">
+          <p className="text-fg-muted">
             Copy the whole link from the email, or ask for a fresh one. Each link works once.
           </p>
-          <Link to="/forgot-password" className={buttonClass('secondary', 'md', 'mt-4')}>
+          <Link to="/forgot-password" className={buttonClass('secondary', 'md', 'mt-5')}>
             Request a new link
           </Link>
         </div>
