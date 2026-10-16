@@ -135,3 +135,28 @@ export async function markTakeStatus(jobId: string, status: 'Completed' | 'Faile
     announceVideosChanged()
   }
 }
+
+/**
+ * Turns a pending landing-page prompt into a drafting video and returns its
+ * page. Only the first such video in this browser starts itself (after a 3 s
+ * Cancel); later ones wait for an explicit Generate.
+ */
+export async function draftFromPending(
+  owner: string,
+  pending: { prompt: string; engine: 'auto' | 'manim' | 'remotion' },
+  format: VideoFormat,
+): Promise<Project> {
+  const key = `animato:auto-started:${owner}`
+  let first = true
+  try {
+    first = localStorage.getItem(key) === null
+    localStorage.setItem(key, '1')
+  } catch {
+    // storage blocked: treat as first, the user can still cancel
+  }
+  const video = newVideo(owner, null, format, titleFromPrompt(pending.prompt))
+  video.draft = { prompt: pending.prompt, engine: pending.engine, autoStart: first }
+  await projectsTable.put(video)
+  announceVideosChanged()
+  return video
+}

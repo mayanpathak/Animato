@@ -10,8 +10,8 @@ import { buttonClass } from '@/components/ui/button'
 import { FullPageSpinner } from '@/components/ui/spinner'
 import { Skeleton } from '@/components/ui/misc'
 import { useProject } from '@/lib/local/hooks'
-import { useTitle } from '@/lib/useTitle'
-import { JobView } from '@/features/jobs/JobPage'
+import { DraftView } from './DraftView'
+import { TakeView } from './TakeView'
 import { selectedTake } from './model'
 
 const Editor = lazy(() => import('@/features/editor/EditorPage'))
@@ -43,7 +43,6 @@ export default function VideoPage() {
   const { id = '' } = useParams()
   const [params] = useSearchParams()
   const video = useProject(id)
-  useTitle(video.data?.name ?? 'Video')
 
   if (params.get('mode') === 'timeline')
     return (
@@ -69,8 +68,10 @@ export default function VideoPage() {
     <div className="min-h-dvh bg-canvas">
       <VideoBar title={video.data?.name ?? null} />
       {video.data && take ? (
-        // Keyed by take: another take starts with a fresh status feed.
-        <JobView key={take.jobId} id={take.jobId} video={video.data} />
+        // Keyed by take: another take starts with fresh state.
+        <TakeView key={take.jobId} take={take} video={video.data} />
+      ) : video.data?.draft ? (
+        <DraftView key={video.data.id} video={video.data} />
       ) : video.data ? (
         <div className="mx-auto max-w-md px-6 py-24 text-center">
           <p className="text-fg-muted">This video has no render yet.</p>

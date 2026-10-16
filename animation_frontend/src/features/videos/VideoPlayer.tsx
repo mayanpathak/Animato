@@ -61,7 +61,8 @@ export function VideoPlayer({
   const [rate, setRate] = useState<(typeof RATES)[number]>(1)
   const [loop, setLoop] = useState(false)
   const [volume, setVolume] = useState(1)
-  const [muted, setMuted] = useState(false)
+  // Autoplay is muted (plan 3.4: the ready video plays muted); the user unmutes.
+  const [muted, setMuted] = useState(autoPlay)
   const [fullscreen, setFullscreen] = useState(false)
   const [waiting, setWaiting] = useState(true)
   const [failed, setFailed] = useState(false)

@@ -65,7 +65,7 @@ export function normalizeHex(input: string): string | null {
   return `#${h.length === 3 ? [...h].map((c) => c + c).join('') : h}`
 }
 
-export const DEFAULT_COLORS = ['#8b5cf6', '#22d3ee', '#e879f9']
+export const DEFAULT_COLORS = ['#2f7bf6', '#f5f5f7', '#111113']
 
 export function defaultKit(owner: string, name: string): BrandKit {
   return {

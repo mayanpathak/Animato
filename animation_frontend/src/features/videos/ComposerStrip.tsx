@@ -13,7 +13,16 @@ import { useStartVideo } from '@/features/create/useStartVideo'
 const ENGINE_LABEL: Record<Engine, string> = { auto: 'Auto', manim: 'Explainer', remotion: 'Motion' }
 const ORDER: Engine[] = ['auto', 'manim', 'remotion']
 
-export function ComposerStrip({ initial = '' }: { initial?: string }) {
+export function ComposerStrip({
+  initial = '',
+  stay = false,
+  onStarted,
+}: {
+  initial?: string
+  /** Start the job but stay on the current page (the composer sheet). */
+  stay?: boolean
+  onStarted?: () => void
+}) {
   const [prompt, setPrompt] = useState(initial)
   const [engine, setEngine] = useState<Engine>('auto')
   const [focused, setFocused] = useState(false)
@@ -25,7 +34,9 @@ export function ComposerStrip({ initial = '' }: { initial?: string }) {
   const submit = (e?: FormEvent) => {
     e?.preventDefault()
     if (pending || wait > 0) return
-    void start(prompt, engine)
+    void start(prompt, engine, undefined, { stay }).then((ok) => {
+      if (ok) onStarted?.()
+    })
   }
 
   const auto = engine === 'auto' ? pickEngine(prompt) : null
