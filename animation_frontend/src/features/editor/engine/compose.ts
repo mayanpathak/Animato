@@ -107,8 +107,9 @@ export function sourceTime(tl: TimelineV2, c: MediaClipV2, t: number): number {
 
 /**
  * The look's backdrop (plan 7.3, Clean and Bold off-format): a dimmed,
- * blurred copy of the main video filling the canvas behind it. It reuses the
- * main layer's decoded frame.
+ * scaled copy of the main video filling the canvas behind it. It reuses the
+ * main layer's decoded frame. Not blurred: the compositor's blur samples
+ * 169 taps per pixel, too much for a full-canvas layer on modest GPUs.
  */
 function backdrop(tl: TimelineV2, assets: Map<string, MediaAsset>, media: MediaLayer[]): MediaLayer[] {
   const look = tl.finish?.look
@@ -128,11 +129,11 @@ function backdrop(tl: TimelineV2, assets: Map<string, MediaAsset>, media: MediaL
       y: 0.5,
       scale: cover,
       rotation: 0,
-      brightness: l.brightness * 0.45,
-      saturation: l.saturation * 0.85,
+      brightness: l.brightness * 0.32,
+      saturation: l.saturation * 0.7,
       crop: { top: 0, right: 0, bottom: 0, left: 0 },
       z: l.z - 5,
-      blur: 10,
+      blur: 0,
     }))
 }
 

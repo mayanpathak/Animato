@@ -25,15 +25,14 @@ import { isFinished } from '@/lib/api/types'
 import { track } from '@/lib/analytics'
 import { cn } from '@/lib/cn'
 import { formatBytes, formatDuration } from '@/lib/format'
-import { keys, useCreateJob, useJob, useOwner } from '@/lib/local/hooks'
-import { brandTable, jobsTable, type Project, type Take } from '@/lib/local/models'
+import { keys, useJob, useOwner } from '@/lib/local/hooks'
+import { jobsTable, type Project, type Take } from '@/lib/local/models'
 import { duration, ease } from '@/lib/motion'
 import { addJobToProject, timelineOf } from '@/features/editor/projects'
-import { buildServerPrompt, optionsFromRecord, recordOptions } from '@/features/create/prompt'
-import { DEFAULT_OPTIONS } from '@/features/create/useStartVideo'
 import { usePreferences } from '@/stores/preferences'
 import { toast } from '@/stores/toast'
 import { RenderView } from './RenderView'
+import { useAnotherTake } from './useAnotherTake'
 import { VideoPlayer } from './VideoPlayer'
 import { WaitActions } from './WaitActions'
 
@@ -130,14 +129,13 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const job = useJob(take.jobId)
-  const createJob = useCreateJob()
+  const another = useAnotherTake(video.id)
   const record = useQuery({
     queryKey: ['job-record', take.jobId],
     queryFn: async () => (await jobsTable.get(take.jobId)) ?? null,
     staleTime: Infinity,
   })
   const status = job.data?.status ?? take.status
-  const [retryError, setRetryError] = useState<string | null>(null)
   const [importState, setImportState] = useState<ImportState>('idle')
   const seenRunning = useRef(false)
   useTakeTitle(video.name, status)
@@ -180,26 +178,7 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
-  const tryAgain = async () => {
-    setRetryError(null)
-    const prompt = record.data?.prompt ?? take.prompt
-    const stored = record.data?.options ?? recordOptions(DEFAULT_OPTIONS, null)
-    const options = optionsFromRecord(stored)
-    const kit = options.useBrand ? ((await brandTable.get(stored.brandKitId ?? '')) ?? null) : null
-    try {
-      const { video: next } = await createJob.mutateAsync({
-        prompt,
-        library: take.library,
-        options: stored,
-        serverPrompt: buildServerPrompt(prompt, options, kit),
-        videoId: video.id,
-      })
-      track('job_create', { library: take.library, retry: true })
-      navigate(ROUTES.video(next.id), { replace: true })
-    } catch (e) {
-      setRetryError(errorMessage(e))
-    }
-  }
+  const tryAgain = () => another.start(take, 'retry')
 
   const editPromptHref = `${ROUTES.newVideo}?prompt=${encodeURIComponent(take.prompt)}&engine=${take.library}`
   const loadState = job.error ? classifyGetJobError(job.error) : null
@@ -274,7 +253,7 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
           {take.prompt ? <p className="mt-5 line-clamp-3 text-fg-subtle">“{take.prompt}”</p> : null}
           <div className="mt-7 flex flex-wrap items-center gap-2">
             {take.prompt ? (
-              <Button onClick={() => void tryAgain()} loading={createJob.isPending} data-testid="job-retry">
+              <Button onClick={() => void tryAgain()} loading={another.pending} data-testid="job-retry">
                 Try again
               </Button>
             ) : null}
@@ -283,7 +262,7 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
             </Link>
           </div>
           {take.prompt ? <p className="mt-3 text-sm text-fg-subtle">Uses 1 of your renders.</p> : null}
-          {retryError ? <p className="mt-3 text-sm text-status-failed">{retryError}</p> : null}
+          {another.error ? <p className="mt-3 text-sm text-status-failed">{another.error}</p> : null}
           {details ? <Details text={details} /> : null}
         </section>
       </div>

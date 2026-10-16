@@ -1,6 +1,6 @@
 // /app/v/:id — the one page of a video (plan 3.1, 3.4). It follows the
-// selected take: rendering, failed or ready. `?mode=timeline` opens the
-// fine-tune editor on the same video.
+// selected take: rendering, failed, or ready, which is Finish (plan 6.6).
+// `?mode=timeline` opens the fine-tune editor on the same video.
 import { lazy, Suspense } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -13,6 +13,7 @@ import { useProject } from '@/lib/local/hooks'
 import { DraftView } from './DraftView'
 import { TakeView } from './TakeView'
 import { selectedTake } from './model'
+import { timelineOf } from '@/features/editor/projects'
 
 const Editor = lazy(() => import('@/features/editor/EditorPage'))
 
@@ -64,6 +65,15 @@ export default function VideoPage() {
     )
 
   const take = video.data ? selectedTake(video.data) : null
+  // Ready and in this browser: Finish (plan 6.6). The take views import the
+  // render first; they also cover rendering, failure and import errors.
+  if (video.data && take?.status === 'Completed' && timelineOf(video.data).timeline.clips.length > 0)
+    return (
+      <Suspense fallback={<FullPageSpinner />}>
+        <Editor mode="finish" />
+        <AppChrome />
+      </Suspense>
+    )
   return (
     <div className="min-h-dvh bg-canvas">
       <VideoBar title={video.data?.name ?? null} />

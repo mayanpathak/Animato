@@ -17,6 +17,7 @@ export function Tabs<T extends string>({
   className,
   size = 'md',
   label,
+  fill,
 }: {
   items: TabItem<T>[]
   value: T
@@ -24,13 +25,19 @@ export function Tabs<T extends string>({
   className?: string
   size?: 'sm' | 'md'
   label: string
+  /** Equal-width segments across the full width. */
+  fill?: boolean
 }) {
   const id = useId()
   return (
     <div
       role="tablist"
       aria-label={label}
-      className={cn('relative inline-flex items-center gap-0.5 rounded-full bg-surface-2 p-0.5', className)}
+      className={cn(
+        'relative items-center gap-0.5 rounded-full bg-surface-2 p-0.5',
+        fill ? 'flex w-full' : 'inline-flex',
+        className,
+      )}
       onKeyDown={(e) => {
         const i = items.findIndex((t) => t.value === value)
         if (e.key === 'ArrowRight') onChange(items[(i + 1) % items.length].value)
@@ -48,7 +55,8 @@ export function Tabs<T extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(item.value)}
             className={cn(
-              'relative inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap transition-colors duration-[var(--duration-fast)] [&_svg]:size-3.5',
+              'relative inline-flex items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition-colors duration-[var(--duration-fast)] [&_svg]:size-3.5',
+              fill && 'flex-1',
               size === 'sm' ? 'h-7 px-3 text-xs' : 'h-8 px-3.5 text-sm',
               active ? 'text-fg' : 'text-fg-subtle hover:text-fg-muted',
             )}

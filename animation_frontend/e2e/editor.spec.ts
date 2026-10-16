@@ -127,6 +127,7 @@ test('real media: import, edit, undo/redo, export and verify the file', async ({
 
   // Export locally and verify the downloaded file.
   await page.getByTestId('open-export').click()
+  await page.getByTestId('export-more').click()
   await page.getByRole('tab', { name: '720p' }).click()
   await page.getByRole('tab', { name: 'WebM' }).click()
   const downloadPromise = page.waitForEvent('download', { timeout: 180_000 })
@@ -169,6 +170,7 @@ test('MP4 import goes through the Rust demuxer and the WebGPU compositor preview
   await video.first().click()
   await page.getByTestId('speed-4').click()
   await page.getByTestId('open-export').click()
+  await page.getByTestId('export-more').click()
   await page.getByRole('tab', { name: '720p' }).click()
   await page.getByRole('tab', { name: 'MP4' }).click()
   const downloadPromise = page.waitForEvent('download', { timeout: 200_000 })

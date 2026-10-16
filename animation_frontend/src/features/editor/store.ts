@@ -125,6 +125,8 @@ export interface EditorState {
   setLook(look: LookId): void
   setCaptionStyle(style: CaptionStyleId): void
   setFormat(aspect: AspectKey): void
+  /** Makes a take's render the main clip (takes strip, plan 6.6). */
+  chooseTake(jobId: string, asset: MediaAsset): void
   snapTargets(excludeId?: string): number[]
 }
 
@@ -442,6 +444,17 @@ export const useEditor = create<EditorState>((set, get) => ({
       ...d,
       timeline: finishOps.setCaptionStyle(d.timeline, style, { assets, brand }),
     }))
+  },
+
+  chooseTake: (jobId, asset) => {
+    const { project } = get()
+    set({ assets: new Map(get().assets).set(asset.id, asset) })
+    get().apply('Use take', (d) => {
+      const kept = d.timeline.clips.filter((c) => c.trackId !== MAIN_VIDEO)
+      const main = mediaClipFor(d.timeline, asset, 0, MAIN_VIDEO, clipId())
+      return { ...d, timeline: insertClip({ ...d.timeline, clips: kept }, main) }
+    })
+    if (project) set({ project: { ...project, selectedTake: jobId } })
   },
 
   setFormat: (aspect) => {

@@ -282,8 +282,26 @@ export function lookItems(input: LookInput): GraphicItem[] {
       track: '#ffffff33',
       layer: 'over',
     })
-  } else {
-    // Brand.
+  }
+  if (look !== 'brand' && logo) {
+    // A small logo in the video's top-right corner, clear of the title and the watermark.
+    const box =
+      aspect === '16:9'
+        ? { x: 0.84, y: 0.05, w: 0.11, h: 0.08 }
+        : { x: video.x + video.w - 0.2, y: video.y + 0.02, w: 0.17, h: Math.min(0.05, video.h * 0.15) }
+    items.push({
+      kind: 'image',
+      id: 'gfx_logo',
+      start: 0,
+      end: Math.max(0.01, input.duration),
+      imageId: logo.id,
+      box,
+      fit: 'contain',
+      opacity: 0.92,
+      layer: 'over',
+    })
+  }
+  if (look === 'brand') {
     const font = brand?.headingFont ?? 'Inter'
     if (aspect === '16:9') {
       if (titleOn) {

@@ -11,24 +11,23 @@ test('prompt → options → render → live status → result → open in edito
 
   await page.getByTestId('create-submit').click()
   await expect(page).toHaveURL(/\/app\/v\/vid_/)
-  await expect(page.getByTestId('render-view').or(page.getByTestId('job-open-editor'))).toBeVisible()
+  await expect(page.getByTestId('render-view').or(page.getByTestId('finish-inspector'))).toBeVisible()
   // The mock walks the real status sequence; the page polls GET /api/jobs/:id.
-  await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
+  // Ready: the render is brought into this browser and Finish opens (plan 6.6).
+  await expect(page.getByTestId('editor')).toHaveAttribute('data-mode', 'finish', { timeout: 60_000 })
+  await expect(page.getByTestId('finish-inspector')).toBeVisible()
+  await expect(page.getByTestId('take')).toHaveCount(1)
+  await expect(page.getByTestId('take')).toHaveAttribute('aria-pressed', 'true')
+  // The derived title (plan 6.4.4) is the hook title.
+  await expect(page.getByTestId('finish-title')).toHaveValue('Binary Search Halves a Sorted')
 
-  // Player controls on the real render.
-  const time = page.getByTestId('player-time')
-  await page.getByTestId('player-play').click()
-  await expect
-    .poll(async () => (await time.textContent())?.trim(), { timeout: 15_000 })
-    .not.toMatch(/^00:00\.0\b/)
-  await page.getByTestId('player-play').click()
-  await page.getByTestId('player-speed').click()
-  await page.getByTestId('player-step-forward').click()
-
-  await page.getByTestId('job-open-editor').click()
+  // T opens the fine-tune timeline on the same video.
+  await page.keyboard.press('t')
   await expect(page).toHaveURL(/\/app\/v\/vid_[^?]+\?mode=timeline/, { timeout: 30_000 })
   await expect(page.locator('[data-testid=track-video] [data-testid=clip]')).toHaveCount(1)
   await expect(page.locator('[data-testid=clip-thumbnails] img').first()).toBeVisible()
+  await page.getByTestId('toggle-mode').click()
+  await expect(page.getByTestId('editor')).toHaveAttribute('data-mode', 'finish')
 })
 
 test('a failing prompt shows the error state with retry', async ({ page }) => {

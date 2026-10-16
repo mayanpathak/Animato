@@ -22,6 +22,8 @@ let assets = new Map<string, MediaAsset>()
 const pool = new SourcePool()
 /** The graphics document the compositor has, as JSON: rebuilt only when it changes. */
 let graphicsKey = ''
+/** The graphics being laid out; frames wait for it so none draws without them. */
+let graphicsPending: Promise<void> = Promise.resolve()
 let brand: BrandRender | null = null
 /** Image ids the current compositor has. */
 let registered = new Set<string>()
@@ -55,9 +57,14 @@ async function syncGraphics() {
   })
   const words = graphicsTranscript(transcript)
   const key = JSON.stringify([doc, words])
-  if (key === graphicsKey) return
+  // The same document may still be loading its fonts for an earlier call:
+  // wait for that instead of returning before it is in place.
+  if (key === graphicsKey) return graphicsPending
   graphicsKey = key
-  await compositor.setGraphics(doc, words)
+  graphicsPending = compositor.setGraphics(doc, words).catch(() => {
+    graphicsKey = ''
+  })
+  return graphicsPending
 }
 
 async function setProject(
@@ -90,6 +97,7 @@ async function render(time: number) {
     registered = new Set()
     await syncGraphics()
   }
+  await graphicsPending
   const t0 = performance.now()
   const plan = planFrame(timeline, time, assets)
   const sources = await pool.gather(plan)

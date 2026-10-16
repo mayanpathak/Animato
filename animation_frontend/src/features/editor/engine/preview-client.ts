@@ -22,6 +22,8 @@ export class PreviewRenderer {
   private inFlight = false
   private queued: number | null = null
   lastMs = 0
+  /** Called after each frame reaches the canvas. */
+  onFrame: (() => void) | null = null
 
   private constructor(rpc: RpcClient) {
     this.rpc = rpc
@@ -64,7 +66,10 @@ export class PreviewRenderer {
     void this.rpc
       .call<{ ms: number } | null>('render', [time])
       .then((r) => {
-        if (r) this.lastMs = r.ms
+        if (r) {
+          this.lastMs = r.ms
+          this.onFrame?.()
+        }
       })
       .catch(() => undefined)
       .finally(() => {

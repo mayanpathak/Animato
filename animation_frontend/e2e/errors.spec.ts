@@ -63,4 +63,14 @@ test('import failure falls back to the plain player with Retry import', async ({
       { timeout: 15_000 },
     )
     .toBeGreaterThan(0)
+
+  // Player controls on the real render.
+  const time = page.getByTestId('player-time')
+  await page.getByTestId('player-play').click()
+  await page.getByTestId('player-play').click()
+  await expect
+    .poll(async () => (await time.textContent())?.trim(), { timeout: 15_000 })
+    .not.toMatch(/^00:00\.0\b/)
+  await page.getByTestId('player-speed').click()
+  await page.getByTestId('player-step-forward').click()
 })

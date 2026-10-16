@@ -26,7 +26,7 @@ test('first visit to first video, timed', async ({ page }) => {
   await expect(page.getByTestId('render-view')).toBeVisible({ timeout: 10_000 })
   await expect(page.getByTestId('render-prompt')).toContainText('Binary search on 16 boxes')
   await expect(page.getByTestId('render-stages')).toBeVisible()
-  await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('finish-inspector')).toBeVisible({ timeout: 60_000 })
   // The sandbox's mocked render is fast; the budget (plan 5.1) is 3 minutes excluding render time.
   expect(Date.now() - started).toBeLessThan(180_000)
 })

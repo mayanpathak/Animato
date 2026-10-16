@@ -21,6 +21,8 @@ export function Preview({
   const renderer = useRef<PreviewRenderer | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  // The first frame can take a while: shaders compile on its first draw.
+  const [drawn, setDrawn] = useState(false)
   const timeline = useEditor((s) => s.timeline)
   const transcript = useEditor((s) => s.transcript)
   const brand = useEditor((s) => s.brand)
@@ -52,6 +54,10 @@ export function Preview({
       .then(({ renderer: r, info }) => {
         if (disposed) return r.dispose()
         renderer.current = r
+        r.onFrame = () => {
+          r.onFrame = null
+          setDrawn(true)
+        }
         onInfo(info)
         setReady(true)
       })
@@ -109,9 +115,16 @@ export function Preview({
           style={{ aspectRatio: `${size.width} / ${size.height}`, height: '100%' }}
         >
           <div ref={hostRef} className="h-full w-full" data-testid="preview" />
-          {!ready && !error ? (
-            <div className="absolute inset-0 grid place-items-center text-fg-subtle">
-              <Spinner className="size-5" label="Starting the compositor" />
+          {!drawn && !error ? (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-fg-subtle"
+              data-testid="preview-pending"
+            >
+              <Spinner
+                className="size-5"
+                label={ready ? 'Preparing the preview' : 'Starting the compositor'}
+              />
+              <span className="text-2xs">{ready ? 'Preparing the preview' : 'Starting the compositor'}</span>
             </div>
           ) : null}
           {error ? (

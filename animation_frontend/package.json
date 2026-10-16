@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "wasm:build": "bash scripts/build-wasm.sh",
     "test:e2e": "playwright test",
+    "test:e2e:slow": "cross-env PW_SLOW=1 playwright test --grep @slow",
     "screenshots": "playwright test --project=screenshots"
   },
   "dependencies": {

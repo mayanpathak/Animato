@@ -20,7 +20,7 @@ test('app screens have no serious axe violations', async ({ page }) => {
   await login(page)
   await audit(page, 'videos-empty')
   await createJob(page, 'Visualise how gradient descent finds the bottom of a valley')
-  await expect(page.getByTestId('job-open-editor')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('finish-inspector')).toBeVisible({ timeout: 60_000 })
   await audit(page, 'video-ready')
   await page.goto('/app')
   await expect(page.getByTestId('video-card')).toHaveCount(1)

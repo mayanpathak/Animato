@@ -35,7 +35,10 @@ async function load(wasm: Wasm, font: BuiltinFont, fallback: boolean): Promise<v
   const bytes = new Uint8Array(await (await fetch(`/fonts/${font.file}`)).arrayBuffer())
   const { face, family } = JSON.parse(wasm.register_font(bytes)) as { face: number; family: string }
   if (fallback) wasm.set_fallback_font(face)
-  const fonts = (self as unknown as { fonts?: FontFaceSet }).fonts
+  // A worker has self.fonts; the main thread (look thumbnails) has document.fonts.
+  const fonts =
+    (self as unknown as { fonts?: FontFaceSet }).fonts ??
+    (typeof document === 'undefined' ? undefined : document.fonts)
   if (fonts && typeof FontFace !== 'undefined') {
     // Variable files cover their whole weight range.
     const ff = new FontFace(family, bytes, { weight: '100 900' })

@@ -20,6 +20,8 @@ const executablePath =
 
 export default defineConfig({
   testDir: './e2e',
+  // @slow tests (a full 1080×1920 export through SwiftShader, ~9 min) run with `npm run test:e2e:slow`.
+  grepInvert: process.env.PW_SLOW ? undefined : /@slow/,
   outputDir: './test-results',
   timeout: 90_000,
   expect: { timeout: 15_000 },

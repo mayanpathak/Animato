@@ -36,7 +36,7 @@ test('app routes render for a signed-in user', async ({ page }) => {
   await page.goto('/app/new')
   await expect(page.getByTestId('create-prompt')).toBeVisible()
   const videoId = await createJob(page)
-  await expect(page.getByTestId('render-view').or(page.getByTestId('job-open-editor'))).toBeVisible()
+  await expect(page.getByTestId('render-view').or(page.getByTestId('finish-inspector'))).toBeVisible()
   expect(videoId).toMatch(/^vid_/)
   await createProject(page)
   await expect(page.getByTestId('editor')).toBeVisible()
