@@ -52,10 +52,28 @@ fn video_info(track: &Track, duration_ms: u32) -> VideoTrackInfo {
     };
     // Profile, constraint flags and level: bytes 1 to 3 of `avcC`.
     let avc = entry.config.as_deref().and_then(|avcc| avcc.get(1..4));
+    let config = entry.config.as_deref();
     let codec_string = match (codec, avc) {
         (VideoCodec::H264, Some([profile, flags, level])) => {
             format!("avc1.{profile:02x}{flags:02x}{level:02x}")
         }
+        // vpcC: version and flags (4 bytes), profile, level, bit depth in the top nibble.
+        (VideoCodec::Vp9, _) => match config.and_then(|c| c.get(4..7)) {
+            Some(&[profile, level, depth]) => format!("vp09.{profile:02}.{level:02}.{:02}", depth >> 4),
+            _ => "vp09.00.10.08".to_owned(),
+        },
+        // av1C: marker/version, then seq_profile (3 bits) and seq_level_idx_0 (5 bits),
+        // then seq_tier_0, high_bitdepth, twelve_bit.
+        (VideoCodec::Av1, _) => match config.and_then(|c| c.get(1..3)) {
+            Some(&[a, b]) => {
+                let profile = a >> 5;
+                let level = a & 0x1f;
+                let tier = if b & 0x80 != 0 { 'H' } else { 'M' };
+                let depth = if b & 0x40 == 0 { 8 } else if b & 0x20 != 0 { 12 } else { 10 };
+                format!("av01.{profile}.{level:02}{tier}.{depth:02}")
+            }
+            _ => "av01.0.04M.08".to_owned(),
+        },
         _ => fourcc_string(entry.fourcc),
     };
 

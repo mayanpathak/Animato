@@ -26,3 +26,6 @@ crates/target
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# The repo root ignores media/; these are the sample renders the job mock serves.
+!/public/media/
