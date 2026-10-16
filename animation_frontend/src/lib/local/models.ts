@@ -1,4 +1,5 @@
 // Records kept in this browser (IndexedDB). None of these exist on the server.
+import type { Observed } from '@/lib/api/polling'
 import type { Library } from '@/lib/api/types'
 import type { Timeline } from '@/features/editor/model/timeline'
 import { table, uid } from './db'
@@ -12,6 +13,8 @@ export interface JobRecord {
   createdAt: number
   /** Options chosen in Prompt Studio; folded into the prompt text the server receives. */
   options: { aspect: string; duration: number; style: string; brandKitId: string | null }
+  /** Status changes this browser observed while polling, with timestamps (ms epoch). */
+  observed?: Observed[]
 }
 
 export type MediaKind = 'video' | 'audio' | 'image'

@@ -4,7 +4,10 @@ import { AnimatePresence, motion } from 'motion/react'
 import { AlertCircle, ChevronDown, Copy, LayoutTemplate, Lightbulb, Sparkles, Wand2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/misc'
-import { ApiError, errorMessage } from '@/lib/api/http'
+import { mapCreateJobError } from '@/lib/api/errors'
+import { formatWait } from '@/lib/api/http'
+import { useRenderWait, useQuota } from '@/lib/quota'
+import { useSession } from '@/stores/session'
 import { STYLES, type VisualStyle } from '@/lib/api/types'
 import { cn } from '@/lib/cn'
 import { useBrandKits, useCreateJob } from '@/lib/local/hooks'
@@ -76,6 +79,7 @@ export default function CreatePage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const textarea = useRef<HTMLTextAreaElement>(null)
 
+  const renderWait = useRenderWait()
   const kits = useBrandKits()
   const createJob = useCreateJob()
   useAutoGrow(textarea, prompt)
@@ -100,7 +104,7 @@ export default function CreatePage() {
     e?.preventDefault()
     setTouched(true)
     setSubmitError(null)
-    if (localError || createJob.isPending) {
+    if (localError || createJob.isPending || renderWait > 0) {
       textarea.current?.focus()
       return
     }
@@ -118,12 +122,18 @@ export default function CreatePage() {
       })
       navigate(`/app/jobs/${job.id}`)
     } catch (err) {
-      const message = errorMessage(err)
-      setSubmitError(
-        err instanceof ApiError && err.status === 403
-          ? `${message}. Verify your email to start rendering.`
-          : message,
-      )
+      const mapped = mapCreateJobError(err)
+      if (mapped.action === 'login') {
+        navigate(`/login?next=${encodeURIComponent(location.pathname + location.search)}`)
+        return
+      }
+      if (mapped.action === 'verify') {
+        await useSession.getState().checkAuth()
+        navigate('/verify-email')
+        return
+      }
+      if (mapped.action === 'wait' && mapped.retryAfter) useQuota.getState().block(mapped.retryAfter)
+      setSubmitError(mapped.message)
     }
   }
 
@@ -263,10 +273,11 @@ export default function CreatePage() {
               <Button
                 type="submit"
                 loading={createJob.isPending}
+                disabled={renderWait > 0}
                 leftIcon={<Sparkles className="size-4" />}
                 data-testid="create-submit"
               >
-                Generate
+                {renderWait > 0 ? `Next render in ${formatWait(renderWait)}` : 'Generate'}
               </Button>
             </div>
           </motion.div>

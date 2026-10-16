@@ -1,7 +1,9 @@
 // React Query wrappers around the local stores and the two job endpoints.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ApiError } from '@/lib/api/http'
 import { jobsApi, type Job } from '@/lib/api/jobs'
-import { isFinished, type Library } from '@/lib/api/types'
+import { isLost, nextPoll, observe, type PollState } from '@/lib/api/polling'
+import { isFinished, type JobStatus, type Library } from '@/lib/api/types'
 import { useSession } from '@/stores/session'
 import {
   brandTable,
@@ -38,15 +40,77 @@ export function useJobHistory() {
   })
 }
 
-/** Polls GET /api/jobs/:id every 2.5 s until the job finishes. */
+// One poll state per job, shared by every screen that watches it (plan 11.3).
+const pollStates = new Map<string, PollState & { lost: boolean }>()
+
+function pollState(id: string): PollState & { lost: boolean } {
+  let s = pollStates.get(id)
+  if (!s) {
+    s = { startedAt: Date.now(), failures: 0, lost: false }
+    pollStates.set(id, s)
+  }
+  return s
+}
+
+/** Records a status change on the local job record (stage timings, "fixing" detection). */
+async function recordObserved(id: string, status: JobStatus): Promise<void> {
+  const record = await jobsTable.get(id)
+  if (!record) return
+  const prev = record.observed ?? []
+  const next = observe(prev, status, Date.now())
+  if (next !== prev) await jobsTable.put({ ...record, observed: next })
+}
+
+function isHidden(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden'
+}
+
+function isGone(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 404 || error.status === 400)
+}
+
+/**
+ * Polls GET /api/jobs/:id with backoff (2 s, 4 s, 8 s; 15 s while hidden)
+ * until the job finishes, the job is gone, or polling gives up after 8
+ * consecutive failures or 45 minutes (`lost`). `checkAgain` resets the counters.
+ */
 export function useJob(id: string | undefined) {
-  return useQuery<Job>({
+  const query = useQuery<Job>({
     queryKey: keys.job(id ?? ''),
-    queryFn: () => jobsApi.get(id as string),
+    queryFn: async () => {
+      const state = pollState(id as string)
+      try {
+        const job = await jobsApi.get(id as string)
+        state.failures = 0
+        await recordObserved(job.id, job.status).catch(() => undefined)
+        return job
+      } catch (e) {
+        if (!isGone(e)) state.failures += 1
+        // An unverified session answers 403: re-check who is logged in.
+        if (e instanceof ApiError && e.status === 403) void useSession.getState().checkAuth()
+        throw e
+      } finally {
+        // Read by the render below; the poll that crosses a limit re-renders with it.
+        state.lost = isLost(state, Date.now())
+      }
+    },
     enabled: Boolean(id),
-    refetchInterval: (q) => (q.state.data && isFinished(q.state.data.status) ? false : 2500),
+    retry: false,
+    refetchIntervalInBackground: true,
+    refetchInterval: (q) => {
+      if (!id || isGone(q.state.error)) return false
+      return nextPoll(q.state.data?.status, pollState(id), Date.now(), isHidden())
+    },
     staleTime: (q) => (q.state.data && isFinished(q.state.data.status) ? Infinity : 0),
   })
+  const finished = query.data ? isFinished(query.data.status) : false
+  const lost = Boolean(id && pollStates.get(id)?.lost) && !finished && !isGone(query.error)
+  const checkAgain = () => {
+    if (!id) return
+    pollStates.set(id, { startedAt: Date.now(), failures: 0, lost: false })
+    void query.refetch()
+  }
+  return { ...query, lost, checkAgain }
 }
 
 export function useCreateJob() {

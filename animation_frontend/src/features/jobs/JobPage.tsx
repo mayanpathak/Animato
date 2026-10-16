@@ -19,7 +19,17 @@ import {
 } from 'lucide-react'
 import { Button, buttonClass } from '@/components/ui/button'
 import { Badge, ErrorState, Progress, Skeleton, StatusChip } from '@/components/ui/misc'
-import { ApiError, errorMessage } from '@/lib/api/http'
+import {
+  classifyGetJobError,
+  FAILED_TITLE,
+  failureCause,
+  IMPORT_FAILED_TEXT,
+  RENDER_GONE_TEXT,
+  SERVER_ERROR_TEXT,
+  technicalDetails,
+  UNREACHABLE_TEXT,
+} from '@/lib/api/errors'
+import { errorMessage } from '@/lib/api/http'
 import { jobsApi, type Job } from '@/lib/api/jobs'
 import {
   STATUS_LABELS,
@@ -296,6 +306,7 @@ function FailurePanel({
   prompt: string | null
 }) {
   const [open, setOpen] = useState(false)
+  const details = technicalDetails(job.errorMessage)
   return (
     <section
       role="alert"
@@ -306,11 +317,8 @@ function FailurePanel({
           <AlertTriangle className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-lg font-semibold tracking-tight">This render failed</h2>
-          <p className="mt-1 text-sm text-fg-muted">
-            The generated scene did not render. Running it again often works; if it fails twice, simplify the
-            prompt or switch engine.
-          </p>
+          <h2 className="font-display text-lg font-semibold tracking-tight">{FAILED_TITLE}</h2>
+          <p className="mt-1 text-sm text-fg-muted">{failureCause(job.errorMessage)}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {canRetry ? (
               <Button
@@ -319,7 +327,7 @@ function FailurePanel({
                 leftIcon={<RotateCcw className="size-4" />}
                 data-testid="job-retry"
               >
-                Retry render
+                Try again
               </Button>
             ) : null}
             <Link
@@ -329,10 +337,11 @@ function FailurePanel({
               Edit prompt
             </Link>
           </div>
+          {canRetry ? <p className="mt-2 text-2xs text-fg-subtle">Uses 1 of your renders.</p> : null}
           {retryError ? <p className="mt-3 text-sm text-status-failed">{retryError}</p> : null}
         </div>
       </div>
-      {job.errorMessage ? (
+      {details ? (
         <div className="mt-5 rounded-lg border border-line bg-canvas/60">
           <button
             type="button"
@@ -340,7 +349,7 @@ function FailurePanel({
             aria-expanded={open}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-fg-muted hover:text-fg"
           >
-            Error details
+            Technical details
             <ChevronDown className={cn('ml-auto size-3.5 transition-transform', open && 'rotate-180')} />
           </button>
           <AnimatePresence initial={false}>
@@ -352,7 +361,7 @@ function FailurePanel({
                 transition={{ duration: 0.25, ease: ease.outExpo }}
                 className="overflow-hidden border-t border-line px-3 py-2.5 font-mono text-2xs leading-relaxed break-words whitespace-pre-wrap text-status-failed/90"
               >
-                {job.errorMessage}
+                {details}
               </motion.pre>
             ) : null}
           </AnimatePresence>
@@ -386,6 +395,7 @@ function JobView({ id }: { id: string }) {
   const [opening, setOpening] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [retryError, setRetryError] = useState<string | null>(null)
+  const [importError, setImportError] = useState(false)
 
   const status = job.data?.status
   const library: Library = record?.library ?? job.data?.library ?? 'remotion'
@@ -398,13 +408,16 @@ function JobView({ id }: { id: string }) {
   const openInEditor = async () => {
     if (opening) return
     setOpening(true)
+    setImportError(false)
     try {
       const project = await createProjectFromJob(id, owner, name, aspectOf(record))
       void qc.invalidateQueries({ queryKey: keys.projects(owner) })
       void qc.invalidateQueries({ queryKey: keys.media(owner) })
       navigate(`/app/projects/${project.id}/edit`)
-    } catch (e) {
-      toast.error('Could not open in the editor', errorMessage(e))
+    } catch {
+      // Usually CORS on the S3 redirect or a network drop. The <video> player
+      // keeps working (it needs no CORS); finishing needs the bytes.
+      setImportError(true)
       setOpening(false)
     }
   }
@@ -444,26 +457,33 @@ function JobView({ id }: { id: string }) {
     }
   }
 
-  if (job.error) {
-    const code = job.error instanceof ApiError ? job.error.status : 0
-    if (code === 404 || code === 400) {
+  const loadState = job.error ? classifyGetJobError(job.error) : null
+  if (job.error && (loadState === 'gone' || !job.data)) {
+    if (loadState === 'gone') {
       return (
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
           <div className="flex flex-col items-center rounded-2xl border border-dashed border-line-strong bg-surface-1/50 px-6 py-16 text-center">
             <span className="grid size-12 place-items-center rounded-xl border border-line bg-surface-2 text-fg-subtle">
               <FileQuestion className="size-5" />
             </span>
-            <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight">Job not found</h1>
+            <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight">{RENDER_GONE_TEXT}</h1>
             <p className="mt-1.5 max-w-sm text-sm text-fg-muted">
-              It may belong to another account, or the link is incomplete. Jobs are only visible to the
+              It may belong to another account, or the link is incomplete. Renders are only visible to the
               account that started them.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               <Link to="/app" className={buttonClass('secondary')}>
                 Back to Home
               </Link>
-              <Link to="/app/create" className={buttonClass('primary')}>
-                <Sparkles className="size-4" /> New animation
+              <Link
+                to={
+                  record
+                    ? `/app/create?prompt=${encodeURIComponent(record.prompt)}&engine=${record.library}`
+                    : '/app/create'
+                }
+                className={buttonClass('primary')}
+              >
+                <Sparkles className="size-4" /> {record ? 'Render again' : 'New animation'}
               </Link>
             </div>
           </div>
@@ -474,7 +494,13 @@ function JobView({ id }: { id: string }) {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <ErrorState
           title="Could not load this job"
-          body={errorMessage(job.error)}
+          body={
+            loadState === 'unreachable'
+              ? UNREACHABLE_TEXT
+              : loadState === 'server'
+                ? SERVER_ERROR_TEXT
+                : errorMessage(job.error)
+          }
           action={
             <Button
               variant="secondary"
@@ -507,6 +533,19 @@ function JobView({ id }: { id: string }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-6">
           <HeroCard id={id} record={record} job={data} recordLoading={recordQuery.isPending} />
+
+          {job.lost ? (
+            <div
+              role="status"
+              data-testid="job-lost"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface-1 px-4 py-3 text-sm"
+            >
+              <span className="text-fg-muted">Lost track of this render.</span>
+              <Button size="sm" variant="secondary" onClick={job.checkAgain}>
+                Check again
+              </Button>
+            </div>
+          ) : null}
 
           {!data ? (
             <div className="surface-card rounded-2xl p-6" aria-busy>
@@ -606,6 +645,26 @@ function JobView({ id }: { id: string }) {
                   <Sparkles className="size-3.5" /> New variation
                 </Link>
               </div>
+              {importError ? (
+                <div role="alert" data-testid="import-failed" className="mt-3 text-sm">
+                  <p className="text-fg">{IMPORT_FAILED_TEXT}</p>
+                  <p className="mt-1 text-2xs text-fg-subtle">
+                    The video still plays here and you can download the original.
+                    {import.meta.env.DEV
+                      ? ' Local dev: the S3 bucket needs a CORS rule for this origin (LOCAL_DEV.md).'
+                      : ''}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="mt-2"
+                    onClick={() => void openInEditor()}
+                    leftIcon={<RotateCcw className="size-3.5" />}
+                  >
+                    Retry import
+                  </Button>
+                </div>
+              ) : null}
               {opening ? (
                 <p className="mt-2 text-2xs text-fg-faint" aria-live="polite">
                   Downloading the render into this browser and building thumbnails…
