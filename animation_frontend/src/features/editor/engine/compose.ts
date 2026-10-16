@@ -2,28 +2,19 @@
 // time t (layer plan) and what the audio engine should mix (audio timeline).
 // Media layers are built by @tooscut/render-engine (visibility by binary
 // search, keyframes evaluated in TypeScript, z-order from track index).
-// Titles and captions become text layers here until Vello draws the graphics
-// document (P5).
+// Titles and captions are not layers: they are the graphics document
+// (graphics/build.ts), drawn by Vello over the video.
 import {
   buildRenderFrame,
   createEasedKeyframe,
   createLinearKeyframe,
   EvaluatorManager,
   getVisibleClips,
-  KeyframeEvaluator,
   type KeyframeTracks,
   type TimelineClip,
 } from '@tooscut/render-engine'
 import type { MediaAsset } from '@/lib/local/models'
-import {
-  captionsItem,
-  toFrames,
-  toSeconds,
-  type MediaClipV2,
-  type TimelineV2,
-  type TitleItem,
-} from '../model/timelineV2'
-import { captionAt, type Transcript } from '../model/transcript'
+import { toFrames, toSeconds, type MediaClipV2, type TimelineV2 } from '../model/timelineV2'
 
 export interface MediaLayer {
   key: string
@@ -42,31 +33,12 @@ export interface MediaLayer {
   z: number
 }
 
-export interface TextLayer {
-  key: string
-  text: string
-  font: string
-  /** Pixels at 1080p; backends scale by output height. */
-  size: number
-  weight: number
-  color: string
-  background: string | null
-  align: 'Left' | 'Center' | 'Right'
-  x: number
-  y: number
-  opacity: number
-  offsetY: number
-  scale: number
-  z: number
-}
-
 export interface FramePlan {
   time: number
   width: number
   height: number
   background: string
   media: MediaLayer[]
-  texts: TextLayer[]
 }
 
 /** Clip fades as an opacity keyframe track in clip-local frames. */
@@ -120,54 +92,7 @@ export function sourceTime(tl: TimelineV2, c: MediaClipV2, t: number): number {
   return toSeconds(tl, c.inPoint) + (t - toSeconds(tl, c.startTime)) * c.speed
 }
 
-function titleMotion(g: TitleItem, local: number): { opacity: number; offsetY: number; scale: number } {
-  const duration = g.end - g.start
-  const outStart = Math.max(0, duration - 0.3)
-  const fade = new KeyframeEvaluator({
-    tracks: [
-      {
-        property: 'v',
-        keyframes: [
-          createEasedKeyframe(0, 0, 'EaseOut'),
-          createLinearKeyframe(0.4, 1),
-          createEasedKeyframe(outStart, 1, 'EaseIn'),
-          createLinearKeyframe(duration, 0),
-        ],
-      },
-    ],
-  }).evaluate('v', local)
-  const one = (keys: ReturnType<typeof createLinearKeyframe>[]) =>
-    new KeyframeEvaluator({ tracks: [{ property: 'v', keyframes: keys }] }).evaluate('v', local)
-  switch (g.enter) {
-    case 'fade':
-      return { opacity: fade, offsetY: 0, scale: 1 }
-    case 'rise':
-      return {
-        opacity: fade,
-        offsetY: one([createEasedKeyframe(0, 48, 'EaseOut'), createLinearKeyframe(0.6, 0)]),
-        scale: 1,
-      }
-    case 'pop':
-      return {
-        opacity: fade,
-        offsetY: 0,
-        scale: one([
-          createEasedKeyframe(0, 0.82, 'EaseOut'),
-          createEasedKeyframe(0.35, 1.04, 'EaseInOut'),
-          createLinearKeyframe(0.5, 1),
-        ]),
-      }
-    default:
-      return { opacity: 1, offsetY: 0, scale: 1 }
-  }
-}
-
-export function planFrame(
-  tl: TimelineV2,
-  t: number,
-  assets: Map<string, MediaAsset>,
-  transcript?: Transcript | null,
-): FramePlan {
+export function planFrame(tl: TimelineV2, t: number, assets: Map<string, MediaAsset>): FramePlan {
   const frame = toFrames(tl, t)
   const byId = new Map(tl.clips.map((c) => [c.id, c]))
   const visual = tl.tracks.filter((tr) => tr.type === 'video' && !tr.hidden)
@@ -207,58 +132,7 @@ export function planFrame(
     })
   }
 
-  const texts: TextLayer[] = []
-  tl.extraGraphics.forEach((g, i) => {
-    if (g.kind !== 'title' || t < g.start || t >= g.end) return
-    texts.push({
-      key: g.id,
-      text: g.text,
-      font: g.font,
-      size: g.size,
-      weight: g.weight,
-      color: g.color,
-      background: g.background,
-      align: g.align,
-      x: g.x,
-      y: g.y,
-      z: 1000 + i,
-      ...titleMotion(g, t - g.start),
-    })
-  })
-  const cap = captionsItem(tl)
-  const line = cap ? captionAt(transcript, t, cap.maxWords) : null
-  if (cap && line)
-    texts.push({
-      key: cap.id,
-      text: line.text,
-      font: cap.font,
-      size: cap.size,
-      weight: 600,
-      color: cap.color,
-      background: cap.background,
-      align: 'Center',
-      x: 0.5,
-      y: cap.y,
-      opacity: 1,
-      offsetY: 0,
-      scale: 1,
-      z: 2000,
-    })
-  return { time: t, width: tl.width, height: tl.height, background: tl.background, media, texts }
-}
-
-/** Parses #rgb, #rrggbb or #rrggbbaa into 0..1 floats. */
-export function parseColor(hex: string | null | undefined): [number, number, number, number] {
-  const h = (hex ?? '#ffffff').replace('#', '')
-  const full =
-    h.length === 3
-      ? h
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : h
-  const v = (i: number) => parseInt(full.slice(i, i + 2), 16) / 255
-  return [v(0), v(2), v(4), full.length >= 8 ? v(6) : 1]
+  return { time: t, width: tl.width, height: tl.height, background: tl.background, media }
 }
 
 // ---------------------------------------------------------------------------

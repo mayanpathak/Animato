@@ -1,34 +1,21 @@
-//! GPU-accelerated video compositor using wgpu.
+//! GPU video compositor using wgpu.
 //!
-//! This crate provides a WebGPU-based compositor for rendering video layers,
-//! text overlays, and shapes with transforms, effects, and transitions.
+//! Draws video and image layers, shapes and lines with transforms, effects,
+//! colour grading and transitions, on a device it is given. Text and 2D
+//! graphics are Vello's (`animato-overlay`); the compositor draws Vello's
+//! overlay textures under and over the layers.
 
-mod color_grading_shader;
 mod color_grading_uniforms;
 mod compositor;
 mod error;
+mod overlay;
 mod pipeline;
 mod shape_pipeline;
-mod text;
 mod texture;
 mod uniforms;
 
 pub use color_grading_uniforms::ColorGradingUniforms;
-
-pub use compositor::Compositor;
+pub use compositor::{Compositor, Overlays, TARGET_FORMAT};
 pub use error::CompositorError;
 
-// Re-export types for convenience
 pub use tooscut_types::*;
-
-use wasm_bindgen::prelude::*;
-
-/// Initialize the compositor module.
-///
-/// This sets up panic hooks and logging for better debugging in WASM.
-#[cfg_attr(feature = "start", wasm_bindgen(start))]
-pub fn init() {
-    console_error_panic_hook::set_once();
-    // Initialize console_log for WASM - logs will appear in browser console
-    console_log::init_with_level(log::Level::Info).ok();
-}

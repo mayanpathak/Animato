@@ -11,7 +11,7 @@ import {
   timelineDurationV2,
   VOICE_AUDIO,
 } from './timelineV2'
-import { captionAt, cuesFromTranscript, editChunk, removeChunk, transcriptFromCues } from './transcript'
+import { cuesFromTranscript, editChunk, removeChunk, transcriptFromCues } from './transcript'
 
 function v1Fixture(): Timeline {
   const t = emptyTimeline('9:16')
@@ -187,11 +187,6 @@ describe('transcript', () => {
     assetId: 'v',
     model: 'test',
   })
-  it('shows the chunk holding t with the active word', () => {
-    expect(captionAt(tr, 0.6, 3)).toEqual({ text: 'one two three', activeIndex: 1 })
-    expect(captionAt(tr, 1.7, 3)).toEqual({ text: 'four', activeIndex: 0 })
-    expect(captionAt(tr, 3, 3)).toBeNull()
-  })
   it('turns back into cues', () => {
     expect(cuesFromTranscript(tr, 2)).toEqual([
       { start: 0, end: 1, text: 'one two' },
@@ -207,7 +202,6 @@ describe('transcript', () => {
       { assetId: 'srt', model: 'srt' },
     )
     expect(cuesFromTranscript(srt, 7).map((c) => c.text)).toEqual(['Hello there', 'General Kenobi'])
-    expect(captionAt(srt, 0.2, 7)?.text).toBe('Hello there')
     const edited = editChunk(srt, 0, 7, 'Why hello there')
     expect(cuesFromTranscript(edited, 7).map((c) => c.text)).toEqual(['Why hello there', 'General Kenobi'])
     expect(cuesFromTranscript(removeChunk(edited, 0, 7), 7).map((c) => c.text)).toEqual(['General Kenobi'])

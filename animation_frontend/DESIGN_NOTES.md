@@ -110,33 +110,49 @@ operation. `window.__animatoEngineCalls` counts calls by category (`demux`, `dec
 
 ## 4. Crates audit
 
-`crates/` had no workspace manifest, so nothing compiled. `crates/Cargo.toml` is now a workspace, and
-`npm run wasm:build` (`scripts/build-wasm.sh`) builds a single crate, **`animato-wasm`**, that links every crate below
-into one module at `src/wasm/pkg` (committed, 7.8 MB raw / 2.5 MB gzip, lazy-loaded only by the editor, its workers and
-the landing demo).
+`crates/Cargo.toml` is a workspace; `npm run wasm:build` (`scripts/build-wasm.sh`) builds one crate, **`animato-wasm`**,
+that links every crate below into one module at `src/wasm/pkg` (committed, lazy-loaded only by the editor, its workers
+and the landing demo).
 
-| Crate | What it does | Exported API used | Used where | Status |
-|---|---|---|---|---|
-| `animato-wasm` (new) | Glue + editor core | `seconds_to_timecode`, `timecode_to_seconds`, `snap`, `split_clip`, `trim_clip`, `ripple_delete`, `parse_srt`, `to_srt`, `captions_from_words`, `waveform_peaks`, `keyframe_value`, `Mp4Demuxer` | Timeline, captions panel, waveforms, fades and text animation, MP4 import, landing demo | **Wired** |
-| `tooscut-compositor` | wgpu GPU compositor: layers, transforms, opacity, colour, crop, glyphon text | `Compositor.from_offscreen_canvas`, `upload_bitmap`, `render_to_pixels`, `load_font`, `clear_texture` | Preview and export compositing (WebGPU) | **Wired** (wgpu 24, glyphon 0.8) |
-| `tooscut-audio-engine` | Mixer: clips, tracks, fades, keyframed volume, EQ, compressor, noise gate, reverb, pitch-preserving speed | `AudioEngine` (`upload_audio`, `set_timeline`, `render`, `seek`, `set_playing`) | AudioWorklet preview, offline export mix, offline mix for captions | **Wired**. **Fixed:** `src/clip.rs` was a byte-for-byte copy of `effects/reverb.rs`; `AudioClip` reconstructed from its uses and tests (46 tests pass) |
-| `tooscut-keyframe` / `tooscut-types` | Keyframe interpolation and shared types | `evaluate_keyframes` (via `keyframe_value`), `KeyframeTracks` in audio clips | Fades, text animation presets, ducking envelopes | **Wired** |
-| `offcut-mp4` | MP4 demux, mux, probe | `Demuxer`, `probe` | MP4/MOV/M4A import, preview and export decode | **Wired**. **Fixed:** it only read `avcC`; it now reads `vpcC` and `av1C` and builds full VP9/AV1 codec strings (24 tests pass) |
-| `offcut-wasm-core` | OPFS demuxer handle, resample, transcript, SHA-256 | `Sha256Stream`, `resample`, `normalize_transcript`, `probe_and_validate` | Import hashing (dedupe), all resampling | **Wired** (made `rlib`; start function gated) |
-| `offcut-dsp` | FFT resampling (rubato) | `resample_mono` | 44.1→48 kHz, 48→8 kHz waveform, 48→16 kHz for Whisper | **Wired** (needs rubato 5; 1.x/2.x lack the API it uses) |
-| `offcut-text` / `offcut-types` | Transcript normalisation, sentence segmentation | `normalize_transcript` | Auto-captions: Whisper words → sentence cues | **Wired** |
-| `offcut-render`, `offcut-wasm-render`, `offcut-scene` | vello/parley caption renderer + render session | – | – | **Not linked.** Built against vello ≥ 0.6 / parley ≥ 0.7 (wgpu 26+). `tooscut-compositor` is on wgpu 24, and two wgpu copies in one module would roughly double its size. Text and captions are drawn by the compositor's glyphon renderer instead. Next step: port the compositor to wgpu 26, then link these |
-| `offcut-detect` | Visual-event detection from transcripts | – | – | **Not used:** specific to the Offcut product |
-| `offcut-entitlement`, `offcut-api-types` | ed25519 licence tokens, SaaS API types | – | – | **Not used:** unrelated to this app |
+### 4.1 Versions after P5 (plan 8.2, measured)
 
-Other workspace fixes:
-- Per-crate `#[wasm_bindgen(start)]` functions are gated behind a `start` feature, so the crates link into one module.
-- `wasm-bindgen` is pinned to `=0.2.100`.
+| | Before P5 | After P5 |
+|---|---|---|
+| wgpu | 24.0.5 (compositor, with glyphon 0.8 / cosmic-text 0.12) | **30.0.1**, one copy, shared by the compositor and Vello |
+| Vello | not linked (`offcut-render` needed ≥ 0.6) | **0.11.0** (newest on crates.io): `offcut-render`'s Vello backend compiled with **no edits** |
+| parley | not linked | **0.12.0**; two one-line API edits (`NormalizedCoord::to_bits`, `Run::font_metrics`) |
+| peniko / skrifa / kurbo | – | 0.6.1 / 0.44.0 / 0.13.1 (one skrifa for Vello and parley) |
+| wasm-bindgen / js-sys / web-sys | =0.2.100 / =0.3.77 / =0.3.77 | =0.2.129 / =0.3.106 / =0.3.106 (wgpu 30 needs js-sys ≥ 0.3.85; CLI pinned to match in `build-wasm.sh`) |
+| `animato_wasm_bg.wasm` | 8,129,390 B raw, **2,499,923 B gzip -9** | 5,508,437 B raw, **1,390,167 B gzip -9** (no wasm-opt; budget 4.5 MB) |
 
-TypeScript fallback (allowed only for timeline math and compositing):
-- `src/wasm/fallback.ts` mirrors the timeline functions in case the module fails to load.
-- The Canvas2D compositor stands in when WebGPU is unavailable.
-- There is no fallback for decode, encode, demux of MP4 (mediabunny is a real demuxer, not a fake), audio mixing or captions.
+Step 1 of 8.2 found W = 30 without trying older Vello releases: the newest one already compiled the backend, so no
+release had to be ruled out and decision D1 never arose. The module got smaller because glyphon's text stack and
+wgpu's WebGL backend left; Vello, parley and the graphics crates cost less than that. Fonts are not in the module.
+
+### 4.2 Crates
+
+| Crate | What it does | Used where | Status |
+|---|---|---|---|
+| `animato-wasm` | The one browser module: timecode, snap, SRT, `captions_from_words`, `waveform_peaks`, `Mp4Demuxer`, `register_font`, `GraphicsScene`, `FrameRenderer`, `parse_graphics_doc` | Everywhere in the editor | **Wired**. P5 removed `split_clip`, `trim_clip`, `ripple_delete`, `keyframe_value` (unused since edits moved to render-engine in P4) |
+| `animato-graphics` (new, from `offcut-scene`) | Graphics document → scene → `frame_at(t)` → `{under, over}` display lists; parley layout; runtime font registry; caption chunking and highlight; safe area | Preview and export (both backends) | **Wired**. 16 tests: JSON round trip, determinism, 540 vs 1080 scaling, safe-area containment in three formats, snapshots per format (`snapshots/*.json`), budgets |
+| `animato-overlay` (new, from `offcut-render/src/vello_backend.rs`) | Draws a display list with Vello into a texture | `FrameRenderer` | **Wired**: fills (solid, linear, radial), paths, strokes, glyph runs, images, blurred rounded rects, clip/opacity layers |
+| `tooscut-compositor` | Video layers: transforms, opacity, colour grading, crop, transitions, shapes, lines | `FrameRenderer` | **Ported to wgpu 30.** No surface, no text (glyphon, cosmic-text and `text.rs` removed), draws Vello's `under`/`over` textures; device and queue are passed in. `RenderFrame.text_layers` is still accepted (render-engine's contract) and not drawn |
+| `tooscut-audio-engine` | Mixer: clips, fades, keyframed volume, EQ, gate, compressor, reverb, speed | AudioWorklet preview, export mix | **Wired** (unchanged) |
+| `tooscut-keyframe` / `tooscut-types` | Keyframes, shared types | Audio engine, compositor | **Wired** (a types test fixture was missing a field and did not compile; fixed) |
+| `offcut-mp4`, `offcut-wasm-core`, `offcut-dsp`, `offcut-text`, `offcut-types` | Demux, OPFS, resampling, transcript normalisation | Import, waveforms, auto-captions | **Wired** (unchanged) |
+| `offcut-scene`, `offcut-render`, `offcut-wasm-render` | Source material | – | **Not members.** Animato's graphics crates descend from them (plan 8.3) |
+| `offcut-detect`, `offcut-entitlement`, `offcut-api-types` | Offcut product code | – | **Not used** |
+
+### 4.3 Licences
+
+- Vello, parley, peniko, kurbo, fontique, skrifa, wgpu: Apache-2.0 OR MIT; harfrust (parley's shaper): MIT (read
+  from each crate's `Cargo.toml`).
+- Fonts: `public/fonts/LICENSES.md`. Inter, JetBrains Mono, Noto Emoji, Geist: SIL OFL 1.1; DejaVu Serif: Bitstream
+  Vera licence with public-domain DejaVu changes. The repo's earlier DejaVu Serif file had no recorded source and did
+  not match upstream 2.37; it was replaced by the npm `dejavu-fonts-ttf@2.37.3` copy. The static Inter OTFs left.
+- **`tooscut-*` crates, `offcut-*` crates and `packages/render-engine`: no licence.** None has a `license` field, a
+  `repository` field or a LICENSE file, and the repo does not record where they came from. That is a blocker for a
+  commercial launch until the owner confirms their origin and terms (plan 18.1, D4; building continues meanwhile).
 
 ## 5. Decisions (one line each)
 
@@ -251,6 +267,18 @@ TypeScript fallback (allowed only for timeline math and compositing):
 - **P4 · v1 migration.** Opening a v1 project migrates it (`migrateTimeline`), saves it as v2, and keeps the v1 document in `timelineV1Backup`; text clips become titles, caption clips become a transcript plus the captions item. `e2e/migrate.spec.ts` seeds a real v1 record, then checks the lanes, the stored v2, the backup and playback.
 - **P4 · Timeline lanes.** Top to bottom: Titles, video tracks, Captions (read-only chunks: clicking seeks, edits go through the Captions panel so word times stay intact), Voice, Music & audio. The voice pair's empty video half is not drawn.
 - **P4 · Export no longer re-fps's the timeline.** v1 export spread `{...timeline, fps}` to set the output rate; with frame-based clips that would shift every clip, so the output fps is passed separately.
+- **P5 · One device, two renderers** (plan 8.1). `FrameRenderer` (animato-wasm) owns one WebGPU device: Vello draws `under` and `over` into two textures, the compositor clears to the background, draws `under`, the video layers, then `over` (premultiplied blend of Vello's straight-alpha output), and the frame is read back. A list with nothing in it is not drawn. Preview and export use the same renderer at their own size.
+- **P5 · Readback kept** for preview and export. The worker no longer has a surface at all; presenting to an OffscreenCanvas was not re-tried on wgpu 30 (plan 8.2 step 4 asks for it): recorded as not verified.
+- **P5 · Readback latency.** The old readback waited through ten `setTimeout` yields per frame; it now awaits the map callback, which WebGPU resolves itself. The readback buffer is also re-made on resize (it was made once, at the first size).
+- **P5 · Calls into the renderer are queued** in `GpuCompositor`: `render` holds the Rust object across an await, and a `set_graphics` or `resize` arriving meanwhile made wasm-bindgen throw "recursive use of an object" (seen in the WebGPU e2e).
+- **P5 · Units of the graphics document.** Times in seconds; boxes as fractions of the canvas; lengths in design pixels where the short side is 1080, so one document draws the same at 1280×720 preview and 1920×1080 export. The document's canvas is the size frames are drawn at, not the timeline's (a 1920 document on a 1280 preview drew the title 1.5× off, caught by `e2e/graphics.spec.ts`). Title sizes are now short-side pixels; a 9:16 title is 1.78× smaller than under P4's height-based rule, which made vertical titles overflow.
+- **P5 · Fonts load at run time**, not embedded: the app fetches `public/fonts/*.ttf`, registers each with animato-graphics and with `FontFace` under the family name the file reports. Inter is always loaded; Noto Emoji (2 MB) only when some text has a pictograph. A family is matched exactly or without its "Variable" suffix. Inter, Geist, JetBrains Mono and DejaVu Serif all render in video now; "System serif" draws as DejaVu Serif.
+- **P5 · Captions chunk like the app's list**: at most `maxWords` words and a break after a `breakAfter` word; Rust also ends a chunk before a third line. The highlight colour (`#ffd60a`) is applied when the captions item asks for word highlight.
+- **P5 · Safe area.** Titles, captions and the watermark are clamped into it: on a vertical canvas the insets of offcut-scene's layout (250 top, 420 bottom, 60 left, 120 right at 1080×1920), elsewhere 5% each side.
+- **P5 · Canvas2D fallback draws the same display lists** (`graphics/draw2d.ts`) from a GPU-free `GraphicsScene`. Glyph runs are drawn as text at parley's positions, so words land where Vello puts them; inside a word the browser's own advance applies, and word gaps can look slightly wider than Vello's (see `screenshots/graphics-title-*.png`). Group opacity is approximated per draw. `e2e/graphics.spec.ts` holds the two within 3% of the canvas in position and 15% in size.
+- **P5 · Device loss** switches the worker to Canvas2D and rebuilds the graphics, instead of showing an error.
+- **P5 · Removed** with nothing left orphaned: glyphon, cosmic-text and the compositor's `text.rs`; its unused colour-grading shader module and helpers; the surface constructors and wasm-bindgen API of `Compositor` (it is a Rust type inside `FrameRenderer` now); the static Inter OTFs; `captionAt` (Rust draws captions); the TS text-layer path in `compose.ts`.
+- **P5 · Budgets (plan 8.9), measured here:** module 1,390,167 B gzip (≤ 4.5 MB) ✓. Scene build for the fixture (9 items, 13 caption words): 0.33 ms native release, 1.82 ms WASM in Node (≤ 8 ms) ✓. `frame_at`: 0.0015 ms native, 0.062 ms WASM in Node including JSON (≤ 1 ms) ✓. **Not measured:** the Vello draw at 1080×1920 (≤ 4 ms), the preview frame total (≤ 12 ms), scrub latency (≤ 100 ms) and the 18 s export (≤ 60 s) need a real mid-range GPU; this sandbox has SwiftShader only. The perf badge records `graphics:scene-build`, `graphics:frame-at` and `composite:*` timings in the browser.
 
 ## 6. Mock vs real
 
@@ -267,8 +295,7 @@ Switch to the real backend: set `VITE_USE_MOCKS=false` (e.g. in `.env.developmen
 
 ## 7. Deferred / next steps
 
-- **Link `offcut-render` / `offcut-scene`:** after porting `tooscut-compositor` to wgpu 26 so both share one wgpu.
-- **Optimise the WASM module:** run `wasm-opt -Oz`. The installed binaryen is older than the features Rust 1.97 emits; with a current binaryen this should cut the module substantially.
+- **Optimise the WASM module:** run `wasm-opt -Oz`. No binaryen is installed in the sandbox; the module is under budget without it.
 - **Long sources:** whole-file PCM is cached per asset, which is fine for clips of minutes, not hours. The audio engine already supports windowed sources (`create_windowed_source`) for streaming.
 - **More WebGPU outputs:** zero-copy WebGPU preview (surface present) once the worker/OffscreenCanvas device loss is fixed upstream, and true multi-video-track compositing tests on real GPUs.
 - **Text-to-speech voiceover** (Piper/Kokoro): not shipped.

@@ -428,13 +428,16 @@ function FontSelect({
         ))}
       </Select>
       <p className="mt-1.5 flex items-center gap-1 text-2xs text-fg-subtle">
-        {FONTS.find((f) => f.value === value)?.editor ? (
-          <>
-            <Check className="size-3 text-status-succeeded" aria-hidden /> Renders in exported video
-          </>
-        ) : (
-          'Preview only; video uses Inter'
-        )}
+        {(() => {
+          const f = FONTS.find((o) => o.value === value)
+          return !f || f.video === f.value ? (
+            <>
+              <Check className="size-3 text-status-succeeded" aria-hidden /> Renders in exported video
+            </>
+          ) : (
+            `Video uses ${f.video}`
+          )
+        })()}
       </p>
     </div>
   )
@@ -455,7 +458,7 @@ function KitEditor({ kit, onChange }: { kit: BrandKit; onChange: (patch: Partial
         <Section
           icon={<Type />}
           title="Typography"
-          hint="The video editor's GPU text renderer ships Inter and DejaVu Serif."
+          hint="Inter, Geist, JetBrains Mono and DejaVu Serif render in exported video."
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <FontSelect

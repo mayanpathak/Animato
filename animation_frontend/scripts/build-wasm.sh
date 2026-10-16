@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CRATES="$ROOT/crates"
 OUT="$ROOT/src/wasm/pkg"
-BINDGEN_VERSION="0.2.100"
+BINDGEN_VERSION="0.2.129"
 
 rustup target add wasm32-unknown-unknown >/dev/null
 if ! command -v wasm-bindgen >/dev/null || [[ "$(wasm-bindgen --version)" != *"$BINDGEN_VERSION"* ]]; then

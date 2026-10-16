@@ -4,7 +4,7 @@
 //! They must be 16-byte aligned and use repr(C) for binary compatibility.
 
 use bytemuck::{Pod, Zeroable};
-use tooscut_types::{ColorGrading, ColorGradingNode, PrimaryCorrection};
+use tooscut_types::{ColorGrading, ColorGradingNode};
 
 /// Primary color correction uniforms for the GPU shader.
 ///
@@ -64,25 +64,7 @@ impl Default for PrimaryCorrectionUniforms {
     }
 }
 
-impl PrimaryCorrectionUniforms {
-    /// Create uniforms from a PrimaryCorrection.
-    pub fn from_correction(correction: &PrimaryCorrection, mix: f32) -> Self {
-        Self {
-            slope: [correction.slope[0], correction.slope[1], correction.slope[2], 1.0],
-            offset: [correction.offset[0], correction.offset[1], correction.offset[2], 0.0],
-            power: [correction.power[0], correction.power[1], correction.power[2], 1.0],
-            saturation: correction.saturation,
-            exposure: correction.exposure,
-            temperature: correction.temperature,
-            tint: correction.tint,
-            highlights: correction.highlights,
-            shadows: correction.shadows,
-            mix,
-            _pad0: 0.0,
-            _pad1: [0.0; 12],
-        }
-    }
-}
+impl PrimaryCorrectionUniforms {}
 
 /// Color wheels uniforms for the GPU shader.
 ///
@@ -134,26 +116,7 @@ impl Default for ColorWheelsUniforms {
     }
 }
 
-impl ColorWheelsUniforms {
-    /// Create uniforms from ColorWheels.
-    pub fn from_wheels(wheels: &tooscut_types::ColorWheels, mix: f32) -> Self {
-        let lift_rgb = wheels.lift.to_rgb();
-        let gamma_rgb = wheels.gamma.to_rgb();
-        let gain_rgb = wheels.gain.to_rgb();
-
-        Self {
-            lift_rgb,
-            lift_luminance: wheels.lift_luminance,
-            gamma_rgb,
-            gamma_luminance: wheels.gamma_luminance,
-            gain_rgb,
-            gain_luminance: wheels.gain_luminance,
-            mix,
-            _pad: [0.0; 3],
-            _pad2: [0.0; 16],
-        }
-    }
-}
+impl ColorWheelsUniforms {}
 
 /// HSL qualifier uniforms for the GPU shader.
 ///
@@ -226,29 +189,7 @@ impl Default for HslQualifierUniforms {
     }
 }
 
-impl HslQualifierUniforms {
-    /// Create uniforms from HslQualifier.
-    pub fn from_qualifier(qualifier: &tooscut_types::HslQualifier, mix: f32) -> Self {
-        Self {
-            hue_center: qualifier.hue_center / 360.0,
-            saturation_center: qualifier.saturation_center,
-            luminance_center: qualifier.luminance_center,
-            _pad0: 0.0,
-            hue_width: qualifier.hue_width / 360.0,
-            saturation_width: qualifier.saturation_width,
-            luminance_width: qualifier.luminance_width,
-            _pad1: 0.0,
-            hue_softness: qualifier.hue_softness,
-            saturation_softness: qualifier.saturation_softness,
-            luminance_softness: qualifier.luminance_softness,
-            _pad2: 0.0,
-            invert: if qualifier.invert { 1 } else { 0 },
-            mix,
-            _pad3: [0.0; 2],
-            _pad4: [0.0; 16],
-        }
-    }
-}
+impl HslQualifierUniforms {}
 
 /// Combined color grading uniforms for a single-pass shader.
 ///
@@ -403,7 +344,7 @@ impl Default for ColorGradingUniforms {
 pub const FLAG_BYPASS: u32 = 1 << 0;
 pub const FLAG_PRIMARY_ENABLED: u32 = 1 << 1;
 pub const FLAG_WHEELS_ENABLED: u32 = 1 << 2;
-pub const FLAG_CURVES_ENABLED: u32 = 1 << 3;
+// Bit 3 (curves) is reserved by the shader; curves are not wired.
 pub const FLAG_LUT_ENABLED: u32 = 1 << 4;
 pub const FLAG_QUALIFIER_ENABLED: u32 = 1 << 5;
 pub const FLAG_WINDOW_ENABLED: u32 = 1 << 6;
@@ -418,16 +359,16 @@ fn source_peak_nits(cs: &tooscut_types::ColorSpace) -> f32 {
     use tooscut_types::ColorSpace;
     // Peak nits = peak_scene_linear * 100 (where 1.0 scene-linear = 100 nits SDR)
     match cs {
-        ColorSpace::SLog2 => 1376.0,     // 13.76 scene-linear
-        ColorSpace::SLog3 => 3842.0,     // 38.42 scene-linear
-        ColorSpace::LogC => 5508.0,      // 55.08 scene-linear (EI800)
-        ColorSpace::VLog => 4609.0,      // 46.09 scene-linear
-        ColorSpace::CLog3 => 2500.0,     // ~25 scene-linear
-        ColorSpace::BmFilm => 5508.0,    // approximate as LogC
+        ColorSpace::SLog2 => 1376.0,      // 13.76 scene-linear
+        ColorSpace::SLog3 => 3842.0,      // 38.42 scene-linear
+        ColorSpace::LogC => 5508.0,       // 55.08 scene-linear (EI800)
+        ColorSpace::VLog => 4609.0,       // 46.09 scene-linear
+        ColorSpace::CLog3 => 2500.0,      // ~25 scene-linear
+        ColorSpace::BmFilm => 5508.0,     // approximate as LogC
         ColorSpace::RedLog3G10 => 3842.0, // approximate as S-Log3
-        ColorSpace::AcesCg => 6500.0,    // ACES scene-referred, ~65 peak
-        ColorSpace::Linear => 1000.0,    // arbitrary
-        ColorSpace::Srgb => 100.0,       // already display-referred
+        ColorSpace::AcesCg => 6500.0,     // ACES scene-referred, ~65 peak
+        ColorSpace::Linear => 1000.0,     // arbitrary
+        ColorSpace::Srgb => 100.0,        // already display-referred
     }
 }
 
@@ -565,9 +506,24 @@ impl ColorGradingUniforms {
                     correction, mix, ..
                 } => {
                     uniforms.flags |= FLAG_PRIMARY_ENABLED;
-                    uniforms.slope = [correction.slope[0], correction.slope[1], correction.slope[2], 1.0];
-                    uniforms.offset = [correction.offset[0], correction.offset[1], correction.offset[2], 0.0];
-                    uniforms.power = [correction.power[0], correction.power[1], correction.power[2], 1.0];
+                    uniforms.slope = [
+                        correction.slope[0],
+                        correction.slope[1],
+                        correction.slope[2],
+                        1.0,
+                    ];
+                    uniforms.offset = [
+                        correction.offset[0],
+                        correction.offset[1],
+                        correction.offset[2],
+                        0.0,
+                    ];
+                    uniforms.power = [
+                        correction.power[0],
+                        correction.power[1],
+                        correction.power[2],
+                        1.0,
+                    ];
                     uniforms.adjustments = [
                         correction.saturation,
                         correction.exposure,
@@ -584,7 +540,12 @@ impl ColorGradingUniforms {
                     let gamma_rgb = wheels.gamma.to_rgb();
                     let gain_rgb = wheels.gain.to_rgb();
                     uniforms.lift = [lift_rgb[0], lift_rgb[1], lift_rgb[2], wheels.lift_luminance];
-                    uniforms.gamma = [gamma_rgb[0], gamma_rgb[1], gamma_rgb[2], wheels.gamma_luminance];
+                    uniforms.gamma = [
+                        gamma_rgb[0],
+                        gamma_rgb[1],
+                        gamma_rgb[2],
+                        wheels.gamma_luminance,
+                    ];
                     uniforms.gain = [gain_rgb[0], gain_rgb[1], gain_rgb[2], wheels.gain_luminance];
                     uniforms.wheels_mix = *mix;
                 }
@@ -594,7 +555,10 @@ impl ColorGradingUniforms {
                     // LUT texture binding handled separately
                 }
                 ColorGradingNode::Qualifier {
-                    qualifier, correction, mix, ..
+                    qualifier,
+                    correction,
+                    mix,
+                    ..
                 } => {
                     uniforms.flags |= FLAG_QUALIFIER_ENABLED;
                     uniforms.qualifier_center = [
@@ -617,9 +581,24 @@ impl ColorGradingUniforms {
                     ];
                     uniforms.qualifier_mix = *mix;
                     // Qualifier correction CDL
-                    uniforms.q_slope = [correction.slope[0], correction.slope[1], correction.slope[2], 1.0];
-                    uniforms.q_offset = [correction.offset[0], correction.offset[1], correction.offset[2], 0.0];
-                    uniforms.q_power = [correction.power[0], correction.power[1], correction.power[2], 1.0];
+                    uniforms.q_slope = [
+                        correction.slope[0],
+                        correction.slope[1],
+                        correction.slope[2],
+                        1.0,
+                    ];
+                    uniforms.q_offset = [
+                        correction.offset[0],
+                        correction.offset[1],
+                        correction.offset[2],
+                        0.0,
+                    ];
+                    uniforms.q_power = [
+                        correction.power[0],
+                        correction.power[1],
+                        correction.power[2],
+                        1.0,
+                    ];
                     uniforms.q_adjustments = [
                         correction.saturation,
                         correction.exposure,
@@ -628,7 +607,10 @@ impl ColorGradingUniforms {
                     ];
                 }
                 ColorGradingNode::Window {
-                    window, correction, mix, ..
+                    window,
+                    correction,
+                    mix,
+                    ..
                 } => {
                     uniforms.flags |= FLAG_WINDOW_ENABLED;
                     uniforms.window_center_scale = [
@@ -642,9 +624,11 @@ impl ColorGradingUniforms {
                         tooscut_types::PowerWindowShape::Circle { radius_x, radius_y } => {
                             (*radius_x, *radius_y, 0.0, 0.0)
                         }
-                        tooscut_types::PowerWindowShape::Rectangle { width, height, corner_radius } => {
-                            (*width, *height, *corner_radius, 1.0)
-                        }
+                        tooscut_types::PowerWindowShape::Rectangle {
+                            width,
+                            height,
+                            corner_radius,
+                        } => (*width, *height, *corner_radius, 1.0),
                         tooscut_types::PowerWindowShape::Gradient { angle } => {
                             (*angle / 360.0, 0.0, 0.0, 2.0)
                         }
@@ -659,9 +643,24 @@ impl ColorGradingUniforms {
                         window.softness_outer,
                         if window.invert { 1.0 } else { 0.0 },
                     ];
-                    uniforms.w_slope = [correction.slope[0], correction.slope[1], correction.slope[2], 1.0];
-                    uniforms.w_offset = [correction.offset[0], correction.offset[1], correction.offset[2], 0.0];
-                    uniforms.w_power = [correction.power[0], correction.power[1], correction.power[2], 1.0];
+                    uniforms.w_slope = [
+                        correction.slope[0],
+                        correction.slope[1],
+                        correction.slope[2],
+                        1.0,
+                    ];
+                    uniforms.w_offset = [
+                        correction.offset[0],
+                        correction.offset[1],
+                        correction.offset[2],
+                        0.0,
+                    ];
+                    uniforms.w_power = [
+                        correction.power[0],
+                        correction.power[1],
+                        correction.power[2],
+                        1.0,
+                    ];
                     uniforms.w_adjustments = [
                         correction.saturation,
                         correction.exposure,
@@ -744,15 +743,31 @@ mod tests {
         };
         let uniforms = ColorGradingUniforms::from_color_grading(&grading);
         // Input CST should be set (SLog2 != Srgb)
-        assert_ne!(uniforms.flags & FLAG_INPUT_CST, 0, "INPUT_CST flag should be set");
+        assert_ne!(
+            uniforms.flags & FLAG_INPUT_CST,
+            0,
+            "INPUT_CST flag should be set"
+        );
         assert_eq!(uniforms.input_cst, 4); // SLog2 = 4
-        // Input gamut should be set (SGamut != Rec709)
-        assert_ne!(uniforms.flags & FLAG_INPUT_GAMUT, 0, "INPUT_GAMUT flag should be set");
+                                           // Input gamut should be set (SGamut != Rec709)
+        assert_ne!(
+            uniforms.flags & FLAG_INPUT_GAMUT,
+            0,
+            "INPUT_GAMUT flag should be set"
+        );
         assert_eq!(uniforms.input_gamut, 1); // SGamut = 1
-        // Output CST should be set (always encode back, even for sRGB)
-        assert_ne!(uniforms.flags & FLAG_OUTPUT_CST, 0, "OUTPUT_CST flag should be set");
+                                             // Output CST should be set (always encode back, even for sRGB)
+        assert_ne!(
+            uniforms.flags & FLAG_OUTPUT_CST,
+            0,
+            "OUTPUT_CST flag should be set"
+        );
         assert_eq!(uniforms.output_cst, 0); // Srgb = 0
-        // Output gamut should NOT be set (to_gamut = Rec709 = default)
-        assert_eq!(uniforms.flags & FLAG_OUTPUT_GAMUT, 0, "OUTPUT_GAMUT flag should NOT be set for Rec709");
+                                            // Output gamut should NOT be set (to_gamut = Rec709 = default)
+        assert_eq!(
+            uniforms.flags & FLAG_OUTPUT_GAMUT,
+            0,
+            "OUTPUT_GAMUT flag should NOT be set for Rec709"
+        );
     }
 }

@@ -38,4 +38,4 @@
 
 ## Verify
 cd animation_frontend && npm run typecheck && npm run lint && npm run build && npm run test:e2e
-cargo test --manifest-path animation_frontend/crates/Cargo.toml -p animato-wasm -p tooscut-audio-engine -p offcut-mp4
+cargo test --manifest-path animation_frontend/crates/Cargo.toml -p animato-wasm -p tooscut-audio-engine -p offcut-mp4 -p animato-graphics -p tooscut-compositor -p tooscut-types

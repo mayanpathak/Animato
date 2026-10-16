@@ -73,7 +73,7 @@ export interface TitleItem {
   end: Seconds
   text: string
   font: string
-  /** Pixels at 1080p output height. */
+  /** Design pixels: the canvas's short side is 1080 (plan 8.4). */
   size: number
   weight: number
   color: string

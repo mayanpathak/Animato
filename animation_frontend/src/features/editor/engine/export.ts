@@ -16,6 +16,7 @@ import { fileHandle, readFile, removeFile } from '@/lib/local/opfs'
 import { recordCall } from '@/wasm/stats'
 import { timelineDurationV2, type TimelineV2 } from '../model/timelineV2'
 import type { Transcript } from '../model/transcript'
+import { buildGraphics, graphicsTranscript } from '../graphics/build'
 import { renderAudioWindowed } from './audioRender'
 import { audioAssetIds, buildAudioTimeline, planFrame } from './compose'
 import { createCompositor } from './compositor'
@@ -163,8 +164,12 @@ export async function runExport(
   })
   encoder.configure(video.config)
 
-  const canvas = new OffscreenCanvas(width, height)
-  const compositor = await createCompositor(canvas, opts.compositor)
+  const compositor = await createCompositor(width, height, opts.compositor)
+  // Captions draw only when the export burns them in (opts.transcript set).
+  await compositor.setGraphics(
+    buildGraphics(timeline, { canvas: { width, height } }),
+    graphicsTranscript(opts.transcript),
+  )
   const pool = new SourcePool()
   pool.setAssets(assets)
   const frameUs = 1e6 / fps
@@ -175,7 +180,7 @@ export async function runExport(
       if (signal.aborted) throw new DOMException('Export cancelled', 'AbortError')
       if (failure) throw failure
       const t = i / fps
-      const plan = planFrame(timeline, t, assets, opts.transcript)
+      const plan = planFrame(timeline, t, assets)
       const sources = await pool.gather(plan)
       const frame = await compositor.capture(plan, sources, Math.round(i * frameUs), Math.round(frameUs))
       pool.release(sources)

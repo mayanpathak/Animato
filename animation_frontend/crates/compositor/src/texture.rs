@@ -100,7 +100,7 @@ impl TextureManager {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             ..Default::default()
         });
 
@@ -156,21 +156,6 @@ impl TextureManager {
     /// Clear all textures.
     pub fn clear(&mut self) {
         self.textures.clear();
-    }
-
-    /// Get the number of stored textures.
-    pub fn len(&self) -> usize {
-        self.textures.len()
-    }
-
-    /// Check if there are no textures.
-    pub fn is_empty(&self) -> bool {
-        self.textures.is_empty()
-    }
-
-    /// List all texture IDs.
-    pub fn texture_ids(&self) -> Vec<&str> {
-        self.textures.keys().map(|s| s.as_str()).collect()
     }
 
     /// Upload a texture from an ImageBitmap using zero-copy GPU transfer.

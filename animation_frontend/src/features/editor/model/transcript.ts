@@ -59,31 +59,6 @@ export function chunkRanges(words: TranscriptWord[], maxWords: number): [number,
   return out
 }
 
-/** The caption line on screen at time t: up to `maxWords` words of the chunk holding t. */
-export function captionAt(
-  transcript: Transcript | null | undefined,
-  t: number,
-  maxWords: number,
-): { text: string; activeIndex: number } | null {
-  if (!transcript?.words.length) return null
-  const words = transcript.words
-  // The last word that has started by t.
-  let at = -1
-  for (let j = 0; j < words.length && words[j].start <= t; j++) at = j
-  if (at < 0) return null
-  const speaking = t < words[at].end
-  const next = words[at + 1]
-  // In a short pause between words of the same chunk the line stays up.
-  const [chunkStart, chunkEnd] = chunkRanges(words, maxWords).find(([a, b]) => at >= a && at < b) ?? [
-    at,
-    at + 1,
-  ]
-  const pause = !speaking && next !== undefined && next.start - words[at].end < 0.6 && at + 1 < chunkEnd
-  if (!speaking && !pause) return null
-  const chunk = words.slice(chunkStart, chunkEnd)
-  return { text: chunk.map((w) => w.text).join(' '), activeIndex: speaking ? at - chunkStart : -1 }
-}
-
 /** Timed cues (one per chunk) for SRT export and the captions list. */
 export function cuesFromTranscript(
   transcript: Transcript | null | undefined,

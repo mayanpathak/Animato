@@ -7,6 +7,7 @@ import { toast } from '@/stores/toast'
 import { cn } from '@/lib/cn'
 import { useShallow } from 'zustand/react/shallow'
 import { selectedItem, useEditor } from '../store'
+import { BUILTIN_FONTS } from '../graphics/fonts'
 import type { CaptionsItem, MediaClipV2, TitleItem, TitleMotion, TrackRole } from '../model/timelineV2'
 import { measureLoudness } from '../media/client'
 
@@ -327,7 +328,7 @@ function MediaInspector({
   )
 }
 
-const FONTS = ['Inter', 'DejaVu Serif']
+const FONTS = BUILTIN_FONTS.map((f) => f.family)
 const ANIMATIONS: { value: TitleMotion; label: string }[] = [
   { value: 'none', label: 'None' },
   { value: 'fade', label: 'Fade' },

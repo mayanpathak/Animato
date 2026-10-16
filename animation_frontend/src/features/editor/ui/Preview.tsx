@@ -107,7 +107,7 @@ export function Preview({
           className="relative max-h-full max-w-full shadow-lg"
           style={{ aspectRatio: `${size.width} / ${size.height}`, height: '100%' }}
         >
-          <div ref={hostRef} className="h-full w-full" />
+          <div ref={hostRef} className="h-full w-full" data-testid="preview" />
           {!ready && !error ? (
             <div className="absolute inset-0 grid place-items-center text-fg-subtle">
               <Spinner className="size-5" label="Starting the compositor" />
