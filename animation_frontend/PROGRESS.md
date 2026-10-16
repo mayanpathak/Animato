@@ -24,8 +24,8 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 
 - `npm run typecheck`, `npm run lint`, `npm run build`: pass.
 - `npm run test:e2e`: 22/22 pass (the voice test failed before the worklet fix in `4d1b3ad`).
-- `cargo test -p animato-wasm -p tooscut-audio-engine -p offcut-mp4`: see the P0 row in `DESIGN_NOTES.md` section 5.
-- Clean clone of the pushed branch: `npm ci --ignore-scripts && npm run build` passes.
+- `cargo test -p animato-wasm -p tooscut-audio-engine -p offcut-mp4`: 86 tests pass (4 + 24 + 12 + 46).
+- Clean clone of the pushed branch (`edce842`): `npm ci --ignore-scripts && npm run build` passes.
 - vitest does not exist yet; it arrives in P1 with the contract tests.
 
 ## Verification commands
