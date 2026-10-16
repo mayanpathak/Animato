@@ -14,7 +14,7 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 | P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | done | `c4c447a` |
 | P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | done | `0cb6229` |
 | P6 | Finish, simple mode, export | done | `a39a85c`, `db9c3fa`, `c14b2e5` |
-| P7 | Voice and captions | todo | |
+| P7 | Voice and captions | done | `6ee1c99` |
 | P8 | Fine-tune mode and assets | todo | |
 | P9 | AI editor seams | todo | |
 | P10 | Growth polish | todo | |
@@ -130,7 +130,7 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
   Three caption styles (P6), SRT import/export kept. `captions_generated` is now tracked.
 - Edits became serialisable commands (`model/commands.ts`, plan 13.1, groundwork for P8/P9): `applyCommands` is pure
   and every undo step records its commands; replaying the log from JSON reproduces the document (unit test).
-- typecheck, lint, build: pass. vitest 171. Playwright `npm run test:e2e`: see the P7 row commit; `e2e/voice.spec.ts`
+- typecheck, lint, build: pass. vitest 171. Playwright `npm run test:e2e` 44/44; `e2e/voice.spec.ts`
   now records a take, stops it with Space, waits for the automatic captions, edits a caption word and sees the
   graphics scene rebuilt within 1 s, and runs Whisper on the speech fixture.
 - **Not measured:** the 80 ms active-word accuracy against real speech (no labelled 30 s fixture; see DESIGN_NOTES).
