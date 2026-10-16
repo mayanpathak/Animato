@@ -3,23 +3,6 @@
 // the Canvas2D compositor), audio mixing and encoding have no fallback here.
 import type { CoreFunctions } from './engine'
 
-const MIN_CLIP = 0.1
-const r6 = (v: number) => Math.round(v * 1e6) / 1e6
-
-type Json = Record<string, unknown>
-interface TimelineJson {
-  tracks: { clips: Json[] }[]
-}
-
-function locate(tl: TimelineJson, id: string): [number, number] | null {
-  for (let t = 0; t < tl.tracks.length; t++) {
-    const c = tl.tracks[t].clips.findIndex((x) => x.id === id)
-    if (c >= 0) return [t, c]
-  }
-  return null
-}
-const num = (o: Json, k: string, d: number) => (typeof o[k] === 'number' ? (o[k] as number) : d)
-
 function srtTime(t: string): number | null {
   const m = /^(\d+):(\d+):(\d+(?:[.,]\d+)?)$/.exec(t.trim())
   if (!m) return null
@@ -59,64 +42,6 @@ export const fallback: CoreFunctions = {
       }
     }
     return best
-  },
-  split_clip(timeline, id, at, newId) {
-    const tl = JSON.parse(timeline) as TimelineJson
-    const loc = locate(tl, id)
-    if (!loc) return timeline
-    const clips = tl.tracks[loc[0]].clips
-    const clip = clips[loc[1]]
-    const start = num(clip, 'start', 0)
-    const duration = num(clip, 'duration', 0)
-    const speed = Math.max(0.01, num(clip, 'speed', 1))
-    if (at <= start + MIN_CLIP || at >= start + duration - MIN_CLIP) return JSON.stringify(tl)
-    const left = at - start
-    clips.splice(
-      loc[1],
-      1,
-      { ...clip, duration: r6(left), fadeOut: 0 },
-      {
-        ...clip,
-        id: newId,
-        start: r6(at),
-        duration: r6(duration - left),
-        offset: r6(num(clip, 'offset', 0) + left * speed),
-        fadeIn: 0,
-      },
-    )
-    return JSON.stringify(tl)
-  },
-  trim_clip(timeline, id, edge, to) {
-    const tl = JSON.parse(timeline) as TimelineJson
-    const loc = locate(tl, id)
-    if (!loc) return timeline
-    const clip = tl.tracks[loc[0]].clips[loc[1]]
-    const start = num(clip, 'start', 0)
-    const end = start + num(clip, 'duration', 0)
-    const offset = num(clip, 'offset', 0)
-    const speed = Math.max(0.01, num(clip, 'speed', 1))
-    if (edge === 'start') {
-      const ns = Math.min(Math.max(to, Math.max(0, start - offset / speed)), end - MIN_CLIP)
-      Object.assign(clip, {
-        start: r6(ns),
-        duration: r6(end - ns),
-        offset: r6(offset + (ns - start) * speed),
-      })
-    } else {
-      clip.duration = r6(Math.max(to, start + MIN_CLIP) - start)
-    }
-    return JSON.stringify(tl)
-  },
-  ripple_delete(timeline, id) {
-    const tl = JSON.parse(timeline) as TimelineJson
-    const loc = locate(tl, id)
-    if (!loc) return timeline
-    const clips = tl.tracks[loc[0]].clips
-    const [removed] = clips.splice(loc[1], 1)
-    const rs = num(removed, 'start', 0)
-    const gap = num(removed, 'duration', 0)
-    for (const c of clips) if (num(c, 'start', 0) >= rs) c.start = r6(Math.max(0, num(c, 'start', 0) - gap))
-    return JSON.stringify(tl)
   },
   parse_srt(text) {
     const cues: { start: number; end: number; text: string }[] = []
@@ -176,23 +101,5 @@ export const fallback: CoreFunctions = {
       out[b] = Math.min(1, m)
     }
     return out
-  },
-  keyframe_value(json, time) {
-    const keys = (JSON.parse(json) as { time: number; value: number; ease?: string }[]).sort(
-      (a, b) => a.time - b.time,
-    )
-    if (!keys.length) return 0
-    if (time <= keys[0].time) return keys[0].value
-    const last = keys[keys.length - 1]
-    if (time >= last.time) return last.value
-    const i = keys.findIndex((k, j) => k.time <= time && keys[j + 1].time > time)
-    const a = keys[i]
-    const b = keys[i + 1]
-    let t = (time - a.time) / (b.time - a.time)
-    if (a.ease === 'step') return a.value
-    if (a.ease === 'easeIn') t = t * t * t
-    else if (a.ease === 'easeOut') t = 1 - (1 - t) ** 3
-    else if (a.ease === 'easeInOut') t = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
-    return a.value + (b.value - a.value) * t
   },
 }

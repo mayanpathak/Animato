@@ -1,6 +1,6 @@
 // The one object in the product: a Video (plan 3.3). Stored in the
 // `projects` table; a job never exists in the UI without its video.
-import { emptyTimeline } from '@/features/editor/model/timeline'
+import { emptyTimelineV2 } from '@/features/editor/model/timelineV2'
 import { jobsTable, projectsTable, uid, type JobRecord, type Project, type Take } from '@/lib/local/models'
 import type { VideoFormat } from '@/stores/preferences'
 
@@ -72,7 +72,7 @@ export function newVideo(owner: string, take: Take | null, format: VideoFormat, 
     selectedTake: take?.jobId ?? null,
     format,
     // The edit canvas stays 16:9 until Finish (P6) lays the video out per format.
-    timeline: emptyTimeline('16:9'),
+    timeline: emptyTimelineV2('16:9'),
   }
 }
 

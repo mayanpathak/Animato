@@ -1,4 +1,5 @@
-// The editor document. Times are in seconds on the timeline. A media clip
+// Timeline v1: the editor document before plan v2, kept only so stored
+// projects can be migrated (model/migrate.ts). Times are in seconds on the timeline. A media clip
 // plays its asset from `offset` (source seconds) at `speed`, so it consumes
 // `duration * speed` seconds of source. The WASM engine's split/trim/ripple
 // functions operate on exactly these fields (start, duration, offset, speed).

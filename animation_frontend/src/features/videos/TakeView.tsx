@@ -28,7 +28,7 @@ import { formatBytes, formatDuration } from '@/lib/format'
 import { keys, useCreateJob, useJob, useOwner } from '@/lib/local/hooks'
 import { brandTable, jobsTable, type Project, type Take } from '@/lib/local/models'
 import { duration, ease } from '@/lib/motion'
-import { addJobToProject } from '@/features/editor/projects'
+import { addJobToProject, timelineOf } from '@/features/editor/projects'
 import { buildServerPrompt, optionsFromRecord, recordOptions } from '@/features/create/prompt'
 import { DEFAULT_OPTIONS } from '@/features/create/useStartVideo'
 import { usePreferences } from '@/stores/preferences'
@@ -147,7 +147,7 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
   const startImport = async () => {
     setImportState('importing')
     try {
-      const hasClip = video.timeline.tracks.some((t) => t.clips.length > 0)
+      const hasClip = timelineOf(video).timeline.clips.length > 0
       if (!hasClip) await addJobToProject(take.jobId, video.id, owner, video.name)
       void qc.invalidateQueries({ queryKey: keys.project(video.id) })
       void qc.invalidateQueries({ queryKey: keys.projects(owner) })

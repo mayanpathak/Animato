@@ -5,8 +5,10 @@ import { Progress } from '@/components/ui/misc'
 import { toast } from '@/stores/toast'
 import { cn } from '@/lib/cn'
 import { useEditor } from '../store'
-import { timelineDuration, type CaptionClip } from '../model/timeline'
+import { captionsItem, timelineDurationV2 } from '../model/timelineV2'
+import { cuesFromTranscript, editChunk, removeChunk, type Transcript } from '../model/transcript'
 import { connect, type RpcClient } from '../engine/rpc'
+import { CaptionStyleControls } from './Inspector'
 
 let stt: RpcClient | null = null
 function sttWorker(): RpcClient {
@@ -39,18 +41,21 @@ export function CaptionsPanel() {
   const assets = useEditor((s) => s.assets)
   const project = useEditor((s) => s.project)
   const setCaptions = useEditor((s) => s.setCaptions)
+  const setTranscript = useEditor((s) => s.setTranscript)
+  const transcript = useEditor((s) => s.transcript)
   const setPlayhead = useEditor((s) => s.setPlayhead)
   const select = useEditor((s) => s.select)
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState<null | { label: string; value: number; indeterminate?: boolean }>(null)
 
   if (!timeline || !engine) return null
-  const cues = (timeline.tracks.find((t) => t.kind === 'caption')?.clips ?? []) as CaptionClip[]
-  const sorted = [...cues].sort((a, b) => a.start - b.start)
-  const asCues = () => sorted.map((c) => ({ start: c.start, end: c.start + c.duration, text: c.text }))
+  const captions = captionsItem(timeline)
+  const maxWords = captions?.maxWords ?? 7
+  const sorted = cuesFromTranscript(transcript, maxWords)
+  const asCues = () => sorted
 
   const autoCaption = async () => {
-    if (timelineDuration(timeline) <= 0) return
+    if (timelineDurationV2(timeline) <= 0) return
     const files = new Map<string, number>()
     setBusy({ label: 'Mixing timeline audio', value: 0, indeterminate: true })
     try {
@@ -72,11 +77,36 @@ export function CaptionsPanel() {
         toast.info('No speech found', 'Record a voiceover or add a clip with dialogue first.')
         return
       }
-      const result = engine.captionsFromWords(words)
-      setCaptions(result)
+      // Word timestamps go straight into the transcript (plan 9.2). The Rust
+      // normalizer finds the sentences; each one ends a caption line.
+      const sentenceEnds = engine.captionsFromWords(words).map((c) => c.end)
+      const timed = words
+        .map((w) => ({
+          text: w.text.trim(),
+          start: w.startMs / 1000,
+          end: w.endMs / 1000,
+          confidence: w.confidence,
+        }))
+        .filter((w) => w.text)
+      for (const end of sentenceEnds) {
+        let last = -1
+        timed.forEach((w, i) => {
+          if (w.end <= end + 0.001) last = i
+        })
+        if (last >= 0) Object.assign(timed[last], { breakAfter: true })
+      }
+      const transcript: Transcript = {
+        version: 1,
+        source: { assetId: 'timeline-mix', model: 'onnx-community/whisper-tiny.en_timestamped' },
+        language: 'en',
+        words: timed,
+        edited: false,
+      }
+      setTranscript(transcript)
+      const lines = cuesFromTranscript(transcript, maxWords).length
       toast.success(
-        `${result.length} captions created`,
-        'Grouped into sentences by offcut-text. Edit any line below.',
+        `${lines} captions created`,
+        `${words.length} words, timed to your voice. Edit any line below.`,
       )
     } catch (e) {
       toast.error('Auto-captions failed', e instanceof Error ? e.message : undefined)
@@ -127,7 +157,7 @@ export function CaptionsPanel() {
             variant="secondary"
             className="flex-1"
             leftIcon={<Download className="size-3.5" />}
-            disabled={!cues.length}
+            disabled={!sorted.length}
             onClick={() => download(`${project?.name ?? 'captions'}.srt`, engine.toSrt(asCues()))}
             data-testid="srt-export"
           >
@@ -147,13 +177,14 @@ export function CaptionsPanel() {
             const parsed = engine.parseSrt(await file.text())
             if (!parsed.length) toast.error('No captions found in that file')
             else {
-              setCaptions(parsed)
+              setCaptions(parsed, { assetId: 'srt-import', model: 'srt' })
               toast.success(`${parsed.length} captions imported`)
             }
           }}
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-line">
+        {captions && sorted.length > 0 ? <CaptionStyleControls item={captions} /> : null}
         {sorted.length === 0 ? (
           <div className="flex flex-col items-center px-6 py-10 text-center">
             <Languages className="size-5 text-fg-subtle" />
@@ -164,14 +195,14 @@ export function CaptionsPanel() {
           </div>
         ) : (
           <ol className="divide-y divide-line" data-testid="caption-list">
-            {sorted.map((c) => (
-              <li key={c.id} className="group flex gap-2 px-3 py-2">
+            {sorted.map((c, i) => (
+              <li key={`${i}-${c.start}`} className="group flex gap-2 px-3 py-2">
                 <button
                   type="button"
                   className="shrink-0 font-mono text-2xs text-accent hover:underline"
                   onClick={() => {
                     setPlayhead(c.start)
-                    select(c.id)
+                    select(null)
                   }}
                 >
                   {engine.secondsToTimecode(c.start, timeline.fps).slice(3, 8)}
@@ -180,11 +211,17 @@ export function CaptionsPanel() {
                   aria-label="Caption text"
                   value={c.text}
                   rows={1}
-                  onChange={(e) =>
-                    useEditor
-                      .getState()
-                      .updateClip<CaptionClip>(c.id, { text: e.target.value }, `cap-${c.id}`)
-                  }
+                  onChange={(e) => {
+                    const text = e.target.value
+                    useEditor.getState().apply(
+                      'Edit caption',
+                      (d) => ({
+                        ...d,
+                        transcript: d.transcript && editChunk(d.transcript, i, maxWords, text),
+                      }),
+                      `cap-${i}`,
+                    )
+                  }}
                   className={cn(
                     'min-h-6 flex-1 resize-none bg-transparent text-xs text-fg focus:outline-none',
                   )}
@@ -192,7 +229,7 @@ export function CaptionsPanel() {
                 <button
                   type="button"
                   aria-label="Delete caption"
-                  onClick={() => useEditor.getState().remove(c.id)}
+                  onClick={() => transcript && setTranscript(removeChunk(transcript, i, maxWords))}
                   className="text-fg-subtle opacity-0 group-hover:opacity-100 hover:text-status-failed focus:opacity-100 [&_svg]:size-3.5"
                 >
                   <Trash2 />

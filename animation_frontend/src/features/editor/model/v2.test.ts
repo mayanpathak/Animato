@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MediaAsset } from '@/lib/local/models'
 import { migrateTimeline } from './migrate'
 import { appendAsset, moveMedia, rippleDelete, setSpeed, splitAt, splitTitle, trimTo } from './ops'
-import { emptyTimeline, type Timeline } from './timeline'
+import { emptyTimeline, type Timeline } from './timelineV1'
 import {
   captionsItem,
   emptyTimelineV2,
@@ -11,7 +11,7 @@ import {
   timelineDurationV2,
   VOICE_AUDIO,
 } from './timelineV2'
-import { captionAt, cuesFromTranscript, transcriptFromCues } from './transcript'
+import { captionAt, cuesFromTranscript, editChunk, removeChunk, transcriptFromCues } from './transcript'
 
 function v1Fixture(): Timeline {
   const t = emptyTimeline('9:16')
@@ -197,5 +197,19 @@ describe('transcript', () => {
       { start: 0, end: 1, text: 'one two' },
       { start: 1, end: 2, text: 'three four' },
     ])
+  })
+  it('keeps SRT cue boundaries as caption lines, through edits and deletes', () => {
+    const srt = transcriptFromCues(
+      [
+        { start: 0, end: 1, text: 'Hello there' },
+        { start: 1.2, end: 2, text: 'General Kenobi' },
+      ],
+      { assetId: 'srt', model: 'srt' },
+    )
+    expect(cuesFromTranscript(srt, 7).map((c) => c.text)).toEqual(['Hello there', 'General Kenobi'])
+    expect(captionAt(srt, 0.2, 7)?.text).toBe('Hello there')
+    const edited = editChunk(srt, 0, 7, 'Why hello there')
+    expect(cuesFromTranscript(edited, 7).map((c) => c.text)).toEqual(['Why hello there', 'General Kenobi'])
+    expect(cuesFromTranscript(removeChunk(edited, 0, 7), 7).map((c) => c.text)).toEqual(['General Kenobi'])
   })
 })

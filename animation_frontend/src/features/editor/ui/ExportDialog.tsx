@@ -14,7 +14,7 @@ import { toast } from '@/stores/toast'
 import { cn } from '@/lib/cn'
 import { triggerDownload } from '@/lib/download'
 import { useEditor } from '../store'
-import { ASPECT_PRESETS, timelineDuration, type AspectKey, type Timeline } from '../model/timeline'
+import { ASPECT_PRESETS, aspectOf, timelineDurationV2, type AspectKey } from '../model/timelineV2'
 import { encoderSupport, exportTimeline } from '../engine/export-client'
 import type { ExportFormat, ExportProgress, ExportQuality, ExportResult } from '../engine/export'
 
@@ -29,11 +29,6 @@ const PLATFORMS: { label: string; aspect: AspectKey; hint: string }[] = [
   { label: 'Shorts · Reels · TikTok', aspect: '9:16', hint: '9:16 vertical' },
   { label: 'LinkedIn · Instagram', aspect: '1:1', hint: '1:1 square' },
 ]
-
-function aspectOf(t: Timeline): AspectKey {
-  const r = t.width / t.height
-  return r > 1.2 ? '16:9' : r < 0.8 ? '9:16' : '1:1'
-}
 
 function dims(aspect: AspectKey, short: number): { width: number; height: number } {
   const base = ASPECT_PRESETS[aspect]
@@ -71,8 +66,9 @@ export function ExportDialog({
 
   const aspect = timeline ? aspectOf(timeline) : '16:9'
   const size = dims(aspect, RESOLUTIONS.find((r) => r.id === res)?.short ?? 1080)
-  const duration = timeline ? timelineDuration(timeline) : 0
-  const hasCaptions = Boolean(timeline?.tracks.some((t) => t.kind === 'caption' && t.clips.length))
+  const duration = timeline ? timelineDurationV2(timeline) : 0
+  const transcript = useEditor((s) => s.transcript)
+  const hasCaptions = Boolean(transcript?.words.length)
 
   useEffect(() => {
     if (!open) return
@@ -98,16 +94,12 @@ export function ExportDialog({
     const safe = project.name.replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '') || 'animato-export'
     const fileName = `${safe}-${res}.${format}`
     const id = uid('exp')
-    const exported: Timeline = burnCaptions
-      ? timeline
-      : {
-          ...timeline,
-          tracks: timeline.tracks.map((t) => (t.kind === 'caption' ? { ...t, hidden: true } : t)),
-        }
     try {
       const out = await exportTimeline(
         {
-          timeline: { ...exported, fps },
+          // The timeline keeps its own fps (clip times are frames at it); `fps` is the export rate.
+          timeline,
+          transcript: burnCaptions ? transcript : null,
           assets: [...assets.values()],
           width: size.width,
           height: size.height,

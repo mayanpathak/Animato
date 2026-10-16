@@ -28,7 +28,15 @@ import { projectsTable } from '@/lib/local/models'
 import { useTitle } from '@/lib/useTitle'
 import { loadEngine } from '@/wasm/engine'
 import { useEditor } from './store'
-import { ASPECT_PRESETS, timelineDuration, type AspectKey, type Timeline } from './model/timeline'
+import { timelineOf } from './projects'
+import {
+  ASPECT_PRESETS,
+  aspectOf,
+  timelineDurationV2,
+  type AspectKey,
+  type TimelineV2,
+} from './model/timelineV2'
+import type { Transcript } from './model/transcript'
 import { AudioPreview } from './engine/audio-preview'
 import type { PreviewInfo } from './engine/preview-client'
 import { Preview } from './ui/Preview'
@@ -75,11 +83,6 @@ function isTyping(el: EventTarget | null): boolean {
   )
 }
 
-function aspectOf(t: Timeline): AspectKey {
-  const r = t.width / t.height
-  return r > 1.2 ? '16:9' : r < 0.8 ? '9:16' : '1:1'
-}
-
 function LeftPanel({ library }: { library: MediaAsset[] }) {
   const [tab, setTab] = useState<LeftTab>('media')
   return (
@@ -122,7 +125,11 @@ export default function EditorPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [savedRevision, setSavedRevision] = useState(0)
   const [saveError, setSaveError] = useState(false)
-  const [restore, setRestore] = useState<{ timeline: Timeline; at: number } | null>(null)
+  const [restore, setRestore] = useState<{
+    timeline: TimelineV2
+    transcript?: Transcript | null
+    at: number
+  } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [leftOpen, setLeftOpen] = useState(false)
@@ -143,10 +150,17 @@ export default function EditorPage() {
       .then(([engine, lib]) => {
         if (!live) return
         setLibrary(lib)
-        useEditor.getState().load(p, lib, engine)
+        // Timeline v1 records migrate on open (plan 10.2); the v1 document is kept as a backup.
+        const { timeline: tl, migrated } = timelineOf(p)
+        const project = migrated ? { ...p, ...migrated, timeline: tl } : p
+        if (migrated) void projectsTable.put(project)
+        useEditor.getState().load(project, tl, lib, engine)
         try {
           const raw = localStorage.getItem(SNAPSHOT(p.id))
-          const snap = raw ? (JSON.parse(raw) as { timeline: Timeline; at: number }) : null
+          const snap = raw
+            ? (JSON.parse(raw) as { timeline: TimelineV2; transcript?: Transcript | null; at: number })
+            : null
+          if (snap && snap.timeline?.version !== 2) throw new Error('old snapshot')
           if (snap && snap.at > p.updatedAt + 1000) setRestore(snap)
         } catch {
           // unreadable snapshot: ignore
@@ -179,20 +193,21 @@ export default function EditorPage() {
     if (!s.project || !s.timeline || revision === 0) return
     const proj = s.project
     const tl = s.timeline
+    const transcript = s.transcript
     try {
-      localStorage.setItem(SNAPSHOT(proj.id), JSON.stringify({ timeline: tl, at: Date.now() }))
+      localStorage.setItem(SNAPSHOT(proj.id), JSON.stringify({ timeline: tl, transcript, at: Date.now() }))
     } catch {
       // storage full: the IndexedDB save below still runs
     }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
       try {
-        const firstVideo = tl.tracks.find((t) => t.kind === 'video')?.clips[0]
-        const thumb =
-          firstVideo?.type === 'media' ? s.assets.get(firstVideo.assetId)?.thumbnails[0] : undefined
+        const firstVideo = tl.clips.find((c) => s.assets.get(c.assetId)?.kind !== 'audio')
+        const thumb = firstVideo ? s.assets.get(firstVideo.assetId)?.thumbnails[0] : undefined
         await projectsTable.put({
           ...proj,
           timeline: tl,
+          transcript,
           thumbnail: thumb ?? proj.thumbnail,
           updatedAt: Date.now(),
         })
@@ -213,7 +228,7 @@ export default function EditorPage() {
       s.setPlaying(false)
       s.setPlayhead(audio.now())
     } else {
-      const end = timelineDuration(s.timeline)
+      const end = timelineDurationV2(s.timeline)
       const from = s.playhead >= end - 0.01 ? 0 : s.playhead
       s.setPlayhead(from)
       void audio.play(from, s.timeline, s.assets).then(() => useEditor.getState().setPlaying(true))
@@ -473,7 +488,11 @@ export default function EditorPage() {
             <Button
               data-testid="restore-session"
               onClick={() => {
-                if (restore) s.apply('Restore session', () => restore.timeline)
+                if (restore)
+                  s.apply('Restore session', (d) => ({
+                    timeline: restore.timeline,
+                    transcript: restore.transcript ?? d.transcript,
+                  }))
                 setRestore(null)
               }}
             >

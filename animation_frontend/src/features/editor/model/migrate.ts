@@ -2,7 +2,7 @@
 // document as a backup on the record. Media keeps its timing exactly (seconds
 // → frames at the timeline's fps); text clips become title graphics; caption
 // clips become a transcript (words spread across each cue) and the captions item.
-import type { Timeline as TimelineV1, MediaClip, TextClip, CaptionClip } from './timeline'
+import type { Timeline as TimelineV1, MediaClip, TextClip, CaptionClip } from './timelineV1'
 import {
   defaultCaptions,
   defaultTracks,

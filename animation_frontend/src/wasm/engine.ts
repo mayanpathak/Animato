@@ -1,7 +1,7 @@
-// Main-thread access to the timeline core of the animato-wasm module
-// (crates/animato-wasm). Workers import src/wasm/pkg directly for decode,
-// compositing, audio and encoding.
-import type { Timeline } from '@/features/editor/model/timeline'
+// Main-thread access to the timeline utilities of the animato-wasm module
+// (crates/animato-wasm): timecode, snapping, SRT and caption grouping. Clip
+// data operations moved to @tooscut/render-engine (plan 10.4). Workers import
+// src/wasm/pkg directly for decode, compositing, audio and encoding.
 import { recordCall, type EngineCategory } from './stats'
 
 export interface CoreFunctions {
@@ -9,14 +9,10 @@ export interface CoreFunctions {
   seconds_to_timecode(seconds: number, fps: number): string
   timecode_to_seconds(tc: string, fps: number): number
   snap(time: number, targets: Float64Array, threshold: number): number
-  split_clip(timeline: string, clipId: string, at: number, newId: string): string
-  trim_clip(timeline: string, clipId: string, edge: string, to: number): string
-  ripple_delete(timeline: string, clipId: string): string
   parse_srt(text: string): string
   to_srt(cuesJson: string): string
   captions_from_words(wordsJson: string): string
   waveform_peaks(pcm: Float32Array, buckets: number): Float32Array
-  keyframe_value(keysJson: string, time: number): number
 }
 
 export interface Cue {
@@ -38,14 +34,10 @@ export interface CoreEngine {
   secondsToTimecode(seconds: number, fps: number): string
   timecodeToSeconds(tc: string, fps: number): number
   snap(time: number, targets: number[], threshold: number): number
-  splitClip(t: Timeline, clipId: string, at: number, newId: string): Timeline
-  trimClip(t: Timeline, clipId: string, edge: 'start' | 'end', to: number): Timeline
-  rippleDelete(t: Timeline, clipId: string): Timeline
   parseSrt(text: string): Cue[]
   toSrt(cues: Cue[]): string
   captionsFromWords(words: TimedWord[]): Cue[]
   waveformPeaks(pcm: Float32Array, buckets: number): Float32Array
-  keyframeValue(keys: { time: number; value: number; ease?: string }[], time: number): number
 }
 
 function wrap(fns: CoreFunctions, backend: 'wasm' | 'ts'): CoreEngine {
@@ -67,20 +59,6 @@ function wrap(fns: CoreFunctions, backend: 'wasm' | 'ts'): CoreEngine {
     timecodeToSeconds: (tc, fps) => fns.timecode_to_seconds(tc, fps),
     snap: (time, targets, threshold) =>
       timed('timeline', 'snap', () => fns.snap(time, Float64Array.from(targets), threshold)),
-    splitClip: (t, id, at, newId) =>
-      timed(
-        'timeline',
-        'split',
-        () => JSON.parse(fns.split_clip(JSON.stringify(t), id, at, newId)) as Timeline,
-      ),
-    trimClip: (t, id, edge, to) =>
-      timed('timeline', 'trim', () => JSON.parse(fns.trim_clip(JSON.stringify(t), id, edge, to)) as Timeline),
-    rippleDelete: (t, id) =>
-      timed(
-        'timeline',
-        'ripple-delete',
-        () => JSON.parse(fns.ripple_delete(JSON.stringify(t), id)) as Timeline,
-      ),
     parseSrt: (text) => timed('captions', 'parse-srt', () => JSON.parse(fns.parse_srt(text)) as Cue[]),
     toSrt: (cues) => timed('captions', 'to-srt', () => fns.to_srt(JSON.stringify(cues))),
     captionsFromWords: (words) =>
@@ -90,7 +68,6 @@ function wrap(fns: CoreFunctions, backend: 'wasm' | 'ts'): CoreEngine {
         () => JSON.parse(fns.captions_from_words(JSON.stringify(words))) as Cue[],
       ),
     waveformPeaks: (pcm, buckets) => timed('dsp', 'waveform-peaks', () => fns.waveform_peaks(pcm, buckets)),
-    keyframeValue: (keys, time) => fns.keyframe_value(JSON.stringify(keys), time),
   }
 }
 

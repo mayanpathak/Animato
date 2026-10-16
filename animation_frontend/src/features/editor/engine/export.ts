@@ -14,8 +14,8 @@ import {
 import type { MediaAsset } from '@/lib/local/models'
 import { fileHandle, readFile, removeFile } from '@/lib/local/opfs'
 import { recordCall } from '@/wasm/stats'
-import type { Timeline } from '../model/timeline'
-import { timelineDuration } from '../model/timeline'
+import { timelineDurationV2, type TimelineV2 } from '../model/timelineV2'
+import type { Transcript } from '../model/transcript'
 import { renderAudioWindowed } from './audioRender'
 import { audioAssetIds, buildAudioTimeline, planFrame } from './compose'
 import { createCompositor } from './compositor'
@@ -27,7 +27,8 @@ export type ExportFormat = 'mp4' | 'webm'
 export type ExportQuality = 'draft' | 'standard' | 'high'
 
 export interface ExportOptions {
-  timeline: Timeline
+  timeline: TimelineV2
+  transcript: Transcript | null
   assets: MediaAsset[]
   width: number
   height: number
@@ -127,7 +128,7 @@ export async function runExport(
   const wasm = await loadWasm()
   const { timeline, width, height, fps } = opts
   const assets = new Map(opts.assets.map((a) => [a.id, a]))
-  const duration = timelineDuration(timeline)
+  const duration = timelineDurationV2(timeline)
   if (duration <= 0) throw new Error('The timeline is empty.')
   const frames = Math.max(1, Math.round(duration * fps))
   const bitrate = Math.round(width * height * fps * BITS_PER_PIXEL[opts.quality])
@@ -166,8 +167,6 @@ export async function runExport(
   const compositor = await createCompositor(canvas, opts.compositor)
   const pool = new SourcePool()
   pool.setAssets(assets)
-  const kf = (keys: { time: number; value: number; ease?: string }[], t: number) =>
-    wasm.keyframe_value(JSON.stringify(keys), t)
   const frameUs = 1e6 / fps
   const started = performance.now()
 
@@ -176,7 +175,7 @@ export async function runExport(
       if (signal.aborted) throw new DOMException('Export cancelled', 'AbortError')
       if (failure) throw failure
       const t = i / fps
-      const plan = planFrame(timeline, t, assets, kf)
+      const plan = planFrame(timeline, t, assets, opts.transcript)
       const sources = await pool.gather(plan)
       const frame = await compositor.capture(plan, sources, Math.round(i * frameUs), Math.round(frameUs))
       pool.release(sources)

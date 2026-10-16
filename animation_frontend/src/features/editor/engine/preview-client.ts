@@ -2,7 +2,8 @@
 // render requests so a slow frame never queues up a backlog.
 import type { MediaAsset } from '@/lib/local/models'
 import { recordCall, type EngineCall } from '@/wasm/stats'
-import type { Timeline } from '../model/timeline'
+import type { TimelineV2 } from '../model/timelineV2'
+import type { Transcript } from '../model/transcript'
 import { connect, type RpcClient } from './rpc'
 
 export interface PreviewInfo {
@@ -10,7 +11,7 @@ export interface PreviewInfo {
   label: string
 }
 
-export function previewSize(tl: Timeline): { width: number; height: number } {
+export function previewSize(tl: Pick<TimelineV2, 'width' | 'height'>): { width: number; height: number } {
   const scale = Math.min(1, 1280 / Math.max(tl.width, tl.height))
   return { width: Math.round((tl.width * scale) / 2) * 2, height: Math.round((tl.height * scale) / 2) * 2 }
 }
@@ -27,7 +28,7 @@ export class PreviewRenderer {
 
   static async create(
     canvas: HTMLCanvasElement,
-    tl: Timeline,
+    tl: TimelineV2,
     force?: 'webgpu' | 'canvas2d',
   ): Promise<{ renderer: PreviewRenderer; info: PreviewInfo }> {
     const rpc = connect(
@@ -42,9 +43,9 @@ export class PreviewRenderer {
     return { renderer: new PreviewRenderer(rpc), info }
   }
 
-  setProject(tl: Timeline, assets: MediaAsset[]): Promise<void> {
+  setProject(tl: TimelineV2, assets: MediaAsset[], transcript: Transcript | null): Promise<void> {
     const { width, height } = previewSize(tl)
-    return this.rpc.call('setProject', [tl, assets, width, height])
+    return this.rpc.call('setProject', [tl, assets, width, height, transcript])
   }
 
   /** Renders `time`; while a frame is in flight only the latest request is kept. */

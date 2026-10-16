@@ -1,7 +1,9 @@
 // Records kept in this browser (IndexedDB). None of these exist on the server.
 import type { Observed } from '@/lib/api/polling'
 import type { Library } from '@/lib/api/types'
-import type { Timeline } from '@/features/editor/model/timeline'
+import type { TimelineV2 } from '@/features/editor/model/timelineV2'
+import type { Timeline as TimelineV1 } from '@/features/editor/model/timelineV1'
+import type { Transcript } from '@/features/editor/model/transcript'
 import { table, uid } from './db'
 
 /** A job this browser created. The server has no "list my jobs" endpoint. */
@@ -79,7 +81,12 @@ export interface Project {
   updatedAt: number
   /** JPEG data URL of a real frame. */
   thumbnail: string | null
-  timeline: Timeline
+  /** Timeline v2; records written before plan v2 hold v1 until first opened (projects.ts timelineOf). */
+  timeline: TimelineV2 | TimelineV1
+  /** The v1 document, kept when it was migrated. */
+  timelineV1Backup?: TimelineV1
+  /** Word-timed transcript of the voice (plan 9.2). */
+  transcript?: Transcript | null
 }
 
 export interface BrandKit {

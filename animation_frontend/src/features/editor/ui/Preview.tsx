@@ -3,7 +3,7 @@ import { Pause, Play, SkipBack, StepBack, StepForward } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { useEditor } from '../store'
-import { timelineDuration } from '../model/timeline'
+import { timelineDurationV2 } from '../model/timelineV2'
 import { previewSize, PreviewRenderer, type PreviewInfo } from '../engine/preview-client'
 import type { AudioPreview } from '../engine/audio-preview'
 
@@ -22,6 +22,7 @@ export function Preview({
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const timeline = useEditor((s) => s.timeline)
+  const transcript = useEditor((s) => s.transcript)
   const assets = useEditor((s) => s.assets)
   const playhead = useEditor((s) => s.playhead)
   const playing = useEditor((s) => s.playing)
@@ -67,9 +68,9 @@ export function Preview({
   useEffect(() => {
     if (!ready || !timeline || !renderer.current) return
     void renderer.current
-      .setProject(timeline, [...assets.values()])
+      .setProject(timeline, [...assets.values()], transcript)
       .then(() => renderer.current?.render(useEditor.getState().playhead))
-  }, [ready, timeline, assets])
+  }, [ready, timeline, assets, transcript])
 
   useEffect(() => {
     if (ready && !playing) renderer.current?.render(playhead)
@@ -78,7 +79,7 @@ export function Preview({
   // Playback: the audio clock drives the playhead; the worker renders the latest time.
   useEffect(() => {
     if (!playing || !timeline) return
-    const end = timelineDuration(timeline)
+    const end = timelineDurationV2(timeline)
     let raf = 0
     const tick = () => {
       const t = audio.now()
@@ -96,7 +97,7 @@ export function Preview({
     return () => cancelAnimationFrame(raf)
   }, [playing, timeline, audio, setPlaying, setPlayhead])
 
-  const duration = timeline ? timelineDuration(timeline) : 0
+  const duration = timeline ? timelineDurationV2(timeline) : 0
   const tc = (t: number) => (engine ? engine.secondsToTimecode(t, fps) : '00:00:00:00')
 
   return (
