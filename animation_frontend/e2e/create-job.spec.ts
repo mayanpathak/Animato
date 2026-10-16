@@ -38,5 +38,6 @@ test('a failing prompt shows the error state with retry', async ({ page }) => {
   await page.getByTestId('create-prompt').fill('This render should fail on purpose, please')
   await page.getByTestId('create-submit').click()
   await expect(page.getByTestId('job-status')).toContainText('Failed', { timeout: 30_000 })
-  await expect(page.getByRole('button', { name: /retry/i })).toBeVisible()
+  await expect(page.getByTestId('job-retry')).toHaveText(/Try again/)
+  await expect(page.getByText("That one didn't render.")).toBeVisible()
 })
