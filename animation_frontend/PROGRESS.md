@@ -11,7 +11,7 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 | P1 | Real backend: mocks off, contract tests (vitest), polling, error mapping, import fallback, `LOCAL_DEV.md` | done | `711f3ce` |
 | P2 | Design system and shell: tokens, components, top bar, routes and redirects, Videos home, Settings, system screens | done | `c0f202c` |
 | P3 | Landing, pricing, first-run flow, Create, Rendering state, entitlements, analytics seam | done | `64b2a9f` |
-| P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | todo | |
+| P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | done | `c4c447a` |
 | P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | todo | |
 | P6 | Finish, simple mode, export | todo | |
 | P7 | Voice and captions | todo | |
@@ -73,3 +73,16 @@ npm run test:e2e    # Playwright (builds with mocks, serves on :4173)
 npm run screenshots # screenshots/<page>-{desktop,mobile}.png
 cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-engine -p offcut-mp4
 ```
+
+## P4 notes
+
+- typecheck, lint (token gate), build: pass. vitest 140 (render-engine package tests included, Timeline v2 ops,
+  migration, transcript chunking). Playwright e2e 42/42, including the new `migrate.spec.ts` (a seeded v1 project opens,
+  is stored as v2 with a v1 backup, and plays) and the editor and voice suites on Timeline v2.
+- cargo `-p animato-wasm -p tooscut-audio-engine -p offcut-mp4`: 86 tests pass. No Rust changed in P4.
+- Engine decisions and their measurements: `DESIGN_NOTES.md` P4 entries, raw numbers in `docs/engine-bench-p4.json`.
+- `src/workers/` is gone; nothing references it.
+- Editor screenshots reviewed at 1440×900 and 390×844 (lanes: Titles, Video, Voice, Music & audio; no overflow).
+- Left for P5: the Rust `split_clip`, `trim_clip` and `ripple_delete` exports are unused since edits moved to
+  render-engine; they go when the WASM is rebuilt. Titles and captions still draw as compositor text layers.
+
