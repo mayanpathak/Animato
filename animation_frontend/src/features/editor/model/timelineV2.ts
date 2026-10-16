@@ -99,9 +99,36 @@ export interface CaptionsItem {
   maxWords: number
   highlight: 'word' | 'none'
   layer: 'over'
+  /** Set by a caption style (plan 9.3); absent on captions made before P6. */
+  weight?: number
+  case?: 'asIs' | 'upper'
+  stroke?: { width: number; color: string } | null
+  activeColor?: string | null
 }
 
 export type GraphicItemV2 = TitleItem | CaptionsItem
+
+/** The four looks (plan 7.3): layout presets for the rendered video. */
+export type LookId = 'clean' | 'bold' | 'minimal' | 'brand'
+export type CaptionStyleId = 'clean' | 'bold' | 'minimal'
+
+/**
+ * Finish (plan 6.6): the simple-mode choices that turn a render into a
+ * postable video. Stored on the timeline so every change is one undo step.
+ */
+export interface FinishSettings {
+  look: LookId
+  /** The hook title shown at the start (plan 6.4.4 derives its default text). */
+  title: { enabled: boolean; text: string; position: 'top' | 'center'; duration: Seconds }
+  /** Captions draw when a transcript exists and this is on. */
+  captions: { enabled: boolean; style: CaptionStyleId }
+  /** Which brand kit, and what of it the video uses. */
+  brand: { kitId: string | null; logo: boolean; colors: boolean }
+  /** Added after the content (plan 12.1). */
+  endCard: { enabled: boolean; headline: string; sub: string; logo: boolean; duration: Seconds }
+  /** "Made with Animato" (plan 12.1; on by default during early access). */
+  watermark: boolean
+}
 
 export interface TimelineV2 {
   version: 2
@@ -118,6 +145,19 @@ export interface TimelineV2 {
   /** Graphics the user added by hand (titles), plus the captions item. */
   extraGraphics: GraphicItemV2[]
   audio: { ducking: { enabled: boolean; amountDb: number } }
+  /** Absent on timelines from before P6 and on videos started from the user's own clip. */
+  finish?: FinishSettings
+}
+
+export function defaultFinish(title: string, opts: { watermark: boolean }): FinishSettings {
+  return {
+    look: 'clean',
+    title: { enabled: Boolean(title), text: title, position: 'top', duration: 3 },
+    captions: { enabled: true, style: 'clean' },
+    brand: { kitId: null, logo: true, colors: false },
+    endCard: { enabled: false, headline: 'Follow for more', sub: '', logo: true, duration: 2 },
+    watermark: opts.watermark,
+  }
 }
 
 export const ASPECT_PRESETS = {
@@ -222,6 +262,13 @@ export function timelineDurationV2(tl: TimelineV2): Seconds {
   for (const c of tl.clips) end = Math.max(end, clipEnd(tl, c))
   for (const g of tl.extraGraphics) if (g.kind === 'title') end = Math.max(end, g.end)
   return end
+}
+
+/** What preview and export play: the content, then the end card when it is on. */
+export function outputDuration(tl: TimelineV2): Seconds {
+  const content = timelineDurationV2(tl)
+  const card = tl.finish?.endCard
+  return content > 0 && card?.enabled ? content + Math.max(0, card.duration) : content
 }
 
 export function trackOf(tl: TimelineV2, id: string): TrackV2 | undefined {

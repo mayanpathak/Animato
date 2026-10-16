@@ -2,6 +2,8 @@
 // `apply`, which keeps an undo/redo stack (slider drags coalesce into one
 // entry). Clip data operations come from @tooscut/render-engine (model/ops.ts);
 // snapping and timecode stay in Rust (src/wasm/engine.ts).
+import * as finishOps from './model/finish'
+import type { BrandRender } from './graphics/looks'
 import { create } from 'zustand'
 import type { MediaAsset, Project } from '@/lib/local/models'
 import type { CoreEngine, Cue } from '@/wasm/engine'
@@ -36,9 +38,13 @@ import {
   graphicId,
   MAIN_AUDIO,
   MAIN_VIDEO,
-  timelineDurationV2,
+  outputDuration,
   VOICE_AUDIO,
+  type AspectKey,
+  type CaptionStyleId,
   type CaptionsItem,
+  type FinishSettings,
+  type LookId,
   type GraphicItemV2,
   type MediaClipV2,
   type TimelineV2,
@@ -69,6 +75,8 @@ export interface EditorState {
   timeline: TimelineV2 | null
   transcript: Transcript | null
   assets: Map<string, MediaAsset>
+  /** The brand kit Finish refers to, ready for the renderer (not part of undo). */
+  brand: BrandRender | null
   engine: CoreEngine | null
   selection: string | null
   playhead: number
@@ -86,6 +94,7 @@ export interface EditorState {
   load(project: Project, timeline: TimelineV2, assets: MediaAsset[], engine: CoreEngine): void
   reset(): void
   setAssets(assets: MediaAsset[]): void
+  setBrand(brand: BrandRender | null): void
   apply(label: string, fn: (d: Doc) => Doc, coalesceKey?: string): void
   undo(): void
   redo(): void
@@ -111,6 +120,11 @@ export interface EditorState {
   setCaptions(cues: Cue[], source: { assetId: string; model: string }): void
   setTranscript(transcript: Transcript | null): void
   updateTimeline(patch: Partial<TimelineV2>, label: string, coalesceKey?: string): void
+  /** Finish (plan 6.6): each call is one undo step. */
+  updateFinish(patch: (f: FinishSettings) => FinishSettings, label: string, coalesceKey?: string): void
+  setLook(look: LookId): void
+  setCaptionStyle(style: CaptionStyleId): void
+  setFormat(aspect: AspectKey): void
   snapTargets(excludeId?: string): number[]
 }
 
@@ -121,11 +135,21 @@ function timed<T>(name: string, run: () => T): T {
   return out
 }
 
+/** The timeline with a captions item, styled by Finish when the video has Finish settings. */
+function withCaptions(tl: TimelineV2, s: Pick<EditorState, 'assets' | 'brand'>): TimelineV2 {
+  if (captionsItem(tl)) return tl
+  const added = addGraphic(tl, defaultCaptions())
+  return added.finish
+    ? finishOps.setCaptionStyle(added, added.finish.captions.style, { assets: s.assets, brand: s.brand })
+    : added
+}
+
 export const useEditor = create<EditorState>((set, get) => ({
   project: null,
   timeline: null,
   transcript: null,
   assets: new Map(),
+  brand: null,
   engine: null,
   selection: null,
   playhead: 0,
@@ -161,6 +185,7 @@ export const useEditor = create<EditorState>((set, get) => ({
       project: null,
       timeline: null,
       transcript: null,
+      brand: null,
       selection: null,
       past: [],
       future: [],
@@ -168,6 +193,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     }),
 
   setAssets: (assets) => set({ assets: new Map(assets.map((a) => [a.id, a])) }),
+  setBrand: (brand) => set({ brand }),
 
   apply: (label, fn, coalesceKey) => {
     const { timeline, transcript, past, coalesceKey: lastKey, lastAt } = get()
@@ -220,7 +246,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   select: (selection) => set({ selection }),
   setPlayhead: (t) => {
     const tl = get().timeline
-    const max = tl ? Math.max(timelineDurationV2(tl), 0) : 0
+    const max = tl ? Math.max(outputDuration(tl), 0) : 0
     set({ playhead: Math.max(0, Math.min(t, max)) })
   },
   setPlaying: (playing) => set({ playing }),
@@ -384,21 +410,47 @@ export const useEditor = create<EditorState>((set, get) => ({
   /** Captions from timed cues (SRT import): a transcript plus the captions item. */
   setCaptions: (cues, source) => {
     get().apply('Captions', (d) => ({
-      timeline: captionsItem(d.timeline) ? d.timeline : addGraphic(d.timeline, defaultCaptions()),
+      timeline: withCaptions(d.timeline, get()),
       transcript: cues.length ? transcriptFromCues(cues, source) : null,
     }))
   },
 
   setTranscript: (transcript) => {
     get().apply('Captions', (d) => ({
-      timeline:
-        transcript && !captionsItem(d.timeline) ? addGraphic(d.timeline, defaultCaptions()) : d.timeline,
+      timeline: transcript ? withCaptions(d.timeline, get()) : d.timeline,
       transcript,
     }))
   },
 
   updateTimeline: (patch, label, coalesceKey) =>
     get().apply(label, (d) => ({ ...d, timeline: { ...d.timeline, ...patch } }), coalesceKey),
+
+  updateFinish: (patch, label, coalesceKey) =>
+    get().apply(label, (d) => ({ ...d, timeline: finishOps.updateFinish(d.timeline, patch) }), coalesceKey),
+
+  setLook: (look) => {
+    const { assets, brand } = get()
+    get().apply('Change look', (d) => ({
+      ...d,
+      timeline: finishOps.setLook(d.timeline, look, { assets, brand }),
+    }))
+  },
+
+  setCaptionStyle: (style) => {
+    const { assets, brand } = get()
+    get().apply('Caption style', (d) => ({
+      ...d,
+      timeline: finishOps.setCaptionStyle(d.timeline, style, { assets, brand }),
+    }))
+  },
+
+  setFormat: (aspect) => {
+    const { assets, brand } = get()
+    get().apply('Change format', (d) => ({
+      ...d,
+      timeline: finishOps.setFormat(d.timeline, aspect, { assets, brand }),
+    }))
+  },
 
   snapTargets: (excludeId) => {
     const { timeline, playhead } = get()

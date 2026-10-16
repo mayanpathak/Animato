@@ -14,7 +14,7 @@ import { toast } from '@/stores/toast'
 import { cn } from '@/lib/cn'
 import { triggerDownload } from '@/lib/download'
 import { useEditor } from '../store'
-import { ASPECT_PRESETS, aspectOf, timelineDurationV2, type AspectKey } from '../model/timelineV2'
+import { ASPECT_PRESETS, aspectOf, outputDuration, type AspectKey } from '../model/timelineV2'
 import { encoderSupport, exportTimeline } from '../engine/export-client'
 import type { ExportFormat, ExportProgress, ExportQuality, ExportResult } from '../engine/export'
 
@@ -66,7 +66,7 @@ export function ExportDialog({
 
   const aspect = timeline ? aspectOf(timeline) : '16:9'
   const size = dims(aspect, RESOLUTIONS.find((r) => r.id === res)?.short ?? 1080)
-  const duration = timeline ? timelineDurationV2(timeline) : 0
+  const duration = timeline ? outputDuration(timeline) : 0
   const transcript = useEditor((s) => s.transcript)
   const hasCaptions = Boolean(transcript?.words.length)
 

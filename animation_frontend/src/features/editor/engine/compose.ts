@@ -14,7 +14,16 @@ import {
   type TimelineClip,
 } from '@tooscut/render-engine'
 import type { MediaAsset } from '@/lib/local/models'
-import { toFrames, toSeconds, type MediaClipV2, type TimelineV2 } from '../model/timelineV2'
+import { mainSourceAspect } from '../graphics/build'
+import { lookBackdrop } from '../graphics/looks'
+import {
+  aspectOf,
+  MAIN_VIDEO,
+  toFrames,
+  toSeconds,
+  type MediaClipV2,
+  type TimelineV2,
+} from '../model/timelineV2'
 
 export interface MediaLayer {
   key: string
@@ -31,6 +40,10 @@ export interface MediaLayer {
   saturation: number
   crop: { top: number; right: number; bottom: number; left: number }
   z: number
+  /** Gaussian blur, in pixels of the source. */
+  blur: number
+  /** Drawn from the frame of another layer (the look's backdrop copies the main video). */
+  sourceKey?: string
 }
 
 export interface FramePlan {
@@ -92,6 +105,37 @@ export function sourceTime(tl: TimelineV2, c: MediaClipV2, t: number): number {
   return toSeconds(tl, c.inPoint) + (t - toSeconds(tl, c.startTime)) * c.speed
 }
 
+/**
+ * The look's backdrop (plan 7.3, Clean and Bold off-format): a dimmed,
+ * blurred copy of the main video filling the canvas behind it. It reuses the
+ * main layer's decoded frame.
+ */
+function backdrop(tl: TimelineV2, assets: Map<string, MediaAsset>, media: MediaLayer[]): MediaLayer[] {
+  const look = tl.finish?.look
+  const source = mainSourceAspect(tl, assets)
+  if (!look || !lookBackdrop(look, aspectOf(tl), source)) return []
+  const canvas = tl.width / tl.height
+  // From "fitted" to "covering" the canvas, plus a margin so the blur has no edge.
+  const cover = (source > canvas ? source / canvas : canvas / source) * 1.06
+  const main = new Set(tl.clips.filter((c) => c.trackId === MAIN_VIDEO).map((c) => c.id))
+  return media
+    .filter((l) => main.has(l.key) && l.kind === 'video')
+    .map((l) => ({
+      ...l,
+      key: `${l.key}#backdrop`,
+      sourceKey: l.key,
+      x: 0.5,
+      y: 0.5,
+      scale: cover,
+      rotation: 0,
+      brightness: l.brightness * 0.45,
+      saturation: l.saturation * 0.85,
+      crop: { top: 0, right: 0, bottom: 0, left: 0 },
+      z: l.z - 5,
+      blur: 10,
+    }))
+}
+
 export function planFrame(tl: TimelineV2, t: number, assets: Map<string, MediaAsset>): FramePlan {
   const frame = toFrames(tl, t)
   const byId = new Map(tl.clips.map((c) => [c.id, c]))
@@ -129,8 +173,10 @@ export function planFrame(tl: TimelineV2, t: number, assets: Map<string, MediaAs
       saturation: layer.effects.saturation,
       crop: layer.crop ?? c.crop,
       z: layer.z_index * 10,
+      blur: 0,
     })
   }
+  media.unshift(...backdrop(tl, assets, media))
 
   return { time: t, width: tl.width, height: tl.height, background: tl.background, media }
 }

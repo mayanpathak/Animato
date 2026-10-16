@@ -4,6 +4,7 @@ import type { MediaAsset } from '@/lib/local/models'
 import { recordCall, type EngineCall } from '@/wasm/stats'
 import type { TimelineV2 } from '../model/timelineV2'
 import type { Transcript } from '../model/transcript'
+import type { BrandRender } from '../graphics/looks'
 import { connect, type RpcClient } from './rpc'
 
 export interface PreviewInfo {
@@ -43,9 +44,14 @@ export class PreviewRenderer {
     return { renderer: new PreviewRenderer(rpc), info }
   }
 
-  setProject(tl: TimelineV2, assets: MediaAsset[], transcript: Transcript | null): Promise<void> {
+  setProject(
+    tl: TimelineV2,
+    assets: MediaAsset[],
+    transcript: Transcript | null,
+    brand: BrandRender | null,
+  ): Promise<void> {
     const { width, height } = previewSize(tl)
-    return this.rpc.call('setProject', [tl, assets, width, height, transcript])
+    return this.rpc.call('setProject', [tl, assets, width, height, transcript, brand])
   }
 
   /** Renders `time`; while a frame is in flight only the latest request is kept. */

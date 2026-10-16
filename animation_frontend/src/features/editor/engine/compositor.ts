@@ -25,6 +25,8 @@ export interface CompositorBackend {
   resize(width: number, height: number): void
   /** Lays out the graphics drawn with every frame (null: none). Loads their fonts first. */
   setGraphics(doc: GraphicsDoc | null, transcript: GraphicsTranscript | null): Promise<void>
+  /** Registers an image (a brand logo) for graphics `image` items, by id. */
+  setImage(id: string, bitmap: ImageBitmap): Promise<void>
   /** Composites the plan and returns the picture for the visible canvas. */
   draw(plan: FramePlan, sources: Map<string, LayerSource>): Promise<ImageBitmap>
   /** Composites the plan and returns it as a VideoFrame (for export). */
@@ -114,22 +116,39 @@ class GpuCompositor implements CompositorBackend {
     })
   }
 
+  async setImage(id: string, bitmap: ImageBitmap) {
+    const c = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(bitmap, 0, 0)
+    const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height)
+    await this.run(() => this.r.register_image(id, bitmap.width, bitmap.height, new Uint8Array(data.buffer)))
+  }
+
   private async frame(plan: FramePlan, sources: Map<string, LayerSource>) {
     const W = this.r.width
     const H = this.r.height
     const used = new Set<string>()
     const media_layers = []
-    for (const l of plan.media) {
+    // Sources before their copies, so a copy finds its texture; z orders the drawing.
+    const ordered = [...plan.media].sort(
+      (a, b) => Number(Boolean(a.sourceKey)) - Number(Boolean(b.sourceKey)),
+    )
+    for (const l of ordered) {
       const src = sources.get(l.key)
       if (!src) continue
       // copyExternalImageToTexture takes ImageBitmaps; VideoFrames are converted.
-      const bitmap = src.image instanceof ImageBitmap ? src.image : await createImageBitmap(src.image)
-      this.r.upload_bitmap(bitmap, l.key)
-      if (bitmap !== src.image) bitmap.close()
-      used.add(l.key)
+      // A copy (the look's backdrop) samples its source's texture.
+      const texture = l.sourceKey && used.has(l.sourceKey) ? l.sourceKey : l.key
+      if (texture === l.key) {
+        const bitmap = src.image instanceof ImageBitmap ? src.image : await createImageBitmap(src.image)
+        this.r.upload_bitmap(bitmap, l.key)
+        if (bitmap !== src.image) bitmap.close()
+        used.add(l.key)
+      }
       const s = fit(src, W, H) * l.scale
       media_layers.push({
-        texture_id: l.key,
+        texture_id: texture,
         transform: {
           x: l.x * W,
           y: l.y * H,
@@ -145,7 +164,7 @@ class GpuCompositor implements CompositorBackend {
           contrast: l.contrast,
           saturation: l.saturation,
           hue_rotate: 0,
-          blur: 0,
+          blur: l.blur,
         },
         z_index: l.z,
         crop: l.crop,
@@ -255,6 +274,10 @@ class Canvas2DCompositor implements CompositorBackend {
     })
   }
 
+  async setImage(id: string, bitmap: ImageBitmap) {
+    this.images.set(id, bitmap)
+  }
+
   private drawMedia(l: MediaLayer, src: LayerSource) {
     const { ctx } = this
     const W = this.canvas.width
@@ -264,7 +287,9 @@ class Canvas2DCompositor implements CompositorBackend {
     const ch = src.height * (1 - l.crop.top - l.crop.bottom)
     ctx.save()
     ctx.globalAlpha = Math.max(0, Math.min(1, l.opacity))
-    ctx.filter = `brightness(${l.brightness}) contrast(${l.contrast}) saturate(${l.saturation})`
+    // Blur is in source pixels; the canvas filter takes canvas pixels.
+    const blur = l.blur > 0 ? ` blur(${(l.blur * s).toFixed(1)}px)` : ''
+    ctx.filter = `brightness(${l.brightness}) contrast(${l.contrast}) saturate(${l.saturation})${blur}`
     ctx.translate(l.x * W, l.y * H)
     ctx.rotate((l.rotation * Math.PI) / 180)
     ctx.scale(s, s)

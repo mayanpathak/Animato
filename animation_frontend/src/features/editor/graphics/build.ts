@@ -1,9 +1,20 @@
 // Timeline v2 → graphics document (plan 8.4). P5 maps what the editor has
 // today: hand-made titles and the captions item. Looks (P6) add their own
 // items through the same function, and keep user edits by item id.
-import { captionsItem, timelineDurationV2, type TimelineV2, type TitleItem } from '../model/timelineV2'
+import type { MediaAsset } from '@/lib/local/models'
+import {
+  aspectOf,
+  captionsItem,
+  MAIN_VIDEO,
+  outputDuration,
+  timelineDurationV2,
+  type CaptionsItem,
+  type TimelineV2,
+  type TitleItem,
+} from '../model/timelineV2'
 import type { Transcript } from '../model/transcript'
 import { builtinFont } from './fonts'
+import { endCardItem, fittedVideo, lookItems, type BrandSnapshot, type Box } from './looks'
 import type { GraphicItem, GraphicsDoc, GraphicsTranscript, Motion } from './schema'
 
 /** CSS-ish colours to `#rrggbb(aa)`; anything unreadable becomes `fallback`. */
@@ -77,52 +88,97 @@ function titleItem(tl: TimelineV2, g: TitleItem): GraphicItem {
 export interface BuildOptions {
   /** The size frames are drawn at (preview or export); the timeline's own size otherwise. */
   canvas?: { width: number; height: number }
-  /** The watermark line, when the plan shows one (P6 decides). */
-  watermark?: string | null
+  /** The brand kit the Finish choices refer to (colours, font, logo). */
+  brand?: BrandSnapshot | null
+  /** Media of the timeline: the main clip's size places titles around the video. */
+  assets?: Map<string, MediaAsset>
 }
 
-/** The graphics document of a timeline. `transcript` decides whether captions draw. */
+/** The line the watermark shows (plan 12.1, D2). */
+export const WATERMARK_TEXT = 'Made with Animato'
+
+/** Width over height of the main video (16:9 when there is none: workers render 16:9). */
+export function mainSourceAspect(tl: TimelineV2, assets?: Map<string, MediaAsset>): number {
+  const main = tl.clips.find((c) => c.trackId === MAIN_VIDEO)
+  const a = main ? assets?.get(main.assetId) : undefined
+  return a && a.width > 0 && a.height > 0 ? a.width / a.height : 16 / 9
+}
+
+/** Where the main video sits, as fractions of the canvas. */
+export function mainVideoBox(tl: TimelineV2, assets?: Map<string, MediaAsset>): Box {
+  const main = tl.clips.find((c) => c.trackId === MAIN_VIDEO)
+  const t = main?.transform
+  return fittedVideo(mainSourceAspect(tl, assets), aspectOf(tl), t?.scale ?? 1, t?.x ?? 0.5, t?.y ?? 0.5)
+}
+
+function captionsDocItem(tl: TimelineV2, cap: CaptionsItem): GraphicItem {
+  const { h } = designSize(tl)
+  const boxH = Math.min(0.4, (cap.size * 1.15 * 2 + cap.size) / h)
+  return {
+    kind: 'captions',
+    id: cap.id,
+    style: {
+      font: cap.font,
+      size: cap.size,
+      weight: cap.weight ?? 700,
+      color: toHex(cap.color),
+      activeColor: cap.highlight === 'word' ? toHex(cap.activeColor ?? '#ffd60a', '#ffd60a') : null,
+      background: cap.background ? toHex(cap.background, '#000000b3') : null,
+      stroke: cap.stroke ? { width: cap.stroke.width, color: toHex(cap.stroke.color, '#000000') } : null,
+      case: cap.case ?? 'asIs',
+    },
+    box: { x: 0.05, y: Math.max(0, Math.min(1 - boxH, cap.y - boxH / 2)), w: 0.9, h: boxH },
+    maxWords: cap.maxWords,
+    maxLines: 2,
+    highlight: cap.highlight,
+    layer: 'over',
+  }
+}
+
+/**
+ * The graphics document of a timeline: the look's items (Finish), the
+ * titles added by hand, captions (drawn only when a transcript is passed to
+ * the scene), the end card and the watermark, in that order.
+ */
 export function buildGraphics(tl: TimelineV2, opts: BuildOptions = {}): GraphicsDoc {
   const items: GraphicItem[] = []
+  const finish = tl.finish
+  const brand = finish && opts.brand && opts.brand.kitId === finish.brand.kitId ? opts.brand : null
+  const look = finish
+    ? {
+        aspect: aspectOf(tl),
+        video: mainVideoBox(tl, opts.assets),
+        finish,
+        brand,
+        duration: timelineDurationV2(tl),
+      }
+    : null
+  if (look) items.push(...lookItems(look))
   for (const g of tl.extraGraphics) if (g.kind === 'title') items.push(titleItem(tl, g))
   const cap = captionsItem(tl)
-  if (cap) {
-    const { h } = designSize(tl)
-    const boxH = Math.min(0.4, (cap.size * 1.15 * 2 + cap.size) / h)
-    items.push({
-      kind: 'captions',
-      id: cap.id,
-      style: {
-        font: cap.font,
-        size: cap.size,
-        weight: 700,
-        color: toHex(cap.color),
-        activeColor: cap.highlight === 'word' ? '#ffd60a' : null,
-        background: cap.background ? toHex(cap.background, '#000000b3') : null,
-        stroke: null,
-        case: 'asIs',
-      },
-      box: { x: 0.05, y: Math.max(0, Math.min(1 - boxH, cap.y - boxH / 2)), w: 0.9, h: boxH },
-      maxWords: cap.maxWords,
-      maxLines: 2,
-      highlight: cap.highlight,
-      layer: 'over',
-    })
-  }
-  if (opts.watermark)
-    items.push({ kind: 'watermark', id: 'gfx_watermark', corner: 'br', text: opts.watermark, layer: 'over' })
+  if (cap && (finish?.captions.enabled ?? true)) items.push(captionsDocItem(tl, cap))
+  const card = look ? endCardItem(look) : null
+  if (card) items.push(card)
+  if (finish?.watermark)
+    items.push({ kind: 'watermark', id: 'gfx_watermark', corner: 'br', text: WATERMARK_TEXT, layer: 'over' })
 
   const families = new Set<string>(['Inter'])
-  for (const item of items) if ('style' in item) families.add(item.style.font)
+  for (const item of items) {
+    if ('style' in item) families.add(item.style.font)
+    if (item.kind === 'endCard') families.add(item.font)
+  }
+  const usesLogo = items.some(
+    (i) => (i.kind === 'image' && i.imageId === brand?.logo?.id) || (i.kind === 'endCard' && i.logo),
+  )
   return {
     version: 1,
     canvas: opts.canvas ?? { width: tl.width, height: tl.height },
-    duration: timelineDurationV2(tl),
+    duration: outputDuration(tl),
     fonts: [...families].flatMap((family) => {
       const f = builtinFont(family)
       return f ? [{ family, source: `builtin:${f.file}` }] : []
     }),
-    images: [],
+    images: usesLogo && brand?.logo ? [brand.logo] : [],
     items,
   }
 }

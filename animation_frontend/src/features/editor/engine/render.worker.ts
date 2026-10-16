@@ -6,6 +6,7 @@ import { useEngineStats } from '@/wasm/stats'
 import type { TimelineV2 } from '../model/timelineV2'
 import type { Transcript } from '../model/transcript'
 import { buildGraphics, graphicsTranscript } from '../graphics/build'
+import type { BrandRender } from '../graphics/looks'
 import { planFrame } from './compose'
 import { createCompositor, type CompositorBackend } from './compositor'
 import { runExport, type ExportOptions, type ExportProgress } from './export'
@@ -21,6 +22,21 @@ let assets = new Map<string, MediaAsset>()
 const pool = new SourcePool()
 /** The graphics document the compositor has, as JSON: rebuilt only when it changes. */
 let graphicsKey = ''
+let brand: BrandRender | null = null
+/** Image ids the current compositor has. */
+let registered = new Set<string>()
+
+/** Decodes an image URL (a data URL from the brand kit). */
+export async function loadBitmap(url: string): Promise<ImageBitmap> {
+  return createImageBitmap(await (await fetch(url)).blob())
+}
+
+async function registerImages() {
+  const logo = brand?.logo
+  if (!compositor || !logo || !brand?.logoUrl || registered.has(logo.id)) return
+  registered.add(logo.id)
+  await compositor.setImage(logo.id, await loadBitmap(brand.logoUrl)).catch(() => registered.delete(logo.id))
+}
 
 async function init(canvas: OffscreenCanvas, width: number, height: number, force?: 'webgpu' | 'canvas2d') {
   await loadWasm()
@@ -31,7 +47,12 @@ async function init(canvas: OffscreenCanvas, width: number, height: number, forc
 
 async function syncGraphics() {
   if (!compositor || !timeline) return
-  const doc = buildGraphics(timeline, { canvas: { width: compositor.width, height: compositor.height } })
+  await registerImages()
+  const doc = buildGraphics(timeline, {
+    canvas: { width: compositor.width, height: compositor.height },
+    brand,
+    assets,
+  })
   const words = graphicsTranscript(transcript)
   const key = JSON.stringify([doc, words])
   if (key === graphicsKey) return
@@ -45,9 +66,11 @@ async function setProject(
   width: number,
   height: number,
   tr: Transcript | null,
+  b: BrandRender | null,
 ) {
   timeline = t
   transcript = tr
+  brand = b
   assets = new Map(list.map((a) => [a.id, a]))
   pool.setAssets(assets)
   if (compositor && (compositor.width !== width || compositor.height !== height))
@@ -64,6 +87,7 @@ async function render(time: number) {
     compositor.dispose()
     compositor = await createCompositor(width, height, 'canvas2d')
     graphicsKey = ''
+    registered = new Set()
     await syncGraphics()
   }
   const t0 = performance.now()
@@ -85,6 +109,7 @@ serve({
       a[2] as number,
       a[3] as number,
       a[4] as Transcript | null,
+      (a[5] as BrandRender | null) ?? null,
     ),
   render: (a) => render(a[0] as number),
   export: (a, ctx) => runExport(a[0] as ExportOptions, (p: ExportProgress) => ctx.progress(p), ctx.signal),

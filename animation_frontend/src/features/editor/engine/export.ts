@@ -14,9 +14,10 @@ import {
 import type { MediaAsset } from '@/lib/local/models'
 import { fileHandle, readFile, removeFile } from '@/lib/local/opfs'
 import { recordCall } from '@/wasm/stats'
-import { timelineDurationV2, type TimelineV2 } from '../model/timelineV2'
+import { outputDuration, type TimelineV2 } from '../model/timelineV2'
 import type { Transcript } from '../model/transcript'
 import { buildGraphics, graphicsTranscript } from '../graphics/build'
+import type { BrandRender } from '../graphics/looks'
 import { renderAudioWindowed } from './audioRender'
 import { audioAssetIds, buildAudioTimeline, planFrame } from './compose'
 import { createCompositor } from './compositor'
@@ -39,6 +40,8 @@ export interface ExportOptions {
   path: string
   /** Force a compositor (tests); default picks WebGPU when available. */
   compositor?: 'webgpu' | 'canvas2d'
+  /** The brand kit the Finish choices use (logo, colours, font). */
+  brand?: BrandRender | null
 }
 
 export interface ExportResult {
@@ -129,7 +132,7 @@ export async function runExport(
   const wasm = await loadWasm()
   const { timeline, width, height, fps } = opts
   const assets = new Map(opts.assets.map((a) => [a.id, a]))
-  const duration = timelineDurationV2(timeline)
+  const duration = outputDuration(timeline)
   if (duration <= 0) throw new Error('The timeline is empty.')
   const frames = Math.max(1, Math.round(duration * fps))
   const bitrate = Math.round(width * height * fps * BITS_PER_PIXEL[opts.quality])
@@ -166,8 +169,13 @@ export async function runExport(
 
   const compositor = await createCompositor(width, height, opts.compositor)
   // Captions draw only when the export burns them in (opts.transcript set).
+  if (opts.brand?.logo && opts.brand.logoUrl)
+    await compositor.setImage(
+      opts.brand.logo.id,
+      await createImageBitmap(await (await fetch(opts.brand.logoUrl)).blob()),
+    )
   await compositor.setGraphics(
-    buildGraphics(timeline, { canvas: { width, height } }),
+    buildGraphics(timeline, { canvas: { width, height }, brand: opts.brand ?? null, assets }),
     graphicsTranscript(opts.transcript),
   )
   const pool = new SourcePool()

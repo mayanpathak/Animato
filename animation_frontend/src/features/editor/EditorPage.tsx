@@ -29,13 +29,7 @@ import { useTitle } from '@/lib/useTitle'
 import { loadEngine } from '@/wasm/engine'
 import { useEditor } from './store'
 import { timelineOf } from './projects'
-import {
-  ASPECT_PRESETS,
-  aspectOf,
-  timelineDurationV2,
-  type AspectKey,
-  type TimelineV2,
-} from './model/timelineV2'
+import { ASPECT_PRESETS, aspectOf, outputDuration, type AspectKey, type TimelineV2 } from './model/timelineV2'
 import type { Transcript } from './model/transcript'
 import { AudioPreview } from './engine/audio-preview'
 import type { PreviewInfo } from './engine/preview-client'
@@ -228,7 +222,7 @@ export default function EditorPage() {
       s.setPlaying(false)
       s.setPlayhead(audio.now())
     } else {
-      const end = timelineDurationV2(s.timeline)
+      const end = outputDuration(s.timeline)
       const from = s.playhead >= end - 0.01 ? 0 : s.playhead
       s.setPlayhead(from)
       void audio.play(from, s.timeline, s.assets).then(() => useEditor.getState().setPlaying(true))

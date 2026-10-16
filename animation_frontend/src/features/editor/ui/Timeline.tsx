@@ -9,7 +9,7 @@ import {
   captionsItem,
   clipEnd,
   clipStart,
-  timelineDurationV2,
+  outputDuration,
   VOICE_VIDEO,
   type MediaClipV2,
   type TimelineV2,
@@ -330,7 +330,7 @@ export function Timeline() {
     const captions = captionsItem(timeline)
     return rowsOf(timeline, captions ? cuesFromTranscript(transcript, captions.maxWords) : [])
   }, [timeline, transcript])
-  const duration = timeline ? timelineDurationV2(timeline) : 0
+  const duration = timeline ? outputDuration(timeline) : 0
   const contentW = Math.max((duration + 10) * zoom, 800)
   const step = tickStep(zoom)
 

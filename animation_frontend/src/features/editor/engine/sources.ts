@@ -64,22 +64,29 @@ export class SourcePool {
   async gather(plan: FramePlan): Promise<Map<string, LayerSource>> {
     const out = new Map<string, LayerSource>()
     await Promise.all(
-      plan.media.map(async (l) => {
-        if (l.kind === 'image') {
-          const bmp = await this.image(l.assetId)
-          if (bmp) out.set(l.key, { image: bmp, width: bmp.width, height: bmp.height })
-          return
-        }
-        const v = await this.video(l.assetId)
-        const frame = v ? await v.decoder.frameAt(l.sourceTime) : null
-        if (frame) out.set(l.key, { image: frame, width: frame.displayWidth, height: frame.displayHeight })
-      }),
+      plan.media
+        .filter((l) => !l.sourceKey)
+        .map(async (l) => {
+          if (l.kind === 'image') {
+            const bmp = await this.image(l.assetId)
+            if (bmp) out.set(l.key, { image: bmp, width: bmp.width, height: bmp.height })
+            return
+          }
+          const v = await this.video(l.assetId)
+          const frame = v ? await v.decoder.frameAt(l.sourceTime) : null
+          if (frame) out.set(l.key, { image: frame, width: frame.displayWidth, height: frame.displayHeight })
+        }),
     )
+    // Copies (the look's backdrop) draw their source's frame; it is closed once.
+    for (const l of plan.media) {
+      const src = l.sourceKey ? out.get(l.sourceKey) : undefined
+      if (src) out.set(l.key, src)
+    }
     return out
   }
 
   release(sources: Map<string, LayerSource>): void {
-    for (const s of sources.values()) if (s.image instanceof VideoFrame) s.image.close()
+    for (const s of new Set(sources.values())) if (s.image instanceof VideoFrame) s.image.close()
   }
 
   close(): void {
