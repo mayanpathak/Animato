@@ -10,7 +10,7 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 | P0 | Repo and build health: root `CLAUDE.md`, setup hook, `.gitattributes`, rebuilt `editor/media/`, green build from a clean clone | done | `c8e7f9b` |
 | P1 | Real backend: mocks off, contract tests (vitest), polling, error mapping, import fallback, `LOCAL_DEV.md` | done | `711f3ce` |
 | P2 | Design system and shell: tokens, components, top bar, routes and redirects, Videos home, Settings, system screens | done | `c0f202c` |
-| P3 | Landing, pricing, first-run flow, Create, Rendering state, entitlements, analytics seam | todo | |
+| P3 | Landing, pricing, first-run flow, Create, Rendering state, entitlements, analytics seam | done | `64b2a9f` |
 | P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | todo | |
 | P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | todo | |
 | P6 | Finish, simple mode, export | todo | |
