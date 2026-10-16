@@ -172,6 +172,18 @@ TypeScript fallback (allowed only for timeline math and compositing):
 - **P0 · Worklet errors.** Init failures are posted back as `{ type: 'error' }` and reject at once instead of waiting for the 8 s timeout.
 - **P0 · Unwired modules excluded.** `packages/` and `src/workers/` are excluded from tsc, ESLint, oxlint and Prettier until P4 wires or deletes them, because they cannot compile before the workspace exists. One oxlint warning in `video-frame-loader.ts` was fixed since its nested `.oxlintrc.json` ignores the root ignore list.
 - **P0 · Sandbox install.** The setup hook runs `npm ci --ignore-scripts` and never `playwright install`; `playwright.config.ts` uses `/opt/pw-browsers/chromium` when present.
+- **P1 · Mocks off.** `.env.development` sets `VITE_USE_MOCKS=false`; only `npm run build:mocks` (now `cross-env`) turns MSW on, and `dist/` from `npm run build` contains no MSW code (grepped).
+- **P1 · vitest.** Added with its own `vitest.config.ts` (node environment, `src/**/*.test.ts`), because the pure units need no browser and the Vite config carries app-only plugins.
+- **P1 · Contract fixtures.** `contract.test.ts` holds literal bodies from the Rust handlers, plus `request()` error-envelope cases with a stubbed `fetch`; stubbing in a unit test is not a dev-run mock.
+- **P1 · Error mapping.** `lib/api/errors.ts` is pure and owns every user-facing failure string from plan 11.4; the 400 prompt-length text is the only server message shown verbatim, because other 4xx texts (axum rejections) mean nothing to a user.
+- **P1 · Polling.** `lib/api/polling.ts` holds the schedule; `useJob` keeps one poll state per job id in a module map so every screen shares the counters, uses `refetchIntervalInBackground` so the 15 s hidden-tab interval actually runs, and sets `retry: false` so failures count once per poll.
+- **P1 · Lost track.** `lost` is computed inside the query function after each poll (not during render, which would make the hook impure); the poll that crosses the 8-failure or 45-minute limit re-renders with it.
+- **P1 · Observed statuses.** Each status change is appended to the job record (`observed: { status, at }[]`, ms epoch), the data the P3 render view needs for stage timings and the "fixing" stage.
+- **P1 · 429 wait.** The `Retry-After` deadline lives in a small zustand store mirrored to localStorage, so Generate stays disabled with a countdown across reloads.
+- **P1 · 401/403 on create.** 401 sends the user to `/login?next=…`; 403 re-runs check-auth and goes to `/verify-email`.
+- **P1 · Import failure.** A failed OPFS import keeps the `<video>` player (it needs no CORS), shows "Couldn't load the video for finishing.", Retry import, and a dev-only hint pointing at `LOCAL_DEV.md`. The full `ready-remote` state lands with the video page in P6.
+- **P1 · Mock fidelity.** MSW messages now match the server (`Unauthorized`, `Not authenticated`, the forgot-password text). `[e2e:500]`, `[e2e:422]`, `[e2e:timeout]` and `[e2e:importfail]` markers in a prompt reach the 11.4 rows; the import failure keys on `request.mode !== 'no-cors'`, which is exactly the request S3 CORS governs.
+- **P1 · Free SMTP.** `LOCAL_DEV.md` recommends Mailpit (the mailer's no-credentials mode), with Gmail app passwords or a free transactional tier as real-inbox options.
 
 ## 6. Mock vs real
 

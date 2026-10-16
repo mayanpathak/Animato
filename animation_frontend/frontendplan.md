@@ -1499,6 +1499,7 @@ after this plan (features, then usage limits, quotas and billing, then deploy).
 | G10 | Production static serving expects `frontend/dist` relative to `api_server` | Build output path decided in the deploy phase | Deploy |
 | G11 | CORS origin is hard-coded to `http://localhost:5173` | Same-origin proxy in dev | Deploy |
 | G12 | No webhook/push for job completion | Polling with backoff | Server load at scale |
+| G13 | Video bytes are only reachable through the 302 to a presigned S3 URL, so finishing (OPFS import) depends on the bucket's CORS rule for the app origin | CORS rule documented in `LOCAL_DEV.md`; on failure the video page falls back to the plain `<video>` player, Download and Retry import | Finish breaks silently for anyone whose bucket lacks the rule; a same-origin streaming route (or `Content-Disposition`/range proxy) would remove the dependency |
 
 ---
 
