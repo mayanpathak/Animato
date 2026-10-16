@@ -89,7 +89,7 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
 ## P5 notes
 
 - Version alignment (plan 8.2): Vello 0.11.0 / wgpu 30.0.1 / parley 0.12.0; D1 did not arise. WASM 2,499,923 →
-  1,390,167 B gzip. Details and the budgets in `DESIGN_NOTES.md` section 4 and the P5 entries.
+  1,205,321 B gzip (`wasm-opt -Oz`, binaryen 132, added after the phase commit). Details and the budgets in `DESIGN_NOTES.md` section 4 and the P5 entries.
 - typecheck, lint, build: pass. vitest 145 (adds `graphics.test.ts`: fixture round trip TS → Rust → TS, buildGraphics,
   display lists and timings from the real WASM module in Node). Playwright 43/43, including `e2e/graphics.spec.ts`
   (a title drawn by Vello on WebGPU/SwiftShader and by Canvas2D agree within 3% / 15%) and the WebGPU export.

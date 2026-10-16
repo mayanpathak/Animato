@@ -123,7 +123,7 @@ and the landing demo).
 | parley | not linked | **0.12.0**; two one-line API edits (`NormalizedCoord::to_bits`, `Run::font_metrics`) |
 | peniko / skrifa / kurbo | – | 0.6.1 / 0.44.0 / 0.13.1 (one skrifa for Vello and parley) |
 | wasm-bindgen / js-sys / web-sys | =0.2.100 / =0.3.77 / =0.3.77 | =0.2.129 / =0.3.106 / =0.3.106 (wgpu 30 needs js-sys ≥ 0.3.85; CLI pinned to match in `build-wasm.sh`) |
-| `animato_wasm_bg.wasm` | 8,129,390 B raw, **2,499,923 B gzip -9** | 5,508,437 B raw, **1,390,167 B gzip -9** (no wasm-opt; budget 4.5 MB) |
+| `animato_wasm_bg.wasm` | 8,129,390 B raw, **2,499,923 B gzip -9** | 5,508,437 B raw / 1,390,167 B gzip before wasm-opt; **3,403,744 B raw / 1,205,321 B gzip -9** after `wasm-opt -Oz` (binaryen 132, budget 4.5 MB) |
 
 Step 1 of 8.2 found W = 30 without trying older Vello releases: the newest one already compiled the backend, so no
 release had to be ruled out and decision D1 never arose. The module got smaller because glyphon's text stack and
@@ -278,7 +278,8 @@ wgpu's WebGL backend left; Vello, parley and the graphics crates cost less than 
 - **P5 · Canvas2D fallback draws the same display lists** (`graphics/draw2d.ts`) from a GPU-free `GraphicsScene`. Glyph runs are drawn as text at parley's positions, so words land where Vello puts them; inside a word the browser's own advance applies, and word gaps can look slightly wider than Vello's (see `screenshots/graphics-title-*.png`). Group opacity is approximated per draw. `e2e/graphics.spec.ts` holds the two within 3% of the canvas in position and 15% in size.
 - **P5 · Device loss** switches the worker to Canvas2D and rebuilds the graphics, instead of showing an error.
 - **P5 · Removed** with nothing left orphaned: glyphon, cosmic-text and the compositor's `text.rs`; its unused colour-grading shader module and helpers; the surface constructors and wasm-bindgen API of `Compositor` (it is a Rust type inside `FrameRenderer` now); the static Inter OTFs; `captionAt` (Rust draws captions); the TS text-layer path in `compose.ts`.
-- **P5 · Budgets (plan 8.9), measured here:** module 1,390,167 B gzip (≤ 4.5 MB) ✓. Scene build for the fixture (9 items, 13 caption words): 0.33 ms native release, 1.82 ms WASM in Node (≤ 8 ms) ✓. `frame_at`: 0.0015 ms native, 0.062 ms WASM in Node including JSON (≤ 1 ms) ✓. **Not measured:** the Vello draw at 1080×1920 (≤ 4 ms), the preview frame total (≤ 12 ms), scrub latency (≤ 100 ms) and the 18 s export (≤ 60 s) need a real mid-range GPU; this sandbox has SwiftShader only. The perf badge records `graphics:scene-build`, `graphics:frame-at` and `composite:*` timings in the browser.
+- **P5 · `wasm-opt -Oz`** runs in `build-wasm.sh` from the pinned npm package `binaryen@132.0.0` (via `npx`, so `npm ci` does not install it), with only the wasm features rustc enables by default. −38% raw, −13% gzip; vitest (WASM in Node) and the WASM-heavy e2e specs pass on the optimised module.
+- **P5 · Budgets (plan 8.9), measured here:** module 1,205,321 B gzip after `wasm-opt -Oz` (≤ 4.5 MB) ✓. Scene build for the fixture (9 items, 13 caption words): 0.33 ms native release, 1.82 ms WASM in Node (≤ 8 ms) ✓. `frame_at`: 0.0015 ms native, 0.062 ms WASM in Node including JSON (≤ 1 ms) ✓. **Not measured:** the Vello draw at 1080×1920 (≤ 4 ms), the preview frame total (≤ 12 ms), scrub latency (≤ 100 ms) and the 18 s export (≤ 60 s) need a real mid-range GPU; this sandbox has SwiftShader only. The perf badge records `graphics:scene-build`, `graphics:frame-at` and `composite:*` timings in the browser.
 
 ## 6. Mock vs real
 
@@ -295,7 +296,6 @@ Switch to the real backend: set `VITE_USE_MOCKS=false` (e.g. in `.env.developmen
 
 ## 7. Deferred / next steps
 
-- **Optimise the WASM module:** run `wasm-opt -Oz`. No binaryen is installed in the sandbox; the module is under budget without it.
 - **Long sources:** whole-file PCM is cached per asset, which is fine for clips of minutes, not hours. The audio engine already supports windowed sources (`create_windowed_source`) for streaming.
 - **More WebGPU outputs:** zero-copy WebGPU preview (surface present) once the worker/OffscreenCanvas device loss is fixed upstream, and true multi-video-track compositing tests on real GPUs.
 - **Text-to-speech voiceover** (Piper/Kokoro): not shipped.
