@@ -1,8 +1,9 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppShell } from './AppShell'
 import { ProtectedRoute, PublicOnlyRoute, VerifyRoute } from './guards'
 import { FullPageSpinner } from '@/components/ui/spinner'
+import { CreateRedirect, EditRedirect, JobRedirect } from '@/features/videos/redirects'
 
 const Landing = lazy(() => import('@/features/landing/LandingPage'))
 const Pricing = lazy(() => import('@/features/landing/PricingPage'))
@@ -11,12 +12,9 @@ const Signup = lazy(() => import('@/features/auth/SignupPage'))
 const ForgotPassword = lazy(() => import('@/features/auth/ForgotPasswordPage'))
 const ResetPassword = lazy(() => import('@/features/auth/ResetPasswordPage'))
 const VerifyEmail = lazy(() => import('@/features/auth/VerifyEmailPage'))
-const Home = lazy(() => import('@/features/home/HomePage'))
+const Videos = lazy(() => import('@/features/videos/VideosPage'))
 const Create = lazy(() => import('@/features/create/CreatePage'))
-const JobPage = lazy(() => import('@/features/jobs/JobPage'))
-const Projects = lazy(() => import('@/features/projects/ProjectsPage'))
-const Editor = lazy(() => import('@/features/editor/EditorPage'))
-const Templates = lazy(() => import('@/features/templates/TemplatesPage'))
+const VideoPage = lazy(() => import('@/features/videos/VideoPage'))
 const Brand = lazy(() => import('@/features/brand/BrandPage'))
 const Settings = lazy(() => import('@/features/settings/SettingsPage'))
 const NotFound = lazy(() => import('./NotFound'))
@@ -29,9 +27,9 @@ function PageSuspense({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-6xl px-6 py-10">
-          <div className="skeleton h-8 w-56 rounded-md" />
-          <div className="skeleton mt-6 h-40 rounded-xl" />
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+          <div className="skeleton h-12 rounded-xl" />
+          <div className="skeleton mt-10 h-48 rounded-xl" />
         </div>
       }
     >
@@ -111,13 +109,19 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        path: '/app/projects/:id/edit',
+        path: '/app/v/:id',
         element: (
           <S>
-            <Editor />
+            <VideoPage />
           </S>
         ),
       },
+      // Old routes (plan 3.1): no link breaks.
+      { path: '/app/create', element: <CreateRedirect /> },
+      { path: '/app/templates', element: <Navigate to="/app/new" replace /> },
+      { path: '/app/projects', element: <Navigate to="/app" replace /> },
+      { path: '/app/projects/:id/edit', element: <EditRedirect /> },
+      { path: '/app/jobs/:id', element: <JobRedirect /> },
       {
         element: <AppShell />,
         children: [
@@ -125,39 +129,15 @@ export const router = createBrowserRouter([
             path: '/app',
             element: (
               <PageSuspense>
-                <Home />
+                <Videos />
               </PageSuspense>
             ),
           },
           {
-            path: '/app/create',
+            path: '/app/new',
             element: (
               <PageSuspense>
                 <Create />
-              </PageSuspense>
-            ),
-          },
-          {
-            path: '/app/jobs/:id',
-            element: (
-              <PageSuspense>
-                <JobPage />
-              </PageSuspense>
-            ),
-          },
-          {
-            path: '/app/projects',
-            element: (
-              <PageSuspense>
-                <Projects />
-              </PageSuspense>
-            ),
-          },
-          {
-            path: '/app/templates',
-            element: (
-              <PageSuspense>
-                <Templates />
               </PageSuspense>
             ),
           },

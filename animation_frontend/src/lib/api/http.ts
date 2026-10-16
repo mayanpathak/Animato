@@ -51,6 +51,14 @@ export class ApiError extends Error {
 /** Fired on any 401 so the session store can log the UI out. */
 export const SESSION_LOST_EVENT = 'animato:session-lost'
 
+/** Fired when a call gets no usable answer (status 0), and when one gets through again. */
+export const SERVER_UNREACHABLE_EVENT = 'animato:server-unreachable'
+export const SERVER_REACHABLE_EVENT = 'animato:server-reachable'
+
+function signal(name: string): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(name))
+}
+
 /**
  * Calls the API and validates the JSON body against `schema`. Throws
  * `ApiError` for network failures, non-2xx answers, `success: false`, and
@@ -84,6 +92,7 @@ export async function request<S extends z.ZodType>(
       json = null
     }
   } catch {
+    signal(SERVER_UNREACHABLE_EVENT)
     throw new ApiError(0, UNREACHABLE)
   } finally {
     clearTimeout(timer)
@@ -91,7 +100,11 @@ export async function request<S extends z.ZodType>(
 
   // Not our API's shape: the dev proxy answering while the server is down,
   // or an HTML error page.
-  if (!isRecord(json)) throw new ApiError(0, UNREACHABLE)
+  if (!isRecord(json)) {
+    signal(SERVER_UNREACHABLE_EVENT)
+    throw new ApiError(0, UNREACHABLE)
+  }
+  signal(SERVER_REACHABLE_EVENT)
 
   let retryAfter: number | null = null
   if (res.status === 429) {
