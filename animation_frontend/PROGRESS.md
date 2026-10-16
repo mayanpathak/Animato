@@ -12,7 +12,7 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 | P2 | Design system and shell: tokens, components, top bar, routes and redirects, Videos home, Settings, system screens | done | `c0f202c` |
 | P3 | Landing, pricing, first-run flow, Create, Rendering state, entitlements, analytics seam | done | `64b2a9f` |
 | P4 | Engine consolidation: workspace, render-engine, Timeline v2, worker merge | done | `c4c447a` |
-| P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | todo | |
+| P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | done | `0cb6229` |
 | P6 | Finish, simple mode, export | todo | |
 | P7 | Voice and captions | todo | |
 | P8 | Fine-tune mode and assets | todo | |
@@ -85,4 +85,18 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
 - Editor screenshots reviewed at 1440×900 and 390×844 (lanes: Titles, Video, Voice, Music & audio; no overflow).
 - Left for P5: the Rust `split_clip`, `trim_clip` and `ripple_delete` exports are unused since edits moved to
   render-engine; they go when the WASM is rebuilt. Titles and captions still draw as compositor text layers.
+
+## P5 notes
+
+- Version alignment (plan 8.2): Vello 0.11.0 / wgpu 30.0.1 / parley 0.12.0; D1 did not arise. WASM 2,499,923 →
+  1,390,167 B gzip. Details and the budgets in `DESIGN_NOTES.md` section 4 and the P5 entries.
+- typecheck, lint, build: pass. vitest 145 (adds `graphics.test.ts`: fixture round trip TS → Rust → TS, buildGraphics,
+  display lists and timings from the real WASM module in Node). Playwright 43/43, including `e2e/graphics.spec.ts`
+  (a title drawn by Vello on WebGPU/SwiftShader and by Canvas2D agree within 3% / 15%) and the WebGPU export.
+- cargo: animato-graphics 16, tooscut-compositor 10, tooscut-types 30, animato-wasm 3, audio-engine 46, offcut-mp4 24,
+  plus 12 more in the workspace. Clippy is clean on the crates P5 touched; audio-engine's warnings predate it.
+- Screenshots reviewed: `screenshots/graphics-title-webgpu.png`, `graphics-title-canvas2d.png`, editor at both sizes.
+- **Not verified here:** the GPU budgets on a real mid-range GPU; presenting to an OffscreenCanvas on wgpu 30 (still
+  readback); colour emoji (Noto Emoji is monochrome, as planned); preview/export parity by pixel hash (both paths call
+  the same `FrameRenderer` with the same document at their own size; no hash test yet).
 
