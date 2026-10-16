@@ -184,6 +184,31 @@ TypeScript fallback (allowed only for timeline math and compositing):
 - **P1 · Import failure.** A failed OPFS import keeps the `<video>` player (it needs no CORS), shows "Couldn't load the video for finishing.", Retry import, and a dev-only hint pointing at `LOCAL_DEV.md`. The full `ready-remote` state lands with the video page in P6.
 - **P1 · Mock fidelity.** MSW messages now match the server (`Unauthorized`, `Not authenticated`, the forgot-password text). `[e2e:500]`, `[e2e:422]`, `[e2e:timeout]` and `[e2e:importfail]` markers in a prompt reach the 11.4 rows; the import failure keys on `request.mode !== 'no-cors'`, which is exactly the request S3 CORS governs.
 - **P1 · Free SMTP.** `LOCAL_DEV.md` recommends Mailpit (the mailer's no-credentials mode), with Gmail app passwords or a free transactional tier as real-inbox options.
+- **P2 · D3 accent.** Owner chose calm blue `#2F7BF6` (accent for text, focus, selection, progress: 4.98:1 on canvas). Primary button fills use deeper steps of the same hue (`accent-fill #2A6FE0`, hover `#2668D6`, pressed `#2160CC`), because white on `#2F7BF6` is 3.97:1 and fails AA for 14 px labels.
+- **P2 · D2 brand.** Owner chose "Animato" with a `SITE_URL` constant (defaults to the current origin until a domain exists); the constant lands with remix links in P3.
+- **P2 · Legacy look removed at the token level.** The violet/cyan/magenta tokens, `--gradient-accent`, `glass`, `grid-bg`, `text-gradient` and the glow shadows no longer exist, so any leftover class renders nothing. App code was swept; landing and auth are rebuilt in P3.
+- **P2 · Translucency.** Only the top bar after scroll (`bar-blur`: 72% surface + `saturate(180%) blur(20px)`); dialogs, menus, palette and toasts are solid surfaces.
+- **P2 · Status chips.** Dot + label in the status colour, no fill; the live dot pulses softly instead of pinging. Status colours desaturated about 15%.
+- **P2 · Status words.** Chip and stage labels say what the server state means: Writing (GeneratingCode), Rendering, Finishing (Uploading), replacing "Planning scenes" and "Encoding", which described work the worker does not report separately.
+- **P2 · No estimate.** The job page's "Time left ≈" and its progress bar were removed: the numbers came from fixed guesses (`TYPICAL_SECONDS`), not the server. The card now shows real elapsed time; the median-based hint arrives with the P3 render view.
+- **P2 · Timeline lanes.** Four low-chroma lane tokens (`track-video/audio/voice/text`) replace the accent colours on clips; the playhead uses the accent.
+- **P2 · Token gate.** `scripts/check-tokens.mjs` (part of `npm run lint`) fails on hex/rgb/hsl literals outside `tokens.css`, `features/brand/` (the user's colours) and `features/editor/` (colours drawn into the video).
+- **P2 · Video = Project.** `Project` gains optional `takes`, `selectedTake`, `format`; the IndexedDB store keeps its name. Every created job creates or extends a video; another take goes to the same video and the page follows the selected take.
+- **P2 · Routes.** `/app` Videos, `/app/new` Create, `/app/v/:id` (simple mode, `?mode=timeline` opens the editor on the same record), redirects for every old route; `/app/jobs/:id` finds or creates the owning video.
+- **P2 · Removed screens.** Projects (search, tags, bulk actions, project-file import/export) and Templates pages are gone, because the plan has one object and starters inside Create. Media and export clean-up moved to Settings → Storage. Project-file import/export is not in the plan and was dropped.
+- **P2 · Starters without video.** The bundled `public/media/renders` clips are ffmpeg test patterns (`scripts/make-media.sh`), not Animato renders, so starters show the prompt only. `starters.ts` has an optional `video` field for real renders once the owner makes them.
+- **P2 · Card posters.** Ready videos without a stored thumbnail load the render at 1 s (`preload="metadata"`) and capture a 384 px JPEG into the record when the canvas is not tainted (needs the S3 CORS rule); otherwise the paused `<video>` is the poster. 9:16 and 1:1 videos sit on a blurred, dimmed copy of their own frame inside a 16:9 tile, so the grid keeps one rhythm.
+- **P2 · Grid virtualisation.** Cards past 60 get `content-visibility: auto` with an intrinsic size, which skips off-screen layout and paint without a windowing library.
+- **P2 · Finished takes are not polled.** A take's terminal status is stored on the video (`take.status`), so the grid polls only running jobs.
+- **P2 · Cross-tab.** Video writes post to a `BroadcastChannel('animato:videos')`; the grid refetches on any message (e2e: a video created in another tab appears within 2 s).
+- **P2 · Server banner.** `request()` fires `server-unreachable`/`server-reachable` window events; the banner checks `check-auth` every 5 s and refreshes all queries once any JSON answer arrives.
+- **P2 · Error boundary.** "Copy details" copies only `name: message` and the stack.
+- **P2 · 404.** One line and a link home, as specified; no illustration.
+- **P2 · Preferences.** Density, sidebar and editor-fps preferences were removed (no sidebar; the editor never read fps). Added default format (9:16 for first-time users), default look and notifications.
+- **P2 · Own clip.** The command palette's "Start from my own clip" creates an empty video and opens its timeline: the honest entry point until P8's "Import a clip".
+- **P2 · Title derivation.** `titleFromPrompt` drops a leading verb and article, keeps the first clause, caps at 6 words and 32 characters, trims a dangling connector, and uses Title Case with small words lower-case. Unit-tested; P6 reuses it.
+- **P2 · Toasts** sit bottom centre and dismiss after 4 s (errors 7 s so they can be read).
+- **P2 · axe.** `@axe-core/playwright` runs on Videos (empty and filled), the video page, Settings, Create and 404 with reduced motion emulated, so contrast is measured on settled content. No serious or critical violations.
 
 ## 6. Mock vs real
 
