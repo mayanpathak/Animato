@@ -78,7 +78,7 @@ export function Dialog({
       {open ? (
         <div className="fixed inset-0 z-[var(--z-modal)] flex items-end justify-center p-0 sm:items-center sm:p-6">
           <motion.div
-            className="absolute inset-0 bg-overlay backdrop-blur-sm"
+            className="absolute inset-0 bg-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -97,25 +97,21 @@ export function Dialog({
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.28, ease: ease.outExpo }}
             className={cn(
-              'relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-line-strong bg-surface-1 shadow-lg focus:outline-none sm:max-w-lg sm:rounded-2xl',
+              'relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-line bg-surface-1 shadow-lg shadow-inner-highlight focus:outline-none sm:max-w-lg sm:rounded-2xl',
               className,
             )}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+            <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-3">
               <div className="min-w-0">
-                <h2 className="font-display text-base font-semibold tracking-tight">{title}</h2>
+                <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
                 {description ? <p className="mt-0.5 text-sm text-fg-muted">{description}</p> : null}
               </div>
               <IconButton label="Close" size="sm" onClick={onClose} className="-mr-1.5">
                 <X />
               </IconButton>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-            {footer ? (
-              <div className="flex justify-end gap-2 border-t border-line bg-surface-2/50 px-5 py-3">
-                {footer}
-              </div>
-            ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">{children}</div>
+            {footer ? <div className="flex justify-end gap-2 px-6 pt-3 pb-5">{footer}</div> : null}
           </motion.div>
         </div>
       ) : null}

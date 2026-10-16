@@ -30,6 +30,8 @@ export const spring = {
   snappy: { type: 'spring', stiffness: 520, damping: 38, mass: 0.7 },
   soft: { type: 'spring', stiffness: 260, damping: 30 },
   layout: { type: 'spring', stiffness: 420, damping: 40 },
+  /** Shared-element morphs (plan 7.2). */
+  morph: { type: 'spring', stiffness: 380, damping: 32 },
 } as const satisfies Record<string, Transition>
 
 export const fadeUp = {

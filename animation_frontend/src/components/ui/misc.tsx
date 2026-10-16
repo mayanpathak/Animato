@@ -6,14 +6,15 @@ import { STATUS_LABELS, STATUS_TONE, type JobStatus, type StatusTone } from '@/l
 
 type BadgeTone = 'neutral' | 'accent' | StatusTone
 
+// Status chips: dot + label in the status colour, no fill (plan 7.4).
 const tones: Record<BadgeTone, string> = {
-  neutral: 'bg-surface-3 text-fg-muted border-line',
-  accent: 'bg-accent-soft text-accent border-accent/25',
-  queued: 'bg-status-queued/10 text-status-queued border-status-queued/20',
-  planning: 'bg-status-planning/10 text-status-planning border-status-planning/25',
-  rendering: 'bg-status-rendering/10 text-status-rendering border-status-rendering/25',
-  succeeded: 'bg-status-succeeded/10 text-status-succeeded border-status-succeeded/25',
-  failed: 'bg-status-failed/10 text-status-failed border-status-failed/25',
+  neutral: 'text-fg-muted border-line',
+  accent: 'text-accent border-accent/30',
+  queued: 'text-status-queued border-transparent',
+  planning: 'text-status-planning border-transparent',
+  rendering: 'text-status-rendering border-transparent',
+  succeeded: 'text-status-succeeded border-transparent',
+  failed: 'text-status-failed border-transparent',
 }
 
 export function Badge({
@@ -42,9 +43,9 @@ export function StatusChip({ status, className }: { status: JobStatus; className
   const tone = STATUS_TONE[status]
   const live = tone === 'planning' || tone === 'rendering' || tone === 'queued'
   return (
-    <Badge tone={tone} className={className}>
+    <Badge tone={tone} className={cn('px-0', className)}>
       <span className="relative flex size-1.5">
-        {live ? <span className="absolute inset-0 animate-ping rounded-full bg-current opacity-60" /> : null}
+        {live ? <span className="absolute inset-0 animate-pulse-soft rounded-full bg-current" /> : null}
         <span className="relative size-1.5 rounded-full bg-current" />
       </span>
       <span data-testid="status-chip">{STATUS_LABELS[status]}</span>
@@ -61,7 +62,7 @@ export function Tag({ children, onRemove }: { children: ReactNode; onRemove?: ()
           type="button"
           aria-label="Remove tag"
           onClick={onRemove}
-          className="-mr-1 rounded px-1 text-fg-faint hover:text-fg"
+          className="-mr-1 rounded px-1 text-fg-subtle hover:text-fg"
         >
           ×
         </button>
@@ -87,7 +88,7 @@ export function Avatar({ name, size = 28, className }: { name: string; size?: nu
   return (
     <span
       className={cn(
-        'inline-grid shrink-0 place-items-center rounded-full bg-gradient-accent font-semibold text-white',
+        'inline-grid shrink-0 place-items-center rounded-full bg-surface-4 font-medium text-fg ring-1 ring-line-strong',
         className,
       )}
       style={{ width: size, height: size, fontSize: size * 0.38 }}
@@ -124,10 +125,10 @@ export function Progress({
       className={cn('relative h-1.5 w-full overflow-hidden rounded-full bg-surface-3', className)}
     >
       {indeterminate ? (
-        <div className="absolute inset-y-0 w-1/3 animate-[marquee_1.4s_linear_infinite] rounded-full bg-gradient-accent" />
+        <div className="absolute inset-y-0 w-1/3 animate-[marquee_1.4s_linear_infinite] rounded-full bg-accent" />
       ) : (
         <motion.div
-          className="h-full origin-left rounded-full bg-gradient-accent"
+          className="h-full origin-left rounded-full bg-accent"
           initial={false}
           animate={{ scaleX: pct / 100 }}
           transition={{ type: 'spring', stiffness: 200, damping: 30 }}
@@ -154,13 +155,6 @@ export function Ring({
   return (
     <div className="relative inline-grid place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
-        <defs>
-          <linearGradient id="ring-g" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-accent-violet)" />
-            <stop offset="55%" stopColor="var(--color-accent-cyan)" />
-            <stop offset="100%" stopColor="var(--color-accent-magenta)" />
-          </linearGradient>
-        </defs>
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -173,7 +167,7 @@ export function Ring({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          stroke="url(#ring-g)"
+          stroke="var(--color-accent)"
           strokeWidth={stroke}
           strokeLinecap="round"
           fill="none"
@@ -212,7 +206,7 @@ export function Switch({
       onClick={() => onChange(!checked)}
       className={cn(
         'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 disabled:opacity-50',
-        checked ? 'border-transparent bg-gradient-accent' : 'border-line-strong bg-surface-3',
+        checked ? 'border-transparent bg-accent' : 'border-line-strong bg-surface-3',
       )}
     >
       <motion.span
@@ -261,7 +255,7 @@ export function Slider({
         onKeyUp={(e) => onCommit?.(Number((e.target as HTMLInputElement).value))}
         className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-3 accent-accent [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
         style={{
-          backgroundImage: `linear-gradient(to right, var(--color-accent-violet), var(--color-accent-cyan) ${pct}%, transparent ${pct}%)`,
+          backgroundImage: `linear-gradient(to right, var(--color-accent) ${pct}%, transparent ${pct}%)`,
         }}
       />
       {format ? (
@@ -289,12 +283,12 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface-1/50 px-6 py-14 text-center',
+        'flex flex-col items-center justify-center rounded-xl border border-line bg-surface-1 px-6 py-14 text-center',
         className,
       )}
     >
       {icon ? (
-        <div className="mb-4 grid size-12 place-items-center rounded-xl border border-line bg-surface-2 text-accent [&_svg]:size-5">
+        <div className="mb-4 grid size-12 place-items-center rounded-xl bg-surface-2 text-fg-muted [&_svg]:size-5">
           {icon}
         </div>
       ) : null}
@@ -317,7 +311,7 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className="flex flex-col items-center rounded-2xl border border-status-failed/25 bg-status-failed/5 px-6 py-12 text-center"
+      className="flex flex-col items-center rounded-xl border border-line bg-surface-1 px-6 py-12 text-center"
     >
       <h3 className="font-display text-lg font-semibold">{title}</h3>
       {body ? <p className="mt-1.5 max-w-md text-sm text-fg-muted">{body}</p> : null}
@@ -326,6 +320,26 @@ export function ErrorState({
   )
 }
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn('surface-card rounded-xl', className)}>{children}</div>
+/** Plan 7.4 card: surface-1, 16 px radius, hairline, inner highlight. `interactive` lifts on hover. */
+export function Card({
+  className,
+  children,
+  interactive,
+}: {
+  className?: string
+  children: ReactNode
+  interactive?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'surface-card rounded-xl',
+        interactive &&
+          'transition-[transform,box-shadow] duration-[var(--duration-fast)] hover:-translate-y-px hover:shadow-md',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
 }

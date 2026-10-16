@@ -9,7 +9,7 @@ export function Toaster() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed right-4 bottom-4 z-[var(--z-toast)] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2"
+      className="pointer-events-none fixed bottom-5 left-1/2 z-[var(--z-toast)] flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 flex-col items-center gap-2"
     >
       <AnimatePresence initial={false}>
         {toasts.map((t) => (
@@ -21,7 +21,7 @@ export function Toaster() {
             exit={{ opacity: 0, x: 40, transition: { duration: 0.18 } }}
             transition={{ type: 'spring', stiffness: 420, damping: 34 }}
             role={t.tone === 'error' ? 'alert' : 'status'}
-            className="pointer-events-auto flex items-start gap-3 rounded-xl border border-line-strong bg-glass-strong p-3.5 shadow-lg backdrop-blur-xl"
+            className="pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-line bg-surface-3 px-4 py-3 shadow-lg shadow-inner-highlight"
           >
             <span
               className={cn(
@@ -41,7 +41,7 @@ export function Toaster() {
               type="button"
               aria-label="Dismiss"
               onClick={() => dismiss(t.id)}
-              className="text-fg-faint hover:text-fg [&_svg]:size-3.5"
+              className="text-fg-subtle hover:text-fg [&_svg]:size-3.5"
             >
               <X />
             </button>

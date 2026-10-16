@@ -66,7 +66,7 @@ export function Menu({
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.14 }}
             className={cn(
-              'absolute top-full z-[var(--z-dropdown)] mt-1.5 min-w-52 origin-top overflow-hidden rounded-lg border border-line-strong bg-glass-strong p-1 shadow-lg backdrop-blur-xl',
+              'absolute top-full z-[var(--z-dropdown)] mt-1.5 min-w-52 origin-top overflow-hidden rounded-xl border border-line bg-surface-2 p-1 shadow-lg shadow-inner-highlight',
               align === 'end' ? 'right-0' : 'left-0',
               className,
             )}
@@ -95,7 +95,7 @@ export function Menu({
                   {item.icon}
                   <span className="flex-1">{item.label}</span>
                   {item.shortcut ? (
-                    <span className="font-mono text-2xs text-fg-faint">{item.shortcut}</span>
+                    <span className="font-mono text-2xs text-fg-subtle">{item.shortcut}</span>
                   ) : null}
                 </button>
               ),

@@ -8,14 +8,15 @@ import {
 import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/lib/cn'
 
+// Plan 7.4: surface-2, hairline, 10 px radius, 2 px accent focus ring offset 2 px.
 const control =
-  'w-full rounded-md border border-line-strong bg-surface-1 px-3 text-sm text-fg placeholder:text-fg-faint shadow-inner-highlight transition-[border-color,box-shadow,background-color] duration-150 hover:border-fg-faint/60 focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent-soft disabled:opacity-50 aria-[invalid=true]:border-status-failed/70 aria-[invalid=true]:focus:ring-status-failed/15'
+  'w-full rounded-control border border-line bg-surface-2 px-3 text-sm text-fg placeholder:text-fg-faint transition-[border-color,box-shadow] duration-[var(--duration-fast)] hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ring disabled:opacity-50 aria-[invalid=true]:border-status-failed/60'
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className, ...rest },
   ref,
 ) {
-  return <input ref={ref} className={cn(control, 'h-10', className)} {...rest} />
+  return <input ref={ref} className={cn(control, 'h-11 sm:h-10', className)} {...rest} />
 })
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
