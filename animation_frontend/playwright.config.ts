@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
 
 // Runs against a production build with the MSW mock of the real API.
@@ -12,7 +13,10 @@ const CHROMIUM_ARGS = [
   '--use-fake-ui-for-media-stream',
 ]
 
-const executablePath = process.env.PW_CHROMIUM_PATH || undefined
+// PW_CHROMIUM_PATH overrides the binary; cloud sandboxes ship one at /opt/pw-browsers.
+const SANDBOX_CHROMIUM = '/opt/pw-browsers/chromium'
+const executablePath =
+  process.env.PW_CHROMIUM_PATH || (existsSync(SANDBOX_CHROMIUM) ? SANDBOX_CHROMIUM : undefined)
 
 export default defineConfig({
   testDir: './e2e',
