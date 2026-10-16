@@ -311,6 +311,11 @@ pub fn read_stsd<R: RandomAccess>(
     if handler == b"vide" {
         if let Some(avcc) = child(r, &inner, b"avcC")? {
             out.config = Some(load_descriptor(r, &avcc, "avcC")?);
+        } else if let Some(vpcc) = child(r, &inner, b"vpcC")? {
+            // VP9: the full-box payload (version, flags, then the codec fields).
+            out.config = Some(load_descriptor(r, &vpcc, "vpcC")?);
+        } else if let Some(av1c) = child(r, &inner, b"av1C")? {
+            out.config = Some(load_descriptor(r, &av1c, "av1C")?);
         }
         return Ok(out);
     }

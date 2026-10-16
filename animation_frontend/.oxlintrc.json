@@ -1,8 +1,24 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["react", "typescript", "oxc"],
+  "ignorePatterns": [
+    "src/wasm/pkg/**",
+    "scripts/dev/**",
+    "dist/**",
+    "crates/**",
+    "public/mockServiceWorker.js"
+  ],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": [
+      "warn",
+      { "allowConstantExport": true, "allowExportNames": ["buttonClass", "usePalette"] }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/app/router.tsx", "src/main.tsx"],
+      "rules": { "react/only-export-components": "off" }
+    }
+  ]
 }

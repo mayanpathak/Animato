@@ -27,3 +27,8 @@ serde_json.workspace = true
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+
+[features]
+# Off when linked into animato-wasm, which has its own start function.
+default = ["start"]
+start = []

@@ -40,3 +40,13 @@ export function promptError(prompt: string): string | null {
 export function isResetToken(token: string | undefined): token is string {
   return token !== undefined && /^[0-9a-f]{40}$/.test(token)
 }
+
+export function passwordStrength(password: string): { score: 0 | 1 | 2 | 3 | 4; label: string } {
+  let score = 0
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++
+  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score++
+  const s = Math.min(4, score) as 0 | 1 | 2 | 3 | 4
+  return { score: s, label: ['Too short', 'Weak', 'Fair', 'Strong', 'Excellent'][s] }
+}

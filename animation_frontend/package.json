@@ -6,26 +6,61 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "build:mocks": "VITE_USE_MOCKS=true vite build",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint . --max-warnings=0 && oxlint --deny-warnings && prettier --check .",
+    "format": "prettier --write .",
+    "preview": "vite preview",
+    "wasm:build": "bash scripts/build-wasm.sh",
+    "test:e2e": "playwright test",
+    "screenshots": "playwright test --project=screenshots"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@gsap/react": "^2.1.2",
+    "@hookform/resolvers": "^5.9.1",
+    "@huggingface/transformers": "^4.3.1",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.104.3",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "gsap": "^3.15.0",
+    "idb-keyval": "^6.3.0",
+    "lucide-react": "^1.57.0",
+    "mediabunny": "^1.61.5",
+    "motion": "^14.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-hook-form": "^7.90.0",
     "react-router-dom": "^7.18.4",
+    "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
+    "zod": "^4.6.7",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "msw": "^3.0.3",
     "oxlint": "^1.81.0",
+    "prettier": "^3.9.10",
     "typescript": "~6.0.2",
+    "typescript-eslint": "^8.71.2",
     "vite": "^8.3.0"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

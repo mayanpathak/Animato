@@ -1,0 +1,124 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/jetbrains-mono';
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--color-canvas);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: rgb(139 92 246 / 0.4);
+    color: var(--color-white);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-ring);
+    outline-offset: 2px;
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-surface-4) transparent;
+  }
+}
+
+@utility text-gradient {
+  background: var(--gradient-accent);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-gradient-accent {
+  background-image: var(--gradient-accent);
+}
+
+@utility bg-gradient-accent-soft {
+  background-image: var(--gradient-accent-soft);
+}
+
+@utility glass {
+  background: var(--color-glass);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-inner-highlight);
+}
+
+@utility surface-card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-inner-highlight);
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(to right, var(--color-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-3) 37%,
+    var(--color-surface-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: var(--animate-shimmer);
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root[data-reduced-motion='true'] *,
+:root[data-reduced-motion='true'] *::before,
+:root[data-reduced-motion='true'] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+}

@@ -23,7 +23,7 @@ const CRASH_CODE: &str = "E_WORKER_CRASH";
 
 /// Runs when the module is instantiated. Installs the panic hook; calling it
 /// again does nothing.
-#[wasm_bindgen(start)]
+#[cfg_attr(feature = "start", wasm_bindgen(start))]
 pub fn init() {
     static HOOK: Once = Once::new();
     HOOK.call_once(|| panic::set_hook(Box::new(throw_crash)));
