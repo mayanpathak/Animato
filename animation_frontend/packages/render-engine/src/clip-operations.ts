@@ -5,8 +5,8 @@
  * Mutations return new arrays (immutable) for compatibility with Zustand/React state.
  */
 
-import type { ClipBounds, CrossTransitionRef } from "./frame-builder.js";
-import type { CrossTransitionType, Easing } from "./types.js";
+import type { ClipBounds, CrossTransitionRef } from './frame-builder.js'
+import type { CrossTransitionType, Easing } from './types.js'
 
 // ============================================================================
 // Types
@@ -18,10 +18,10 @@ import type { CrossTransitionType, Easing } from "./types.js";
  * All time values are in integer frame counts relative to the project frame rate.
  */
 export interface EditableClip extends ClipBounds {
-  trackId: string;
+  trackId: string
   /** In-point within the source media in frames */
-  inPoint: number;
-  linkedClipId?: string;
+  inPoint: number
+  linkedClipId?: string
 }
 
 /**
@@ -29,9 +29,9 @@ export interface EditableClip extends ClipBounds {
  */
 export interface SplitResult<T extends EditableClip> {
   /** The left portion of the split clip */
-  left: T;
+  left: T
   /** The right portion of the split clip */
-  right: T;
+  right: T
 }
 
 /**
@@ -39,7 +39,7 @@ export interface SplitResult<T extends EditableClip> {
  */
 export interface AddClipOptions {
   /** If true, push existing clips to make room. If false, just insert. */
-  ripple?: boolean;
+  ripple?: boolean
 }
 
 /**
@@ -47,7 +47,7 @@ export interface AddClipOptions {
  */
 export interface MoveClipOptions {
   /** If true, also move linked clips. Default: true */
-  moveLinked?: boolean;
+  moveLinked?: boolean
 }
 
 /**
@@ -55,7 +55,7 @@ export interface MoveClipOptions {
  */
 export interface TrimClipOptions {
   /** If true, also trim linked clips. Default: true */
-  trimLinked?: boolean;
+  trimLinked?: boolean
 }
 
 /**
@@ -67,26 +67,26 @@ export interface TrimClipOptions {
  * Z-order is determined by track index: higher index = rendered on top.
  */
 export interface EditableTrack {
-  id: string;
+  id: string
   /** Track index determines z-order for video tracks (higher = on top) */
-  index: number;
-  type: "video" | "audio";
+  index: number
+  type: 'video' | 'audio'
   /** Optional custom name - if not set, derive from position (e.g., "Video 1", "Audio 2") */
-  name?: string;
+  name?: string
   /** ID of the paired track (video tracks link to audio, audio to video) */
-  pairedTrackId: string;
-  muted: boolean;
-  locked: boolean;
+  pairedTrackId: string
+  muted: boolean
+  locked: boolean
   /** Volume level for audio tracks (0-1) */
-  volume: number;
+  volume: number
 }
 
 /**
  * Result of adding a track pair.
  */
 export interface TrackPairResult {
-  videoTrack: EditableTrack;
-  audioTrack: EditableTrack;
+  videoTrack: EditableTrack
+  audioTrack: EditableTrack
 }
 
 // ============================================================================
@@ -114,46 +114,46 @@ export function addTrackPair(
   insertAtIndex?: number,
 ): { tracks: EditableTrack[]; result: TrackPairResult } {
   // Determine insertion index
-  const videoTracks = tracks.filter((t) => t.type === "video");
-  const maxIndex = videoTracks.length > 0 ? Math.max(...videoTracks.map((t) => t.index)) : -1;
-  const newIndex = insertAtIndex ?? maxIndex + 1;
+  const videoTracks = tracks.filter((t) => t.type === 'video')
+  const maxIndex = videoTracks.length > 0 ? Math.max(...videoTracks.map((t) => t.index)) : -1
+  const newIndex = insertAtIndex ?? maxIndex + 1
 
   // Shift existing tracks if inserting in the middle
   const updatedTracks = tracks.map((track) => {
-    if (track.type === "video" && track.index >= newIndex) {
-      return { ...track, index: track.index + 1 };
+    if (track.type === 'video' && track.index >= newIndex) {
+      return { ...track, index: track.index + 1 }
     }
-    return track;
-  });
+    return track
+  })
 
   // Create the new track pair
   // Name is optional - UI should derive names from position (e.g., "Video 1", "Audio 1")
   const videoTrack: EditableTrack = {
     id: videoTrackId,
     index: newIndex,
-    type: "video",
+    type: 'video',
     name,
     pairedTrackId: audioTrackId,
     muted: false,
     locked: false,
     volume: 1,
-  };
+  }
 
   const audioTrack: EditableTrack = {
     id: audioTrackId,
     index: newIndex, // Audio tracks share index with their paired video track
-    type: "audio",
+    type: 'audio',
     name, // Same name as video track if provided
     pairedTrackId: videoTrackId,
     muted: false,
     locked: false,
     volume: 1,
-  };
+  }
 
   return {
     tracks: [...updatedTracks, videoTrack, audioTrack],
     result: { videoTrack, audioTrack },
-  };
+  }
 }
 
 /**
@@ -173,34 +173,33 @@ export function removeTrackPair<T extends EditableClip>(
   trackId: string,
 ): { tracks: EditableTrack[]; clips: T[] } {
   // Find the track
-  const track = tracks.find((t) => t.id === trackId);
+  const track = tracks.find((t) => t.id === trackId)
   if (!track) {
-    return { tracks: [...tracks], clips: [...clips] };
+    return { tracks: [...tracks], clips: [...clips] }
   }
 
   // Get both track IDs (the track and its pair)
-  const trackIdsToRemove = new Set([track.id, track.pairedTrackId]);
+  const trackIdsToRemove = new Set([track.id, track.pairedTrackId])
 
   // Get the index of the video track being removed
-  const videoTrack =
-    track.type === "video" ? track : tracks.find((t) => t.id === track.pairedTrackId);
-  const removedIndex = videoTrack?.index ?? -1;
+  const videoTrack = track.type === 'video' ? track : tracks.find((t) => t.id === track.pairedTrackId)
+  const removedIndex = videoTrack?.index ?? -1
 
   // Remove tracks and shift indices
   const newTracks = tracks
     .filter((t) => !trackIdsToRemove.has(t.id))
     .map((t) => {
       // Shift video tracks above the removed one down
-      if (t.type === "video" && t.index > removedIndex) {
-        return { ...t, index: t.index - 1 };
+      if (t.type === 'video' && t.index > removedIndex) {
+        return { ...t, index: t.index - 1 }
       }
-      return t;
-    });
+      return t
+    })
 
   // Remove clips on those tracks
-  const newClips = clips.filter((c) => !trackIdsToRemove.has(c.trackId));
+  const newClips = clips.filter((c) => !trackIdsToRemove.has(c.trackId))
 
-  return { tracks: newTracks, clips: newClips };
+  return { tracks: newTracks, clips: newClips }
 }
 
 /**
@@ -217,50 +216,49 @@ export function reorderTrackPair(
   newIndex: number,
 ): EditableTrack[] {
   // Find the track and its pair
-  const track = tracks.find((t) => t.id === trackId);
-  if (!track) return [...tracks];
+  const track = tracks.find((t) => t.id === trackId)
+  if (!track) return [...tracks]
 
-  const videoTrack =
-    track.type === "video" ? track : tracks.find((t) => t.id === track.pairedTrackId);
-  if (!videoTrack) return [...tracks];
+  const videoTrack = track.type === 'video' ? track : tracks.find((t) => t.id === track.pairedTrackId)
+  if (!videoTrack) return [...tracks]
 
-  const oldIndex = videoTrack.index;
-  if (oldIndex === newIndex) return [...tracks];
+  const oldIndex = videoTrack.index
+  if (oldIndex === newIndex) return [...tracks]
 
   // Update indices
   return tracks.map((t) => {
-    if (t.type !== "video") {
+    if (t.type !== 'video') {
       // Audio tracks follow their paired video track
-      const pairedVideo = tracks.find((v) => v.id === t.pairedTrackId);
+      const pairedVideo = tracks.find((v) => v.id === t.pairedTrackId)
       if (pairedVideo) {
         // Will be updated when we process the video track
         if (pairedVideo.id === videoTrack.id) {
-          return { ...t, index: newIndex };
+          return { ...t, index: newIndex }
         }
       }
-      return t;
+      return t
     }
 
     // Handle video tracks
     if (t.id === videoTrack.id) {
-      return { ...t, index: newIndex };
+      return { ...t, index: newIndex }
     }
 
     // Shift other tracks
     if (oldIndex < newIndex) {
       // Moving down: shift tracks in between up
       if (t.index > oldIndex && t.index <= newIndex) {
-        return { ...t, index: t.index - 1 };
+        return { ...t, index: t.index - 1 }
       }
     } else {
       // Moving up: shift tracks in between down
       if (t.index >= newIndex && t.index < oldIndex) {
-        return { ...t, index: t.index + 1 };
+        return { ...t, index: t.index + 1 }
       }
     }
 
-    return t;
-  });
+    return t
+  })
 }
 
 /**
@@ -274,9 +272,9 @@ export function reorderTrackPair(
 export function updateTrack(
   tracks: readonly EditableTrack[],
   trackId: string,
-  updates: Partial<Pick<EditableTrack, "name" | "muted" | "locked" | "volume">>,
+  updates: Partial<Pick<EditableTrack, 'name' | 'muted' | 'locked' | 'volume'>>,
 ): EditableTrack[] {
-  return tracks.map((t) => (t.id === trackId ? { ...t, ...updates } : t));
+  return tracks.map((t) => (t.id === trackId ? { ...t, ...updates } : t))
 }
 
 /**
@@ -292,11 +290,11 @@ export function muteTrackPair(
   trackId: string,
   muted: boolean,
 ): EditableTrack[] {
-  const track = tracks.find((t) => t.id === trackId);
-  if (!track) return [...tracks];
+  const track = tracks.find((t) => t.id === trackId)
+  if (!track) return [...tracks]
 
-  const trackIds = new Set([track.id, track.pairedTrackId]);
-  return tracks.map((t) => (trackIds.has(t.id) ? { ...t, muted } : t));
+  const trackIds = new Set([track.id, track.pairedTrackId])
+  return tracks.map((t) => (trackIds.has(t.id) ? { ...t, muted } : t))
 }
 
 /**
@@ -312,80 +310,72 @@ export function lockTrackPair(
   trackId: string,
   locked: boolean,
 ): EditableTrack[] {
-  const track = tracks.find((t) => t.id === trackId);
-  if (!track) return [...tracks];
+  const track = tracks.find((t) => t.id === trackId)
+  if (!track) return [...tracks]
 
-  const trackIds = new Set([track.id, track.pairedTrackId]);
-  return tracks.map((t) => (trackIds.has(t.id) ? { ...t, locked } : t));
+  const trackIds = new Set([track.id, track.pairedTrackId])
+  return tracks.map((t) => (trackIds.has(t.id) ? { ...t, locked } : t))
 }
 
 /**
  * Find a track by ID.
  */
-export function findTrackById(
-  tracks: readonly EditableTrack[],
-  trackId: string,
-): EditableTrack | undefined {
-  return tracks.find((t) => t.id === trackId);
+export function findTrackById(tracks: readonly EditableTrack[], trackId: string): EditableTrack | undefined {
+  return tracks.find((t) => t.id === trackId)
 }
 
 /**
  * Get the paired track (video -> audio or audio -> video).
  */
-export function getPairedTrack(
-  tracks: readonly EditableTrack[],
-  trackId: string,
-): EditableTrack | undefined {
-  const track = tracks.find((t) => t.id === trackId);
-  if (!track) return undefined;
-  return tracks.find((t) => t.id === track.pairedTrackId);
+export function getPairedTrack(tracks: readonly EditableTrack[], trackId: string): EditableTrack | undefined {
+  const track = tracks.find((t) => t.id === trackId)
+  if (!track) return undefined
+  return tracks.find((t) => t.id === track.pairedTrackId)
 }
 
 /**
  * Get all video tracks sorted by index (for z-order).
  */
 export function getVideoTracksSorted(tracks: readonly EditableTrack[]): EditableTrack[] {
-  return tracks.filter((t) => t.type === "video").sort((a, b) => a.index - b.index);
+  return tracks.filter((t) => t.type === 'video').sort((a, b) => a.index - b.index)
 }
 
 /**
  * Get all audio tracks.
  */
 export function getAudioTracks(tracks: readonly EditableTrack[]): EditableTrack[] {
-  return tracks.filter((t) => t.type === "audio");
+  return tracks.filter((t) => t.type === 'audio')
 }
 
 /**
  * Validate track structure (all tracks have valid pairs, indices are contiguous).
  */
 export function validateTracks(tracks: readonly EditableTrack[]): {
-  valid: boolean;
-  errors: string[];
+  valid: boolean
+  errors: string[]
 } {
-  const errors: string[] = [];
+  const errors: string[] = []
 
   // Check each track has a valid pair
   for (const track of tracks) {
-    const pair = tracks.find((t) => t.id === track.pairedTrackId);
+    const pair = tracks.find((t) => t.id === track.pairedTrackId)
     if (!pair) {
-      errors.push(`Track "${track.id}" has invalid pairedTrackId "${track.pairedTrackId}"`);
+      errors.push(`Track "${track.id}" has invalid pairedTrackId "${track.pairedTrackId}"`)
     } else if (pair.type === track.type) {
-      errors.push(`Track "${track.id}" is paired with same type track "${pair.id}"`);
+      errors.push(`Track "${track.id}" is paired with same type track "${pair.id}"`)
     }
   }
 
   // Check video track indices are contiguous
-  const videoTracks = getVideoTracksSorted(tracks);
+  const videoTracks = getVideoTracksSorted(tracks)
   for (let i = 0; i < videoTracks.length; i++) {
     if (videoTracks[i].index !== i) {
-      errors.push(
-        `Video track indices are not contiguous: expected ${i}, got ${videoTracks[i].index}`,
-      );
-      break;
+      errors.push(`Video track indices are not contiguous: expected ${i}, got ${videoTracks[i].index}`)
+      break
     }
   }
 
-  return { valid: errors.length === 0, errors };
+  return { valid: errors.length === 0, errors }
 }
 
 // ============================================================================
@@ -396,52 +386,46 @@ export function validateTracks(tracks: readonly EditableTrack[]): {
  * Find insertion index to maintain sorted order by startTime.
  * Uses binary search for O(log n) performance.
  */
-export function findInsertionIndex<T extends ClipBounds>(
-  clips: readonly T[],
-  startTime: number,
-): number {
-  let low = 0;
-  let high = clips.length;
+export function findInsertionIndex<T extends ClipBounds>(clips: readonly T[], startTime: number): number {
+  let low = 0
+  let high = clips.length
 
   while (low < high) {
-    const mid = (low + high) >>> 1;
+    const mid = (low + high) >>> 1
     if (clips[mid].startTime < startTime) {
-      low = mid + 1;
+      low = mid + 1
     } else {
-      high = mid;
+      high = mid
     }
   }
 
-  return low;
+  return low
 }
 
 /**
  * Find a clip by ID using linear search.
  * Returns [index, clip] or [-1, undefined] if not found.
  */
-export function findClipById<T extends ClipBounds>(
-  clips: readonly T[],
-  id: string,
-): [number, T | undefined] {
-  const index = clips.findIndex((c) => c.id === id);
-  return [index, index >= 0 ? clips[index] : undefined];
+export function findClipById<T extends ClipBounds>(clips: readonly T[], id: string): [number, T | undefined] {
+  const index = clips.findIndex((c) => c.id === id)
+  return [index, index >= 0 ? clips[index] : undefined]
 }
 
 /**
  * Insert a clip while maintaining sorted order.
  */
 function insertSorted<T extends ClipBounds>(clips: readonly T[], clip: T): T[] {
-  const index = findInsertionIndex(clips, clip.startTime);
-  const result = [...clips];
-  result.splice(index, 0, clip);
-  return result;
+  const index = findInsertionIndex(clips, clip.startTime)
+  const result = [...clips]
+  result.splice(index, 0, clip)
+  return result
 }
 
 /**
  * Re-sort clips array. Use after batch operations that may disorder clips.
  */
 export function sortClipsByStartTime<T extends ClipBounds>(clips: readonly T[]): T[] {
-  return [...clips].sort((a, b) => a.startTime - b.startTime);
+  return [...clips].sort((a, b) => a.startTime - b.startTime)
 }
 
 // ============================================================================
@@ -458,7 +442,7 @@ export function addClip<T extends ClipBounds>(
   clip: T,
   _options: AddClipOptions = {},
 ): T[] {
-  return insertSorted(clips, clip);
+  return insertSorted(clips, clip)
 }
 
 /**
@@ -473,11 +457,11 @@ export function addClips<T extends ClipBounds>(
   newClips: readonly T[],
   _options: AddClipOptions = {},
 ): T[] {
-  if (newClips.length === 0) return [...clips];
-  if (clips.length === 0) return sortClipsByStartTime(newClips);
+  if (newClips.length === 0) return [...clips]
+  if (clips.length === 0) return sortClipsByStartTime(newClips)
 
   // For multiple clips, concat and sort is more efficient than multiple inserts
-  return sortClipsByStartTime([...clips, ...newClips]);
+  return sortClipsByStartTime([...clips, ...newClips])
 }
 
 /**
@@ -486,12 +470,12 @@ export function addClips<T extends ClipBounds>(
  * @returns New clips array without the clip, or same array if not found
  */
 export function removeClip<T extends ClipBounds>(clips: readonly T[], clipId: string): T[] {
-  const [index] = findClipById(clips, clipId);
-  if (index < 0) return [...clips];
+  const [index] = findClipById(clips, clipId)
+  if (index < 0) return [...clips]
 
-  const result = [...clips];
-  result.splice(index, 1);
-  return result;
+  const result = [...clips]
+  result.splice(index, 1)
+  return result
 }
 
 /**
@@ -499,19 +483,16 @@ export function removeClip<T extends ClipBounds>(clips: readonly T[], clipId: st
  *
  * @returns New clips array without the clip(s)
  */
-export function removeClipWithLinked<T extends EditableClip>(
-  clips: readonly T[],
-  clipId: string,
-): T[] {
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip) return [...clips];
+export function removeClipWithLinked<T extends EditableClip>(clips: readonly T[], clipId: string): T[] {
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip) return [...clips]
 
-  const idsToRemove = new Set([clipId]);
+  const idsToRemove = new Set([clipId])
   if (clip.linkedClipId) {
-    idsToRemove.add(clip.linkedClipId);
+    idsToRemove.add(clip.linkedClipId)
   }
 
-  return clips.filter((c) => !idsToRemove.has(c.id));
+  return clips.filter((c) => !idsToRemove.has(c.id))
 }
 
 /**
@@ -525,19 +506,19 @@ export function updateClip<T extends ClipBounds>(
   clipId: string,
   updates: Partial<T>,
 ): T[] {
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip) return [...clips];
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip) return [...clips]
 
-  const updatedClip = { ...clip, ...updates };
-  const result = [...clips];
-  result[index] = updatedClip;
+  const updatedClip = { ...clip, ...updates }
+  const result = [...clips]
+  result[index] = updatedClip
 
   // If startTime changed, we need to re-sort
   if (updates.startTime !== undefined && updates.startTime !== clip.startTime) {
-    return sortClipsByStartTime(result);
+    return sortClipsByStartTime(result)
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -552,28 +533,28 @@ export function moveClip<T extends EditableClip>(
   newStartTime: number,
   options: MoveClipOptions = {},
 ): T[] {
-  const { moveLinked = true } = options;
+  const { moveLinked = true } = options
 
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip) return [...clips];
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip) return [...clips]
 
-  const delta = newStartTime - clip.startTime;
-  if (delta === 0) return [...clips];
+  const delta = newStartTime - clip.startTime
+  if (delta === 0) return [...clips]
 
-  const result = [...clips];
+  const result = [...clips]
 
   // Update the primary clip
-  result[index] = { ...clip, startTime: newStartTime };
+  result[index] = { ...clip, startTime: newStartTime }
 
   // Update linked clip if exists and moveLinked is true
   if (moveLinked && clip.linkedClipId) {
-    const [linkedIndex, linkedClip] = findClipById(result, clip.linkedClipId);
+    const [linkedIndex, linkedClip] = findClipById(result, clip.linkedClipId)
     if (linkedIndex >= 0 && linkedClip) {
-      result[linkedIndex] = { ...linkedClip, startTime: linkedClip.startTime + delta };
+      result[linkedIndex] = { ...linkedClip, startTime: linkedClip.startTime + delta }
     }
   }
 
-  return sortClipsByStartTime(result);
+  return sortClipsByStartTime(result)
 }
 
 /**
@@ -588,15 +569,15 @@ export function moveClipToTrack<T extends EditableClip>(
   newTrackId: string,
   options: MoveClipOptions = {},
 ): T[] {
-  const { moveLinked = true } = options;
+  const { moveLinked = true } = options
 
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip) return [...clips];
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip) return [...clips]
 
-  if (clip.trackId === newTrackId) return [...clips];
+  if (clip.trackId === newTrackId) return [...clips]
 
-  const result = [...clips];
-  result[index] = { ...clip, trackId: newTrackId };
+  const result = [...clips]
+  result[index] = { ...clip, trackId: newTrackId }
 
   // Note: For linked clips (e.g., video+audio), the caller should determine
   // the appropriate track for the linked clip based on track layout.
@@ -606,7 +587,7 @@ export function moveClipToTrack<T extends EditableClip>(
     // since it depends on track layout (audio tracks, video tracks, etc.)
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -622,40 +603,40 @@ export function trimClipLeft<T extends EditableClip>(
   newStartTime: number,
   options: TrimClipOptions = {},
 ): T[] {
-  const { trimLinked = true } = options;
+  const { trimLinked = true } = options
 
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip) return [...clips];
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip) return [...clips]
 
-  const delta = newStartTime - clip.startTime;
-  const newDuration = clip.duration - delta;
-  const newInPoint = clip.inPoint + delta;
+  const delta = newStartTime - clip.startTime
+  const newDuration = clip.duration - delta
+  const newInPoint = clip.inPoint + delta
 
   // Don't allow negative duration
-  if (newDuration <= 0) return [...clips];
+  if (newDuration <= 0) return [...clips]
 
-  const result = [...clips];
+  const result = [...clips]
   result[index] = {
     ...clip,
     startTime: newStartTime,
     duration: newDuration,
     inPoint: newInPoint,
-  };
+  }
 
   // Trim linked clip
   if (trimLinked && clip.linkedClipId) {
-    const [linkedIndex, linkedClip] = findClipById(result, clip.linkedClipId);
+    const [linkedIndex, linkedClip] = findClipById(result, clip.linkedClipId)
     if (linkedIndex >= 0 && linkedClip) {
       result[linkedIndex] = {
         ...linkedClip,
         startTime: newStartTime,
         duration: newDuration,
         inPoint: linkedClip.inPoint + delta,
-      };
+      }
     }
   }
 
-  return sortClipsByStartTime(result);
+  return sortClipsByStartTime(result)
 }
 
 /**
@@ -671,26 +652,26 @@ export function trimClipRight<T extends EditableClip>(
   newDuration: number,
   options: TrimClipOptions = {},
 ): T[] {
-  const { trimLinked = true } = options;
+  const { trimLinked = true } = options
 
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip) return [...clips];
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip) return [...clips]
 
   // Don't allow negative or zero duration
-  if (newDuration <= 0) return [...clips];
+  if (newDuration <= 0) return [...clips]
 
-  const result = [...clips];
-  result[index] = { ...clip, duration: newDuration };
+  const result = [...clips]
+  result[index] = { ...clip, duration: newDuration }
 
   // Trim linked clip
   if (trimLinked && clip.linkedClipId) {
-    const [linkedIndex, linkedClip] = findClipById(result, clip.linkedClipId);
+    const [linkedIndex, linkedClip] = findClipById(result, clip.linkedClipId)
     if (linkedIndex >= 0 && linkedClip) {
-      result[linkedIndex] = { ...linkedClip, duration: newDuration };
+      result[linkedIndex] = { ...linkedClip, duration: newDuration }
     }
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -710,19 +691,19 @@ export function splitClip<T extends EditableClip>(
 ): SplitResult<T> | null {
   // Validate split time is within clip bounds
   if (splitTime <= clip.startTime || splitTime >= clip.startTime + clip.duration) {
-    return null;
+    return null
   }
 
-  const leftDuration = splitTime - clip.startTime;
-  const rightDuration = clip.duration - leftDuration;
-  const rightInPoint = clip.inPoint + leftDuration;
+  const leftDuration = splitTime - clip.startTime
+  const rightDuration = clip.duration - leftDuration
+  const rightInPoint = clip.inPoint + leftDuration
 
   const left: T = {
     ...clip,
     id: leftId,
     duration: leftDuration,
     linkedClipId: undefined, // Will be re-linked if needed
-  };
+  }
 
   const right: T = {
     ...clip,
@@ -731,9 +712,9 @@ export function splitClip<T extends EditableClip>(
     duration: rightDuration,
     inPoint: rightInPoint,
     linkedClipId: undefined, // Will be re-linked if needed
-  };
+  }
 
-  return { left, right };
+  return { left, right }
 }
 
 /**
@@ -747,43 +728,43 @@ export function splitClipWithLinked<T extends EditableClip>(
   splitTime: number,
   generateId: () => string,
 ): { updatedClips: T[]; splitResults: SplitResult<T>[] } | null {
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip) return null;
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip) return null
 
-  const primaryLeftId = generateId();
-  const primaryRightId = generateId();
+  const primaryLeftId = generateId()
+  const primaryRightId = generateId()
 
-  const primarySplit = splitClip(clip, splitTime, primaryLeftId, primaryRightId);
-  if (!primarySplit) return null;
+  const primarySplit = splitClip(clip, splitTime, primaryLeftId, primaryRightId)
+  if (!primarySplit) return null
 
-  const splitResults: SplitResult<T>[] = [primarySplit];
-  let result = removeClip(clips, clipId);
+  const splitResults: SplitResult<T>[] = [primarySplit]
+  let result = removeClip(clips, clipId)
 
   // Handle linked clip
   if (clip.linkedClipId) {
-    const [, linkedClip] = findClipById(clips, clip.linkedClipId);
+    const [, linkedClip] = findClipById(clips, clip.linkedClipId)
     if (linkedClip) {
-      const linkedLeftId = generateId();
-      const linkedRightId = generateId();
+      const linkedLeftId = generateId()
+      const linkedRightId = generateId()
 
-      const linkedSplit = splitClip(linkedClip, splitTime, linkedLeftId, linkedRightId);
+      const linkedSplit = splitClip(linkedClip, splitTime, linkedLeftId, linkedRightId)
       if (linkedSplit) {
         // Link the split clips
-        primarySplit.left.linkedClipId = linkedLeftId;
-        primarySplit.right.linkedClipId = linkedRightId;
-        linkedSplit.left.linkedClipId = primaryLeftId;
-        linkedSplit.right.linkedClipId = primaryRightId;
+        primarySplit.left.linkedClipId = linkedLeftId
+        primarySplit.right.linkedClipId = linkedRightId
+        linkedSplit.left.linkedClipId = primaryLeftId
+        linkedSplit.right.linkedClipId = primaryRightId
 
-        splitResults.push(linkedSplit);
-        result = removeClip(result, clip.linkedClipId);
-        result = addClips(result, [linkedSplit.left, linkedSplit.right]);
+        splitResults.push(linkedSplit)
+        result = removeClip(result, clip.linkedClipId)
+        result = addClips(result, [linkedSplit.left, linkedSplit.right])
       }
     }
   }
 
-  result = addClips(result, [primarySplit.left, primarySplit.right]);
+  result = addClips(result, [primarySplit.left, primarySplit.right])
 
-  return { updatedClips: result, splitResults };
+  return { updatedClips: result, splitResults }
 }
 
 // ============================================================================
@@ -800,17 +781,17 @@ export function linkClips<T extends EditableClip>(
   clipId1: string,
   clipId2: string,
 ): T[] {
-  const [index1, clip1] = findClipById(clips, clipId1);
-  const [index2, clip2] = findClipById(clips, clipId2);
+  const [index1, clip1] = findClipById(clips, clipId1)
+  const [index2, clip2] = findClipById(clips, clipId2)
 
-  if (index1 < 0 || index2 < 0 || !clip1 || !clip2) return [...clips];
-  if (clipId1 === clipId2) return [...clips];
+  if (index1 < 0 || index2 < 0 || !clip1 || !clip2) return [...clips]
+  if (clipId1 === clipId2) return [...clips]
 
-  const result = [...clips];
-  result[index1] = { ...clip1, linkedClipId: clipId2 };
-  result[index2] = { ...clip2, linkedClipId: clipId1 };
+  const result = [...clips]
+  result[index1] = { ...clip1, linkedClipId: clipId2 }
+  result[index2] = { ...clip2, linkedClipId: clipId1 }
 
-  return result;
+  return result
 }
 
 /**
@@ -819,19 +800,19 @@ export function linkClips<T extends EditableClip>(
  * @returns New clips array with the clips unlinked
  */
 export function unlinkClip<T extends EditableClip>(clips: readonly T[], clipId: string): T[] {
-  const [index, clip] = findClipById(clips, clipId);
-  if (index < 0 || !clip || !clip.linkedClipId) return [...clips];
+  const [index, clip] = findClipById(clips, clipId)
+  if (index < 0 || !clip || !clip.linkedClipId) return [...clips]
 
-  const [linkedIndex, linkedClip] = findClipById(clips, clip.linkedClipId);
+  const [linkedIndex, linkedClip] = findClipById(clips, clip.linkedClipId)
 
-  const result = [...clips];
-  result[index] = { ...clip, linkedClipId: undefined };
+  const result = [...clips]
+  result[index] = { ...clip, linkedClipId: undefined }
 
   if (linkedIndex >= 0 && linkedClip) {
-    result[linkedIndex] = { ...linkedClip, linkedClipId: undefined };
+    result[linkedIndex] = { ...linkedClip, linkedClipId: undefined }
   }
 
-  return result;
+  return result
 }
 
 // ============================================================================
@@ -851,29 +832,29 @@ export function addCrossTransition<T extends EditableClip>(
   incomingClipId: string,
   transitionId: string,
   duration: number,
-  type: CrossTransitionType = "Dissolve",
+  type: CrossTransitionType = 'Dissolve',
   boundary?: number,
-  easing: Easing = { preset: "EaseInOut" },
+  easing: Easing = { preset: 'EaseInOut' },
 ): CrossTransitionRef[] | null {
-  const [, outgoing] = findClipById(clips, outgoingClipId);
-  const [, incoming] = findClipById(clips, incomingClipId);
+  const [, outgoing] = findClipById(clips, outgoingClipId)
+  const [, incoming] = findClipById(clips, incomingClipId)
 
-  if (!outgoing || !incoming) return null;
+  if (!outgoing || !incoming) return null
 
   // Must be on same track
-  if (outgoing.trackId !== incoming.trackId) return null;
+  if (outgoing.trackId !== incoming.trackId) return null
 
   // Outgoing must end where incoming starts (or overlap)
-  const outgoingEnd = outgoing.startTime + outgoing.duration;
-  if (incoming.startTime > outgoingEnd) return null;
+  const outgoingEnd = outgoing.startTime + outgoing.duration
+  if (incoming.startTime > outgoingEnd) return null
 
   // Duration can't exceed the overlap
   const maxDuration = Math.min(
     outgoing.duration,
     incoming.duration,
     outgoingEnd - incoming.startTime + duration,
-  );
-  const actualDuration = Math.min(duration, maxDuration);
+  )
+  const actualDuration = Math.min(duration, maxDuration)
 
   const newTransition: CrossTransitionRef = {
     id: transitionId,
@@ -883,9 +864,9 @@ export function addCrossTransition<T extends EditableClip>(
     type,
     boundary: boundary ?? outgoingEnd,
     easing,
-  };
+  }
 
-  return [...crossTransitions, newTransition];
+  return [...crossTransitions, newTransition]
 }
 
 /**
@@ -895,7 +876,7 @@ export function removeCrossTransition(
   crossTransitions: readonly CrossTransitionRef[],
   transitionId: string,
 ): CrossTransitionRef[] {
-  return crossTransitions.filter((ct) => ct.id !== transitionId);
+  return crossTransitions.filter((ct) => ct.id !== transitionId)
 }
 
 /**
@@ -906,9 +887,7 @@ export function removeCrossTransitionsForClip(
   crossTransitions: readonly CrossTransitionRef[],
   clipId: string,
 ): CrossTransitionRef[] {
-  return crossTransitions.filter(
-    (ct) => ct.outgoingClipId !== clipId && ct.incomingClipId !== clipId,
-  );
+  return crossTransitions.filter((ct) => ct.outgoingClipId !== clipId && ct.incomingClipId !== clipId)
 }
 
 // ============================================================================
@@ -922,10 +901,10 @@ export function removeCrossTransitionsForClip(
 export function isClipsSorted<T extends ClipBounds>(clips: readonly T[]): boolean {
   for (let i = 1; i < clips.length; i++) {
     if (clips[i].startTime < clips[i - 1].startTime) {
-      return false;
+      return false
     }
   }
-  return true;
+  return true
 }
 
 /**
@@ -943,47 +922,47 @@ export function findOverlappingClips<T extends EditableClip>(
   clips: readonly T[],
   crossTransitions: readonly CrossTransitionRef[] = [],
 ): Array<[string, string]> {
-  const overlaps: Array<[string, string]> = [];
+  const overlaps: Array<[string, string]> = []
 
   // Build set of allowed overlapping pairs (cross transition participants)
-  const allowedOverlaps = new Set<string>();
+  const allowedOverlaps = new Set<string>()
   for (const ct of crossTransitions) {
     // Store both orderings
-    allowedOverlaps.add(`${ct.outgoingClipId}:${ct.incomingClipId}`);
-    allowedOverlaps.add(`${ct.incomingClipId}:${ct.outgoingClipId}`);
+    allowedOverlaps.add(`${ct.outgoingClipId}:${ct.incomingClipId}`)
+    allowedOverlaps.add(`${ct.incomingClipId}:${ct.outgoingClipId}`)
   }
 
   // Group clips by track
-  const byTrack = new Map<string, T[]>();
+  const byTrack = new Map<string, T[]>()
   for (const clip of clips) {
-    const trackClips = byTrack.get(clip.trackId) || [];
-    trackClips.push(clip);
-    byTrack.set(clip.trackId, trackClips);
+    const trackClips = byTrack.get(clip.trackId) || []
+    trackClips.push(clip)
+    byTrack.set(clip.trackId, trackClips)
   }
 
   // Check overlaps within each track
   for (const trackClips of byTrack.values()) {
     for (let i = 0; i < trackClips.length; i++) {
       for (let j = i + 1; j < trackClips.length; j++) {
-        const a = trackClips[i];
-        const b = trackClips[j];
+        const a = trackClips[i]
+        const b = trackClips[j]
 
-        const aEnd = a.startTime + a.duration;
-        const bEnd = b.startTime + b.duration;
+        const aEnd = a.startTime + a.duration
+        const bEnd = b.startTime + b.duration
 
         // Check if they overlap (not just touch)
         if (a.startTime < bEnd && b.startTime < aEnd) {
           // Check if this overlap is allowed (cross transition)
-          const key = `${a.id}:${b.id}`;
+          const key = `${a.id}:${b.id}`
           if (!allowedOverlaps.has(key)) {
-            overlaps.push([a.id, b.id]);
+            overlaps.push([a.id, b.id])
           }
         }
       }
     }
   }
 
-  return overlaps;
+  return overlaps
 }
 
 /**
@@ -1002,37 +981,37 @@ export function canPlaceClip<T extends EditableClip>(
   excludeClipId?: string,
 ): boolean {
   // Get cross transition partners for this clip
-  const allowedPartnerIds = new Set<string>();
+  const allowedPartnerIds = new Set<string>()
   for (const ct of crossTransitions) {
     if (ct.outgoingClipId === newClip.id) {
-      allowedPartnerIds.add(ct.incomingClipId);
+      allowedPartnerIds.add(ct.incomingClipId)
     } else if (ct.incomingClipId === newClip.id) {
-      allowedPartnerIds.add(ct.outgoingClipId);
+      allowedPartnerIds.add(ct.outgoingClipId)
     }
   }
 
-  const newEnd = newClip.startTime + newClip.duration;
+  const newEnd = newClip.startTime + newClip.duration
 
   for (const clip of clips) {
     // Skip the clip being updated
-    if (excludeClipId && clip.id === excludeClipId) continue;
+    if (excludeClipId && clip.id === excludeClipId) continue
 
     // Skip clips on different tracks
-    if (clip.trackId !== newClip.trackId) continue;
+    if (clip.trackId !== newClip.trackId) continue
 
     // Skip self
-    if (clip.id === newClip.id) continue;
+    if (clip.id === newClip.id) continue
 
-    const clipEnd = clip.startTime + clip.duration;
+    const clipEnd = clip.startTime + clip.duration
 
     // Check for overlap
     if (newClip.startTime < clipEnd && clip.startTime < newEnd) {
       // Overlap exists - is it allowed?
       if (!allowedPartnerIds.has(clip.id)) {
-        return false; // Illegal overlap
+        return false // Illegal overlap
       }
     }
   }
 
-  return true;
+  return true
 }

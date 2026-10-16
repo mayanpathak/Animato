@@ -233,6 +233,18 @@ TypeScript fallback (allowed only for timeline math and compositing):
 - **P3 · Analytics seam.** `track()` writes to an in-memory ring buffer (and `console.debug` in dev). Props never include prompt text or email.
 - **P3 · Remix links.** `?prompt=` and `?engine=` are sanitised (trim, 2,000 cap, control characters stripped, engine allow-list) on the landing page and in Create.
 - **P3 · Budgets (measured, not met).** Landing initial JS is about 194 KB gzip (index 42.6 + react 96.2 + motion 50.3 + page 5.4) against a 170 KB budget. Motion is the lever (lazy `LazyMotion` or CSS-only reveals); recorded for P11. Lighthouse cannot run in the sandbox (not installed, no download), so LCP/CLS/score are unmeasured.
+- **P4 · Workspace.** `animation_frontend` is an npm workspace root (`packages/*`). `@tooscut/render-engine` exports its TypeScript source (`./src/index.ts`, compiled by Vite and `tsc -b`, no `dist/`) and is covered by the app's lint, Prettier and vitest. `pnpm`/`catalog:` specifiers, tsdown and oxfmt are gone.
+- **P4 · One WASM build.** The package imports `animato-wasm`, a Vite/TS alias for `src/wasm/pkg/animato_wasm.js`, so no second compositor or audio-engine build exists (plan 18.2). `crates/build.sh` and the package's `wasm/` are no longer needed for the app.
+- **P4 · Measured (docs/engine-bench-p4.json, Chromium 156, SwiftShader, sandbox CPU).** 20 seeded random seeks and 30 sequential frames per file, plus 2 waveforms and a 60 s mix of a 300 s source:
+  | Responsibility | Editor engine | render-engine / src/workers | Winner |
+  |---|---|---|---|
+  | Frame loading, clip.mp4 | random median 10.3 ms (p95 76.3), sequential 0.8 ms | random 12.6 ms (p95 22.4), sequential 14.6 ms, **fails at t=0** | editor (`decode.ts`), 18× faster on the sequential (export and playback) pattern |
+  | Frame loading, clip.webm | random 10.3 ms (p95 49), sequential 0.7 ms | random 12.8 ms (p95 26.1), sequential 12.2 ms | editor |
+  | Waveform, speech.webm / tone.wav | 86 / 32 ms, 100 peaks/s, PCM cached as a by-product | 104 / 63 ms, ~37 bars/s | editor media worker |
+  | Export audio, 60 s from a 300 s source | 1,664 ms, 115 MB decoded PCM (heap +338 MB) | 794 ms, 30 s windowed buffer (11.5 MB) | **audio-render worker** (merged as `engine/audioRender.ts`, used by export) |
+- **P4 · Audio playback.** The editor's AudioWorklet host (`audio-preview.ts`) is kept, so there is one worklet and the same Rust engine. Render-engine's `BrowserAudioEngine` and worklet duplicated it and were deleted. Known cost from the measurement above: preview uploads a source's full cached PCM (≈ 23 MB per minute of stereo), which is fine for clips of minutes but not hours. Switching preview to windowed sources (the engine supports `create_windowed_source`) is recorded for P11.
+- **P4 · Removed** (nothing left orphaned): `src/workers/` (compositor, frame-renderer, audio-render, waveform workers and their APIs). From the package: `compositor.ts`, `audio-engine.ts`, `worklet/`, `video-frame-loader.ts`, the vitest-browser `testing/` utilities, the browser tests and their 16 MB of screenshots. The bench harness ran at `31fdc72` and was removed with the losers. `comlink` was installed for the bench only.
+- **P4 · Package tests.** `clip-operations`, `cst` and `frame-rate` (node) run under the app's vitest; three fixtures were completed with the `CrossTransitionRef` fields the type now requires. Browser pixel tests move to Playwright against animato-wasm in P5 (plan 8.10), instead of the package's vitest-browser harness, which needed its own WASM build.
 
 ## 6. Mock vs real
 

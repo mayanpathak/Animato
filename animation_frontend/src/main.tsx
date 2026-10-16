@@ -34,9 +34,6 @@ async function boot() {
   if (import.meta.env.VITE_USE_MOCKS === 'true') {
     const { startMocks } = await import('./mocks/browser')
     await startMocks()
-    // Plan 10.4 benchmark harness, e2e build only (e2e/bench.spec.ts).
-    ;(window as unknown as { __animatoBench: unknown }).__animatoBench = async (inputs: never) =>
-      (await import('./bench/engineBench')).runEngineBench(inputs)
   }
   applyPreferences()
   void useSession.getState().checkAuth()
