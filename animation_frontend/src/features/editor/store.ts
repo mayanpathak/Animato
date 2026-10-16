@@ -1,40 +1,19 @@
-// Editor state on Timeline v2. Every change to the document goes through
-// `apply`, which keeps an undo/redo stack (slider drags coalesce into one
-// entry). Clip data operations come from @tooscut/render-engine (model/ops.ts);
-// snapping and timecode stay in Rust (src/wasm/engine.ts).
-import * as finishOps from './model/finish'
+// Editor state on Timeline v2. Every change to the document is a list of
+// serialisable commands (model/commands.ts) run through `run`, which keeps an
+// undo/redo stack (slider drags coalesce into one entry) and records the
+// commands of each step. Clip data operations come from
+// @tooscut/render-engine (model/ops.ts); snapping and timecode stay in Rust.
 import type { BrandRender } from './graphics/looks'
 import { create } from 'zustand'
 import type { MediaAsset, Project } from '@/lib/local/models'
 import type { CoreEngine, Cue } from '@/wasm/engine'
 import { recordCall } from '@/wasm/stats'
+import { applyCommands, defaultTrackFor, type Command, type Doc } from './model/commands'
+import { findGraphic, findMedia } from './model/ops'
 import {
-  addGraphic,
-  appendAsset,
-  duplicateMedia,
-  findGraphic,
-  findMedia,
-  insertClip,
-  mediaClipFor,
-  moveMedia,
-  moveTitle,
-  removeGraphic,
-  removeMedia,
-  rippleDelete,
-  setSpeed,
-  splitAt,
-  splitTitle,
-  trimTitle,
-  trimTo,
-  updateGraphic,
-  updateMedia,
-} from './model/ops'
-import {
-  captionsItem,
   clipEnd,
   clipId,
   clipStart,
-  defaultCaptions,
   graphicId,
   MAIN_AUDIO,
   MAIN_VIDEO,
@@ -56,13 +35,10 @@ import { transcriptFromCues, type Transcript } from './model/transcript'
 const HISTORY_LIMIT = 150
 const COALESCE_MS = 600
 
-interface Doc {
-  timeline: TimelineV2
-  transcript: Transcript | null
-}
-
-interface HistoryEntry extends Doc {
+export interface HistoryEntry extends Doc {
   label: string
+  /** The commands that turned this document into the next one (plan 13.1). */
+  commands: Command[]
 }
 
 /** Where an asset lands: the main video lane, the music lane or the voice lane. */
@@ -95,7 +71,8 @@ export interface EditorState {
   reset(): void
   setAssets(assets: MediaAsset[]): void
   setBrand(brand: BrandRender | null): void
-  apply(label: string, fn: (d: Doc) => Doc, coalesceKey?: string): void
+  /** Runs commands as one undo step labelled `label`. */
+  run(label: string, commands: Command[], coalesceKey?: string): void
   undo(): void
   redo(): void
   select(id: string | null): void
@@ -118,8 +95,12 @@ export interface EditorState {
   setSpeed(id: string, speed: number): void
   addText(preset: 'title' | 'lower-third' | 'subtitle', brand?: { font?: string; color?: string }): void
   setCaptions(cues: Cue[], source: { assetId: string; model: string }): void
-  setTranscript(transcript: Transcript | null): void
-  updateTimeline(patch: Partial<TimelineV2>, label: string, coalesceKey?: string): void
+  setTranscript(transcript: Transcript | null, coalesceKey?: string): void
+  updateTimeline(
+    patch: Partial<Pick<TimelineV2, 'audio' | 'background' | 'fps'>>,
+    label: string,
+    coalesceKey?: string,
+  ): void
   /** Finish (plan 6.6): each call is one undo step. */
   updateFinish(patch: (f: FinishSettings) => FinishSettings, label: string, coalesceKey?: string): void
   setLook(look: LookId): void
@@ -137,13 +118,11 @@ function timed<T>(name: string, run: () => T): T {
   return out
 }
 
-/** The timeline with a captions item, styled by Finish when the video has Finish settings. */
-function withCaptions(tl: TimelineV2, s: Pick<EditorState, 'assets' | 'brand'>): TimelineV2 {
-  if (captionsItem(tl)) return tl
-  const added = addGraphic(tl, defaultCaptions())
-  return added.finish
-    ? finishOps.setCaptionStyle(added, added.finish.captions.style, { assets: s.assets, brand: s.brand })
-    : added
+/** Timings for the operations the performance badge shows. */
+const TIMED: Partial<Record<Command['type'], string>> = {
+  'clip.split': 'split',
+  'clip.trim': 'trim',
+  'clip.rippleDelete': 'ripple-delete',
 }
 
 export const useEditor = create<EditorState>((set, get) => ({
@@ -197,16 +176,22 @@ export const useEditor = create<EditorState>((set, get) => ({
   setAssets: (assets) => set({ assets: new Map(assets.map((a) => [a.id, a])) }),
   setBrand: (brand) => set({ brand }),
 
-  apply: (label, fn, coalesceKey) => {
-    const { timeline, transcript, past, coalesceKey: lastKey, lastAt } = get()
-    if (!timeline) return
-    const next = fn({ timeline, transcript })
+  run: (label, commands, coalesceKey) => {
+    const { timeline, transcript, past, coalesceKey: lastKey, lastAt, assets, brand } = get()
+    if (!timeline || !commands.length) return
+    const name = commands.length === 1 ? TIMED[commands[0].type] : undefined
+    const go = () => applyCommands({ timeline, transcript }, commands, { assets, brand })
+    const next = name ? timed(name, go) : go()
     const now = Date.now()
     const merge = coalesceKey !== undefined && coalesceKey === lastKey && now - lastAt < COALESCE_MS
+    const prev = past[past.length - 1]
     set({
       timeline: next.timeline,
       transcript: next.transcript,
-      past: merge ? past : [...past, { label, timeline, transcript }].slice(-HISTORY_LIMIT),
+      past:
+        merge && prev
+          ? [...past.slice(0, -1), { ...prev, commands: [...prev.commands, ...commands] }]
+          : [...past, { label, timeline, transcript, commands }].slice(-HISTORY_LIMIT),
       future: [],
       lastLabel: label,
       lastAt: now,
@@ -223,7 +208,7 @@ export const useEditor = create<EditorState>((set, get) => ({
       timeline: prev.timeline,
       transcript: prev.transcript,
       past: past.slice(0, -1),
-      future: [{ label: prev.label, timeline, transcript }, ...future],
+      future: [{ label: prev.label, timeline, transcript, commands: prev.commands }, ...future],
       lastLabel: `Undo ${prev.label}`,
       coalesceKey: null,
       revision: get().revision + 1,
@@ -237,7 +222,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     set({
       timeline: next.timeline,
       transcript: next.transcript,
-      past: [...past, { label: next.label, timeline, transcript }],
+      past: [...past, { label: next.label, timeline, transcript, commands: next.commands }],
       future: future.slice(1),
       lastLabel: `Redo ${next.label}`,
       coalesceKey: null,
@@ -257,17 +242,16 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   addAsset: (asset) => {
     set({ assets: new Map(get().assets).set(asset.id, asset) })
-    get().apply(`Add ${asset.name}`, (d) => ({ ...d, timeline: appendAsset(d.timeline, asset, clipId()) }))
+    get().run(`Add ${asset.name}`, [
+      { type: 'clip.add', id: clipId(), assetId: asset.id, trackId: defaultTrackFor(asset), start: 'end' },
+    ])
   },
 
   addAssetAt: (asset, lane, start) => {
     set({ assets: new Map(get().assets).set(asset.id, asset) })
     const id = clipId()
     const trackId = asset.kind === 'audio' ? LANE_TRACK[lane === 'video' ? 'audio' : lane] : MAIN_VIDEO
-    get().apply(`Add ${asset.name}`, (d) => ({
-      ...d,
-      timeline: insertClip(d.timeline, mediaClipFor(d.timeline, asset, start, trackId, id)),
-    }))
+    get().run(`Add ${asset.name}`, [{ type: 'clip.add', id, assetId: asset.id, trackId, start }])
     return id
   },
 
@@ -286,44 +270,33 @@ export const useEditor = create<EditorState>((set, get) => ({
     ]
     const targets = selection ? [selection] : under
     if (!targets.length) return
-    get().apply('Split', (d) =>
-      timed('split', () => ({
-        ...d,
-        timeline: targets.reduce(
-          (tl, id) => (findMedia(tl, id) ? splitAt(tl, id, t, clipId()) : splitTitle(tl, id, t, graphicId())),
-          d.timeline,
-        ),
+    get().run(
+      'Split',
+      targets.map((id) => ({
+        type: 'clip.split',
+        id,
+        at: t,
+        newId: findMedia(timeline, id) ? clipId() : graphicId(),
       })),
     )
   },
 
   trim: (id, edge, to, coalesceKey) => {
-    get().apply(
+    get().run(
       edge === 'start' ? 'Trim start' : 'Trim end',
-      (d) =>
-        timed('trim', () => ({
-          ...d,
-          timeline: findMedia(d.timeline, id)
-            ? trimTo(d.timeline, id, edge, to)
-            : trimTitle(d.timeline, id, edge, to),
-        })),
+      [{ type: 'clip.trim', id, edge, to }],
       coalesceKey,
     )
   },
 
   remove: (id) => {
-    get().apply('Delete', (d) => ({
-      ...d,
-      timeline: findMedia(d.timeline, id) ? removeMedia(d.timeline, id) : removeGraphic(d.timeline, id),
-    }))
+    get().run('Delete', [{ type: 'clip.remove', id }])
     set({ selection: null })
   },
 
   rippleDelete: (id) => {
     if (!get().timeline || !findMedia(get().timeline as TimelineV2, id)) return get().remove(id)
-    get().apply('Ripple delete', (d) =>
-      timed('ripple-delete', () => ({ ...d, timeline: rippleDelete(d.timeline, id) })),
-    )
+    get().run('Ripple delete', [{ type: 'clip.rippleDelete', id }])
     set({ selection: null })
   },
 
@@ -331,53 +304,32 @@ export const useEditor = create<EditorState>((set, get) => ({
     const tl = get().timeline
     if (!tl) return
     const newId = findMedia(tl, id) ? clipId() : graphicId()
-    get().apply('Duplicate', (d) => {
-      if (findMedia(d.timeline, id)) return { ...d, timeline: duplicateMedia(d.timeline, id, newId) }
-      const g = findGraphic(d.timeline, id)
-      if (g?.kind !== 'title') return d
-      const span = g.end - g.start
-      return { ...d, timeline: addGraphic(d.timeline, { ...g, id: newId, start: g.end, end: g.end + span }) }
-    })
+    get().run('Duplicate', [{ type: 'clip.duplicate', id, newId }])
     set({ selection: newId })
   },
 
   move: (id, start, trackId, coalesceKey) => {
-    get().apply(
-      'Move',
-      (d) => ({
-        ...d,
-        timeline: findMedia(d.timeline, id)
-          ? moveMedia(d.timeline, id, Math.round(start * 1000) / 1000, trackId)
-          : moveTitle(d.timeline, id, start),
-      }),
-      coalesceKey,
-    )
+    get().run('Move', [{ type: 'clip.move', id, start, trackId }], coalesceKey)
   },
 
   updateClip: (id, patch, coalesceKey) => {
-    get().apply('Edit clip', (d) => ({ ...d, timeline: updateMedia(d.timeline, id, patch) }), coalesceKey)
+    get().run('Edit clip', [{ type: 'clip.update', id, patch }], coalesceKey)
   },
 
   updateGraphic: (id, patch, coalesceKey) => {
-    get().apply(
+    get().run(
       'Edit graphic',
-      (d) => ({ ...d, timeline: updateGraphic(d.timeline, id, patch as Partial<GraphicItemV2>) }),
+      [{ type: 'graphic.update', id, patch: patch as Partial<GraphicItemV2> }],
       coalesceKey,
     )
   },
 
   updateTrack: (id, patch) => {
-    get().apply('Edit track', (d) => ({
-      ...d,
-      timeline: {
-        ...d.timeline,
-        tracks: d.timeline.tracks.map((t) => (t.id === id ? { ...t, ...patch, id } : t)),
-      },
-    }))
+    get().run('Edit track', [{ type: 'track.update', id, patch }])
   },
 
   setSpeed: (id, speed) => {
-    get().apply('Change speed', (d) => ({ ...d, timeline: setSpeed(d.timeline, id, speed) }), `speed-${id}`)
+    get().run('Change speed', [{ type: 'clip.speed', id, speed }], `speed-${id}`)
   },
 
   addText: (preset, brand) => {
@@ -405,65 +357,41 @@ export const useEditor = create<EditorState>((set, get) => ({
       enter: preset === 'title' ? 'rise' : 'fade',
       layer: 'over',
     }
-    get().apply('Add text', (d) => ({ ...d, timeline: addGraphic(d.timeline, item) }))
+    get().run('Add text', [{ type: 'graphic.add', item }])
     set({ selection: id })
   },
 
   /** Captions from timed cues (SRT import): a transcript plus the captions item. */
   setCaptions: (cues, source) => {
-    get().apply('Captions', (d) => ({
-      timeline: withCaptions(d.timeline, get()),
-      transcript: cues.length ? transcriptFromCues(cues, source) : null,
-    }))
+    get().run('Captions', [
+      { type: 'transcript.set', transcript: cues.length ? transcriptFromCues(cues, source) : null },
+    ])
   },
 
-  setTranscript: (transcript) => {
-    get().apply('Captions', (d) => ({
-      timeline: transcript ? withCaptions(d.timeline, get()) : d.timeline,
-      transcript,
-    }))
+  setTranscript: (transcript, coalesceKey) => {
+    get().run('Captions', [{ type: 'transcript.set', transcript }], coalesceKey)
   },
 
   updateTimeline: (patch, label, coalesceKey) =>
-    get().apply(label, (d) => ({ ...d, timeline: { ...d.timeline, ...patch } }), coalesceKey),
+    get().run(label, [{ type: 'timeline.update', patch }], coalesceKey),
 
-  updateFinish: (patch, label, coalesceKey) =>
-    get().apply(label, (d) => ({ ...d, timeline: finishOps.updateFinish(d.timeline, patch) }), coalesceKey),
-
-  setLook: (look) => {
-    const { assets, brand } = get()
-    get().apply('Change look', (d) => ({
-      ...d,
-      timeline: finishOps.setLook(d.timeline, look, { assets, brand }),
-    }))
+  updateFinish: (patch, label, coalesceKey) => {
+    const finish = get().timeline?.finish
+    if (finish) get().run(label, [{ type: 'finish.set', finish: patch(finish) }], coalesceKey)
   },
 
-  setCaptionStyle: (style) => {
-    const { assets, brand } = get()
-    get().apply('Caption style', (d) => ({
-      ...d,
-      timeline: finishOps.setCaptionStyle(d.timeline, style, { assets, brand }),
-    }))
-  },
+  setLook: (look) => get().run('Change look', [{ type: 'finish.look', look }]),
+
+  setCaptionStyle: (style) => get().run('Caption style', [{ type: 'finish.captionStyle', style }]),
 
   chooseTake: (jobId, asset) => {
     const { project } = get()
     set({ assets: new Map(get().assets).set(asset.id, asset) })
-    get().apply('Use take', (d) => {
-      const kept = d.timeline.clips.filter((c) => c.trackId !== MAIN_VIDEO)
-      const main = mediaClipFor(d.timeline, asset, 0, MAIN_VIDEO, clipId())
-      return { ...d, timeline: insertClip({ ...d.timeline, clips: kept }, main) }
-    })
+    get().run('Use take', [{ type: 'track.replace', trackId: MAIN_VIDEO, id: clipId(), assetId: asset.id }])
     if (project) set({ project: { ...project, selectedTake: jobId } })
   },
 
-  setFormat: (aspect) => {
-    const { assets, brand } = get()
-    get().apply('Change format', (d) => ({
-      ...d,
-      timeline: finishOps.setFormat(d.timeline, aspect, { assets, brand }),
-    }))
-  },
+  setFormat: (aspect) => get().run('Change format', [{ type: 'finish.format', aspect }]),
 
   snapTargets: (excludeId) => {
     const { timeline, playhead } = get()

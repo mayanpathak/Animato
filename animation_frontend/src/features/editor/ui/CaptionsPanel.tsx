@@ -1,30 +1,14 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { Download, FileUp, Languages, Trash2, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/misc'
 import { toast } from '@/stores/toast'
 import { cn } from '@/lib/cn'
 import { useEditor } from '../store'
-import { captionsItem, timelineDurationV2 } from '../model/timelineV2'
-import { cuesFromTranscript, editChunk, removeChunk, type Transcript } from '../model/transcript'
-import { connect, type RpcClient } from '../engine/rpc'
+import { captionsItem } from '../model/timelineV2'
+import { cuesFromTranscript, editChunk, removeChunk } from '../model/transcript'
+import { autoCaption, useCaptioning } from '../engine/voice'
 import { CaptionStyleControls } from './Inspector'
-
-let stt: RpcClient | null = null
-function sttWorker(): RpcClient {
-  stt ??= connect(
-    new Worker(new URL('../engine/stt.worker.ts', import.meta.url), { type: 'module', name: 'animato-stt' }),
-  )
-  return stt
-}
-
-interface DownloadProgress {
-  status?: string
-  file?: string
-  progress?: number
-  loaded?: number
-  total?: number
-}
 
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/x-subrip' }))
@@ -38,7 +22,6 @@ function download(name: string, text: string) {
 export function CaptionsPanel() {
   const timeline = useEditor((s) => s.timeline)
   const engine = useEditor((s) => s.engine)
-  const assets = useEditor((s) => s.assets)
   const project = useEditor((s) => s.project)
   const setCaptions = useEditor((s) => s.setCaptions)
   const setTranscript = useEditor((s) => s.setTranscript)
@@ -46,7 +29,7 @@ export function CaptionsPanel() {
   const setPlayhead = useEditor((s) => s.setPlayhead)
   const select = useEditor((s) => s.select)
   const fileRef = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState<null | { label: string; value: number; indeterminate?: boolean }>(null)
+  const busy = useCaptioning((st) => st.busy)
 
   if (!timeline || !engine) return null
   const captions = captionsItem(timeline)
@@ -54,64 +37,17 @@ export function CaptionsPanel() {
   const sorted = cuesFromTranscript(transcript, maxWords)
   const asCues = () => sorted
 
-  const autoCaption = async () => {
-    if (timelineDurationV2(timeline) <= 0) return
-    const files = new Map<string, number>()
-    setBusy({ label: 'Mixing timeline audio', value: 0, indeterminate: true })
+  const run = async () => {
     try {
-      const words = await sttWorker().call<
-        { text: string; startMs: number; endMs: number; confidence: number }[]
-      >('transcribe', [timeline, [...assets.values()]], {
-        onProgress: (p) => {
-          const msg = p as { stage: string; detail?: DownloadProgress }
-          if (msg.stage === 'download' && msg.detail) {
-            const d = msg.detail
-            if (d.file && typeof d.progress === 'number') files.set(d.file, d.progress)
-            const avg = files.size ? [...files.values()].reduce((a, b) => a + b, 0) / files.size / 100 : 0
-            setBusy({ label: 'Downloading the speech model (once, then cached)', value: avg })
-          } else if (msg.stage === 'transcribe')
-            setBusy({ label: 'Transcribing on this device', value: 0, indeterminate: true })
-        },
-      })
-      if (!words.length) {
-        toast.info('No speech found', 'Record a voiceover or add a clip with dialogue first.')
-        return
-      }
-      // Word timestamps go straight into the transcript (plan 9.2). The Rust
-      // normalizer finds the sentences; each one ends a caption line.
-      const sentenceEnds = engine.captionsFromWords(words).map((c) => c.end)
-      const timed = words
-        .map((w) => ({
-          text: w.text.trim(),
-          start: w.startMs / 1000,
-          end: w.endMs / 1000,
-          confidence: w.confidence,
-        }))
-        .filter((w) => w.text)
-      for (const end of sentenceEnds) {
-        let last = -1
-        timed.forEach((w, i) => {
-          if (w.end <= end + 0.001) last = i
-        })
-        if (last >= 0) Object.assign(timed[last], { breakAfter: true })
-      }
-      const transcript: Transcript = {
-        version: 1,
-        source: { assetId: 'timeline-mix', model: 'onnx-community/whisper-tiny.en_timestamped' },
-        language: 'en',
-        words: timed,
-        edited: false,
-      }
-      setTranscript(transcript)
-      const lines = cuesFromTranscript(transcript, maxWords).length
-      toast.success(
-        `${lines} captions created`,
-        `${words.length} words, timed to your voice. Edit any line below.`,
-      )
+      const made = await autoCaption()
+      if (!made) toast.info('No speech found', 'Record a voiceover or add a clip with dialogue first.')
+      else
+        toast.success(
+          `${made.lines} captions created`,
+          `${made.words} words, timed to your voice. Edit any line below.`,
+        )
     } catch (e) {
       toast.error('Auto-captions failed', e instanceof Error ? e.message : undefined)
-    } finally {
-      setBusy(null)
     }
   }
 
@@ -121,7 +57,7 @@ export function CaptionsPanel() {
         <Button
           className="w-full"
           leftIcon={<Wand2 className="size-4" />}
-          onClick={() => void autoCaption()}
+          onClick={() => void run()}
           disabled={busy !== null}
           data-testid="auto-captions"
         >
@@ -213,14 +149,8 @@ export function CaptionsPanel() {
                   rows={1}
                   onChange={(e) => {
                     const text = e.target.value
-                    useEditor.getState().apply(
-                      'Edit caption',
-                      (d) => ({
-                        ...d,
-                        transcript: d.transcript && editChunk(d.transcript, i, maxWords, text),
-                      }),
-                      `cap-${i}`,
-                    )
+                    const t = useEditor.getState().transcript
+                    if (t) setTranscript(editChunk(t, i, maxWords, text), `cap-${i}`)
                   }}
                   className={cn(
                     'min-h-6 flex-1 resize-none bg-transparent text-xs text-fg focus:outline-none',

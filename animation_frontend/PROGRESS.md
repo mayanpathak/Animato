@@ -120,3 +120,18 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
 - Known weak spot: the plan's title rule (first clause, 6 words, 32 characters) can stop mid-phrase ("Gradient Descent
   Finds"); the title is editable and the rule is as specified.
 
+## P7 notes
+
+- Voice (9.1): record (count-in, level meter, Space stops) or upload; the take lands on the Voice track, is
+  normalised to −16 dB RMS from its measured loudness and gated; music ducks under it (timeline default); EQ is
+  under "More". Captions then run on their own unless the transcript was edited by hand.
+- Transcript and captions (9.2, 9.3): one `autoCaption` run (Whisper tiny on this device, word timestamps, sentence
+  ends from the Rust normalizer) shared by Voice, Captions and Finish; captions imported or edited while it runs win.
+  Three caption styles (P6), SRT import/export kept. `captions_generated` is now tracked.
+- Edits became serialisable commands (`model/commands.ts`, plan 13.1, groundwork for P8/P9): `applyCommands` is pure
+  and every undo step records its commands; replaying the log from JSON reproduces the document (unit test).
+- typecheck, lint, build: pass. vitest 171. Playwright `npm run test:e2e`: see the P7 row commit; `e2e/voice.spec.ts`
+  now records a take, stops it with Space, waits for the automatic captions, edits a caption word and sees the
+  graphics scene rebuilt within 1 s, and runs Whisper on the speech fixture.
+- **Not measured:** the 80 ms active-word accuracy against real speech (no labelled 30 s fixture; see DESIGN_NOTES).
+

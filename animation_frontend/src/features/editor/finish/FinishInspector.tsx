@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ROUTES } from '@/app/nav'
 import { Button, buttonClass } from '@/components/ui/button'
 import { Input, Label, Select } from '@/components/ui/field'
-import { Slider, Switch } from '@/components/ui/misc'
+import { Progress, Slider, Switch } from '@/components/ui/misc'
 import { Tabs } from '@/components/ui/tabs'
 import { track } from '@/lib/analytics'
 import { cn } from '@/lib/cn'
@@ -29,6 +29,7 @@ import { toast } from '@/stores/toast'
 import { usePreferences } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
 import { CAPTION_STYLES, LOOKS } from '../graphics/looks'
+import { useCaptioning } from '../engine/voice'
 import { importFile } from '../media/client'
 import { aspectOf, MAIN_AUDIO, MAIN_VIDEO, type AspectKey, type FinishSettings } from '../model/timelineV2'
 import { useEditor } from '../store'
@@ -106,6 +107,7 @@ export function FinishInspector({ onAddVoice }: { onAddVoice: () => void }) {
   const qc = useQueryClient()
   const musicInput = useRef<HTMLInputElement>(null)
   const [importingMusic, setImportingMusic] = useState(false)
+  const captioning = useCaptioning((st) => st.busy)
   const s = useEditor.getState()
   if (!timeline?.finish) return null
   const finish = timeline.finish
@@ -255,7 +257,17 @@ export function FinishInspector({ onAddVoice }: { onAddVoice: () => void }) {
           ) : null
         }
       >
-        {transcript?.words.length ? (
+        {captioning ? (
+          <div data-testid="finish-captioning">
+            <p className="text-xs text-fg-muted">{captioning.label}</p>
+            <Progress
+              value={captioning.value}
+              indeterminate={captioning.indeterminate}
+              className="mt-2 h-1.5"
+              label={captioning.label}
+            />
+          </div>
+        ) : transcript?.words.length ? (
           <Tabs
             size="sm"
             label="Caption style"

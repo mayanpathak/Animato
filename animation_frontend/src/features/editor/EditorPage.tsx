@@ -731,10 +731,13 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
               data-testid="restore-session"
               onClick={() => {
                 if (restore)
-                  s.apply('Restore session', (d) => ({
-                    timeline: restore.timeline,
-                    transcript: restore.transcript ?? d.transcript,
-                  }))
+                  s.run('Restore session', [
+                    {
+                      type: 'doc.restore',
+                      timeline: restore.timeline,
+                      transcript: restore.transcript ?? useEditor.getState().transcript,
+                    },
+                  ])
                 setRestore(null)
               }}
             >

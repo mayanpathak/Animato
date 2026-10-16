@@ -1,5 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { AudioLines, Gauge, MousePointerClick, Palette, Scissors, Type, Volume2 } from 'lucide-react'
+import {
+  AudioLines,
+  ChevronDown,
+  Gauge,
+  MousePointerClick,
+  Palette,
+  Scissors,
+  Type,
+  Volume2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Label, Select, Textarea } from '@/components/ui/field'
 import { Slider, Switch } from '@/components/ui/misc'
@@ -10,9 +19,9 @@ import { selectedItem, useEditor } from '../store'
 import { BUILTIN_FONTS } from '../graphics/fonts'
 import type { CaptionsItem, MediaClipV2, TitleItem, TitleMotion, TrackRole } from '../model/timelineV2'
 import { measureLoudness } from '../media/client'
+import { normalizeGain, TARGET_DB } from '../engine/voice'
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
-const TARGET_DB = -16
 
 function Section({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
@@ -55,6 +64,7 @@ function MediaInspector({
   const s = useEditor.getState()
   const asset = useEditor((st) => st.assets.get(clip.assetId))
   const [measuring, setMeasuring] = useState(false)
+  const [moreAudio, setMoreAudio] = useState(false)
   const up = (patch: Partial<MediaClipV2>, key: string) => s.updateClip(clip.id, patch, `${key}-${clip.id}`)
   // Clip times are frames (Timeline v2); the controls speak seconds.
   const sec = (f: number) => f / fps
@@ -257,10 +267,8 @@ function MediaInspector({
                 setMeasuring(true)
                 try {
                   const level = await measureLoudness(clip.assetId, inPoint, duration * clip.speed)
-                  const gain = Math.min(8, Math.max(0.1, 10 ** ((TARGET_DB - level) / 20)))
-                  s.updateClip(clip.id, {
-                    audio: { ...clip.audio, normalizeGain: Math.round(gain * 1000) / 1000 },
-                  })
+                  const gain = normalizeGain(level)
+                  s.updateClip(clip.id, { audio: { ...clip.audio, normalizeGain: gain } })
                   toast.success(
                     'Loudness normalized',
                     `Measured ${level.toFixed(1)} dB, applied ${db(20 * Math.log10(gain))}.`,
@@ -299,29 +307,44 @@ function MediaInspector({
               />
             </div>
           ) : null}
-          <div className="grid grid-cols-3 gap-2">
-            {(['low', 'mid', 'high'] as const).map((band) => (
-              <div key={band}>
-                <Label className="mb-1 capitalize">{band}</Label>
-                <input
-                  type="range"
-                  aria-label={`EQ ${band}`}
-                  min={-12}
-                  max={12}
-                  step={1}
-                  value={clip.audio.eq[band]}
-                  onChange={(e) =>
-                    up(
-                      { audio: { ...clip.audio, eq: { ...clip.audio.eq, [band]: Number(e.target.value) } } },
-                      `eq-${band}`,
-                    )
-                  }
-                  className="w-full accent-accent"
-                />
-                <span className="font-mono text-2xs text-fg-subtle">{db(clip.audio.eq[band])}</span>
-              </div>
-            ))}
-          </div>
+          {/* EQ is rarely needed: under "More" (plan 9.1). */}
+          <button
+            type="button"
+            onClick={() => setMoreAudio((m) => !m)}
+            aria-expanded={moreAudio}
+            className="flex w-full items-center gap-2 text-sm text-fg-subtle hover:text-fg"
+            data-testid="audio-more"
+          >
+            More
+            <ChevronDown className={cn('ml-auto size-4 transition-transform', moreAudio && 'rotate-180')} />
+          </button>
+          {moreAudio ? (
+            <div className="grid grid-cols-3 gap-2">
+              {(['low', 'mid', 'high'] as const).map((band) => (
+                <div key={band}>
+                  <Label className="mb-1 capitalize">{band}</Label>
+                  <input
+                    type="range"
+                    aria-label={`EQ ${band}`}
+                    min={-12}
+                    max={12}
+                    step={1}
+                    value={clip.audio.eq[band]}
+                    onChange={(e) =>
+                      up(
+                        {
+                          audio: { ...clip.audio, eq: { ...clip.audio.eq, [band]: Number(e.target.value) } },
+                        },
+                        `eq-${band}`,
+                      )
+                    }
+                    className="w-full accent-accent"
+                  />
+                  <span className="font-mono text-2xs text-fg-subtle">{db(clip.audio.eq[band])}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </Section>
       ) : null}
     </>
