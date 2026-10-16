@@ -10,3 +10,6 @@ __pycache__/
 media/
 out/
 target/
+
+
+.claude/settings.local.json

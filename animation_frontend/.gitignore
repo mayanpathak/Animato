@@ -29,3 +29,6 @@ crates/target
 
 # The repo root ignores media/; these are the sample renders the job mock serves.
 !/public/media/
+
+# The repo root ignores media/; the editor's media module is source code.
+!/src/features/editor/media/
