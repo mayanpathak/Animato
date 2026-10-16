@@ -36,7 +36,7 @@ async function sha256(path: string): Promise<string> {
     const size = sync.getSize()
     const hasher = new wasm.Sha256Stream()
     const buf = new Uint8Array(1 << 20)
-    for (let at = 0; at < size; ) {
+    for (let at = 0; at < size;) {
       const n = sync.read(buf, { at })
       if (n <= 0) break
       hasher.update(buf.subarray(0, n))
@@ -94,7 +94,11 @@ async function waveform(pcm: Float32Array, duration: number): Promise<number[]> 
   return Array.from(peaks, (v) => Math.round(v * 1000) / 1000)
 }
 
-async function importAsset(req: ImportRequest, progress: (p: unknown) => void, signal: AbortSignal): Promise<MediaAsset> {
+async function importAsset(
+  req: ImportRequest,
+  progress: (p: unknown) => void,
+  signal: AbortSignal,
+): Promise<MediaAsset> {
   const kind = kindOf(req.name, req.mime)
   progress({ stage: 'probe', fraction: 0 })
   const hash = await sha256(req.path)
@@ -133,8 +137,10 @@ async function importAsset(req: ImportRequest, progress: (p: unknown) => void, s
 
   const media = await openMedia(req.path, req.name)
   try {
-    if (!media.video && !media.audio) throw new Error('This file has no video or audio this browser can decode.')
-    if (kind === 'video' && !media.video) throw new Error('This browser cannot decode the video in this file.')
+    if (!media.video && !media.audio)
+      throw new Error('This file has no video or audio this browser can decode.')
+    if (kind === 'video' && !media.video)
+      throw new Error('This browser cannot decode the video in this file.')
     const thumbnails: string[] = []
     if (media.video) {
       progress({ stage: 'thumbnails', fraction: 0 })
@@ -197,5 +203,9 @@ serve({
 
 // Mirror worker-side engine calls to the page so the UI badge and tests see them.
 useEngineStats.subscribe((s) => {
-  if (s.last) (self as unknown as { postMessage(m: unknown): void }).postMessage({ event: 'engine-call', payload: s.last })
+  if (s.last)
+    (self as unknown as { postMessage(m: unknown): void }).postMessage({
+      event: 'engine-call',
+      payload: s.last,
+    })
 })

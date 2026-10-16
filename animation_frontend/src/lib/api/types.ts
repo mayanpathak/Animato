@@ -4,7 +4,14 @@ export const LIBRARIES = ['remotion', 'manim'] as const
 export type Library = (typeof LIBRARIES)[number]
 
 // Exactly the strings the API serialises for a job's status.
-export const JOB_STATUSES = ['Pending', 'GeneratingCode', 'Rendering', 'Uploading', 'Completed', 'Failed'] as const
+export const JOB_STATUSES = [
+  'Pending',
+  'GeneratingCode',
+  'Rendering',
+  'Uploading',
+  'Completed',
+  'Failed',
+] as const
 export type JobStatus = (typeof JOB_STATUSES)[number]
 
 export const STATUS_LABELS: Record<JobStatus, string> = {

@@ -37,7 +37,9 @@ export function Menu({
       if (e.key === 'Escape') setOpen(false)
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
-        const els = [...(root.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [])]
+        const els = [
+          ...(root.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? []),
+        ]
         const i = els.indexOf(document.activeElement as HTMLElement)
         const next = e.key === 'ArrowDown' ? (i + 1) % els.length : (i - 1 + els.length) % els.length
         els[next]?.focus()
@@ -92,7 +94,9 @@ export function Menu({
                 >
                   {item.icon}
                   <span className="flex-1">{item.label}</span>
-                  {item.shortcut ? <span className="font-mono text-2xs text-fg-faint">{item.shortcut}</span> : null}
+                  {item.shortcut ? (
+                    <span className="font-mono text-2xs text-fg-faint">{item.shortcut}</span>
+                  ) : null}
                 </button>
               ),
             )}

@@ -58,11 +58,19 @@ function fadeOpacity(c: MediaClip, local: number, kf: KeyframeFn): number {
   const keys: { time: number; value: number; ease?: string }[] = []
   if (c.fadeIn > 0) keys.push({ time: 0, value: 0, ease: 'easeOut' }, { time: c.fadeIn, value: 1 })
   else keys.push({ time: 0, value: 1 })
-  if (c.fadeOut > 0) keys.push({ time: Math.max(c.fadeIn, c.duration - c.fadeOut), value: 1, ease: 'easeIn' }, { time: c.duration, value: 0 })
+  if (c.fadeOut > 0)
+    keys.push(
+      { time: Math.max(c.fadeIn, c.duration - c.fadeOut), value: 1, ease: 'easeIn' },
+      { time: c.duration, value: 0 },
+    )
   return kf(keys, local)
 }
 
-function textMotion(c: TextClip, local: number, kf: KeyframeFn): { opacity: number; offsetY: number; scale: number } {
+function textMotion(
+  c: TextClip,
+  local: number,
+  kf: KeyframeFn,
+): { opacity: number; offsetY: number; scale: number } {
   const outStart = Math.max(0, c.duration - 0.3)
   const fade = kf(
     [
@@ -77,9 +85,30 @@ function textMotion(c: TextClip, local: number, kf: KeyframeFn): { opacity: numb
     case 'fade':
       return { opacity: fade, offsetY: 0, scale: 1 }
     case 'rise':
-      return { opacity: fade, offsetY: kf([{ time: 0, value: 48, ease: 'easeOut' }, { time: 0.6, value: 0 }], local), scale: 1 }
+      return {
+        opacity: fade,
+        offsetY: kf(
+          [
+            { time: 0, value: 48, ease: 'easeOut' },
+            { time: 0.6, value: 0 },
+          ],
+          local,
+        ),
+        scale: 1,
+      }
     case 'pop':
-      return { opacity: fade, offsetY: 0, scale: kf([{ time: 0, value: 0.82, ease: 'easeOut' }, { time: 0.35, value: 1.04, ease: 'easeInOut' }, { time: 0.5, value: 1 }], local) }
+      return {
+        opacity: fade,
+        offsetY: 0,
+        scale: kf(
+          [
+            { time: 0, value: 0.82, ease: 'easeOut' },
+            { time: 0.35, value: 1.04, ease: 'easeInOut' },
+            { time: 0.5, value: 1 },
+          ],
+          local,
+        ),
+      }
     default:
       return { opacity: 1, offsetY: 0, scale: 1 }
   }
@@ -89,7 +118,12 @@ export function sourceTime(c: MediaClip, t: number): number {
   return c.offset + (t - c.start) * c.speed
 }
 
-export function planFrame(tl: Timeline, t: number, assets: Map<string, MediaAsset>, kf: KeyframeFn): FramePlan {
+export function planFrame(
+  tl: Timeline,
+  t: number,
+  assets: Map<string, MediaAsset>,
+  kf: KeyframeFn,
+): FramePlan {
   const media: MediaLayer[] = []
   const texts: TextLayer[] = []
   const n = tl.tracks.length
@@ -145,13 +179,34 @@ export function planFrame(tl: Timeline, t: number, assets: Map<string, MediaAsse
 }
 
 function captionLayer(key: string, text: string, s: CaptionStyle, z: number): TextLayer {
-  return { key, text, font: s.font, size: s.size, weight: 600, color: s.color, background: s.background, align: 'Center', x: 0.5, y: s.y, opacity: 1, offsetY: 0, scale: 1, z }
+  return {
+    key,
+    text,
+    font: s.font,
+    size: s.size,
+    weight: 600,
+    color: s.color,
+    background: s.background,
+    align: 'Center',
+    x: 0.5,
+    y: s.y,
+    opacity: 1,
+    offsetY: 0,
+    scale: 1,
+    z,
+  }
 }
 
 /** Parses #rgb, #rrggbb or #rrggbbaa into 0..1 floats. */
 export function parseColor(hex: string | null | undefined): [number, number, number, number] {
   const h = (hex ?? '#ffffff').replace('#', '')
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const full =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h
   const v = (i: number) => parseInt(full.slice(i, i + 2), 16) / 255
   return [v(0), v(2), v(4), full.length >= 8 ? v(6) : 1]
 }
@@ -188,13 +243,23 @@ export interface AudioTimeline {
 
 /** Volume keyframes that dip a clip while any voice clip plays (auto-ducking). */
 function duckKeys(c: MediaClip, voices: [number, number][], gain: number): EngineKeyframe[] | null {
-  const k = (time: number, value: number): EngineKeyframe => ({ time, value, interpolation: 'Linear', easing: { preset: 'Linear' } })
+  const k = (time: number, value: number): EngineKeyframe => ({
+    time,
+    value,
+    interpolation: 'Linear',
+    easing: { preset: 'Linear' },
+  })
   const keys: EngineKeyframe[] = []
   for (const [a, b] of voices) {
     const from = a - c.start
     const to = b - c.start
     if (to <= 0 || from >= c.duration) continue
-    keys.push(k(Math.max(0, from - 0.25), 1), k(Math.max(0, from), gain), k(Math.min(c.duration, to), gain), k(Math.min(c.duration, to + 0.4), 1))
+    keys.push(
+      k(Math.max(0, from - 0.25), 1),
+      k(Math.max(0, from), gain),
+      k(Math.min(c.duration, to), gain),
+      k(Math.min(c.duration, to + 0.4), 1),
+    )
   }
   if (!keys.length) return null
   keys.sort((x, y) => x.time - y.time)
@@ -223,7 +288,8 @@ export function buildAudioTimeline(tl: Timeline, assets: Map<string, MediaAsset>
       if (c.audio.gate) effects.noiseGate = { threshold: -45, attack: 2, release: 120 }
       if (c.audio.eq.low || c.audio.eq.mid || c.audio.eq.high)
         effects.eq = { lowGain: c.audio.eq.low, midGain: c.audio.eq.mid, highGain: c.audio.eq.high }
-      const ducks = tl.ducking.enabled && c.audio.duck && track.kind !== 'voice' ? duckKeys(c, voices, duckGain) : null
+      const ducks =
+        tl.ducking.enabled && c.audio.duck && track.kind !== 'voice' ? duckKeys(c, voices, duckGain) : null
       clips.push({
         id: c.id,
         sourceId: c.assetId,
@@ -250,6 +316,7 @@ export function buildAudioTimeline(tl: Timeline, assets: Map<string, MediaAsset>
 /** Assets whose PCM the audio engine needs. */
 export function audioAssetIds(tl: Timeline, assets: Map<string, MediaAsset>): string[] {
   const ids = new Set<string>()
-  for (const t of tl.tracks) for (const c of t.clips) if (c.type === 'media' && assets.get(c.assetId)?.hasAudio) ids.add(c.assetId)
+  for (const t of tl.tracks)
+    for (const c of t.clips) if (c.type === 'media' && assets.get(c.assetId)?.hasAudio) ids.add(c.assetId)
   return [...ids]
 }

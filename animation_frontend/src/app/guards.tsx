@@ -31,7 +31,8 @@ export function ProtectedRoute() {
   const checking = useSession((s) => s.checking)
   const location = useLocation()
   if (!user && checking) return <FullPageSpinner />
-  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
+  if (!user)
+    return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
   if (!user.isVerified) return <Navigate to="/verify-email" replace />
   return <Outlet />
 }

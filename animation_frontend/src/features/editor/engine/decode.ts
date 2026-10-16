@@ -80,7 +80,13 @@ export class FrameDecoder {
     const halfFrame = 500_000 / (this.stream.fps || 30)
     const tooFarBack = this.current !== null && target + halfFrame < this.current.timestamp
     const tooFarAhead = target > this.fedUs + LOOKAHEAD_US && !this.ended
-    if (!this.decoder || this.decoder.state === 'closed' || tooFarBack || (tooFarAhead && this.current !== null) || this.error) {
+    if (
+      !this.decoder ||
+      this.decoder.state === 'closed' ||
+      tooFarBack ||
+      (tooFarAhead && this.current !== null) ||
+      this.error
+    ) {
       this.reset(t)
     }
     const decoder = this.decoder as VideoDecoder
@@ -103,7 +109,14 @@ export class FrameDecoder {
         continue
       }
       const s = next.value
-      decoder.decode(new EncodedVideoChunk({ type: s.key ? 'key' : 'delta', timestamp: s.timestampUs, duration: s.durationUs, data: s.data }))
+      decoder.decode(
+        new EncodedVideoChunk({
+          type: s.key ? 'key' : 'delta',
+          timestamp: s.timestampUs,
+          duration: s.durationUs,
+          data: s.data,
+        }),
+      )
       this.fedUs = Math.max(this.fedUs, s.timestampUs)
       if (decoder.decodeQueueSize > 4 || s.timestampUs > target + halfFrame) await this.waitForOutput(200)
     }
@@ -112,7 +125,7 @@ export class FrameDecoder {
   }
 
   close(): void {
-    this.decoder?.state !== 'closed' && this.decoder?.close()
+    if (this.decoder && this.decoder.state !== 'closed') this.decoder.close()
     void this.samples?.return(undefined)
     for (const f of this.queue) f.close()
     this.queue = []
@@ -159,7 +172,9 @@ export async function decodeAudio(stream: AudioStream, signal?: AbortSignal): Pr
   decoder.configure(stream.config)
   for await (const s of stream.samples()) {
     if (signal?.aborted || failure) break
-    decoder.decode(new EncodedAudioChunk({ type: 'key', timestamp: s.timestampUs, duration: s.durationUs, data: s.data }))
+    decoder.decode(
+      new EncodedAudioChunk({ type: 'key', timestamp: s.timestampUs, duration: s.durationUs, data: s.data }),
+    )
     if (decoder.decodeQueueSize > 32) await new Promise((r) => setTimeout(r, 0))
   }
   await decoder.flush().catch(() => undefined)

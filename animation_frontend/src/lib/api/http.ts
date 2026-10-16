@@ -66,7 +66,7 @@ export async function request<S extends z.ZodType>(
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   let res: Response
-  let json: unknown = null
+  let json: unknown
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (body !== undefined) headers['Content-Type'] = 'application/json'

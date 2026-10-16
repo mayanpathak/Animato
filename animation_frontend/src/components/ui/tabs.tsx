@@ -30,7 +30,10 @@ export function Tabs<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className={cn('relative inline-flex items-center gap-0.5 rounded-lg border border-line bg-surface-1 p-0.5', className)}
+      className={cn(
+        'relative inline-flex items-center gap-0.5 rounded-lg border border-line bg-surface-1 p-0.5',
+        className,
+      )}
       onKeyDown={(e) => {
         const i = items.findIndex((t) => t.value === value)
         if (e.key === 'ArrowRight') onChange(items[(i + 1) % items.length].value)
@@ -87,7 +90,11 @@ export function UnderlineTabs<T extends string>({
 }) {
   const id = useId()
   return (
-    <div role="tablist" aria-label={label} className={cn('flex gap-5 overflow-x-auto border-b border-line no-scrollbar', className)}>
+    <div
+      role="tablist"
+      aria-label={label}
+      className={cn('flex gap-5 overflow-x-auto border-b border-line no-scrollbar', className)}
+    >
       {items.map((item) => {
         const active = item.value === value
         return (
@@ -105,7 +112,11 @@ export function UnderlineTabs<T extends string>({
             {item.icon}
             {item.label}
             {active ? (
-              <motion.span layoutId={`ul-${id}`} transition={spring.layout} className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-gradient-accent" />
+              <motion.span
+                layoutId={`ul-${id}`}
+                transition={spring.layout}
+                className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-gradient-accent"
+              />
             ) : null}
           </button>
         )

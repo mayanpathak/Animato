@@ -16,7 +16,15 @@ const tones: Record<BadgeTone, string> = {
   failed: 'bg-status-failed/10 text-status-failed border-status-failed/25',
 }
 
-export function Badge({ tone = 'neutral', className, children }: { tone?: BadgeTone; className?: string; children: ReactNode }) {
+export function Badge({
+  tone = 'neutral',
+  className,
+  children,
+}: {
+  tone?: BadgeTone
+  className?: string
+  children: ReactNode
+}) {
   return (
     <span
       className={cn(
@@ -49,7 +57,12 @@ export function Tag({ children, onRemove }: { children: ReactNode; onRemove?: ()
     <span className="inline-flex h-6 items-center gap-1 rounded-md border border-line bg-surface-2 px-2 text-xs text-fg-muted">
       {children}
       {onRemove ? (
-        <button type="button" aria-label="Remove tag" onClick={onRemove} className="-mr-1 rounded px-1 text-fg-faint hover:text-fg">
+        <button
+          type="button"
+          aria-label="Remove tag"
+          onClick={onRemove}
+          className="-mr-1 rounded px-1 text-fg-faint hover:text-fg"
+        >
           ×
         </button>
       ) : null}
@@ -73,7 +86,10 @@ export function Kbd({ children, className }: { children: ReactNode; className?: 
 export function Avatar({ name, size = 28, className }: { name: string; size?: number; className?: string }) {
   return (
     <span
-      className={cn('inline-grid shrink-0 place-items-center rounded-full bg-gradient-accent font-semibold text-white', className)}
+      className={cn(
+        'inline-grid shrink-0 place-items-center rounded-full bg-gradient-accent font-semibold text-white',
+        className,
+      )}
       style={{ width: size, height: size, fontSize: size * 0.38 }}
       aria-hidden
     >
@@ -121,7 +137,17 @@ export function Progress({
   )
 }
 
-export function Ring({ value, size = 96, stroke = 8, children }: { value: number; size?: number; stroke?: number; children?: ReactNode }) {
+export function Ring({
+  value,
+  size = 96,
+  stroke = 8,
+  children,
+}: {
+  value: number
+  size?: number
+  stroke?: number
+  children?: ReactNode
+}) {
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const v = Math.max(0, Math.min(1, value))
@@ -135,7 +161,14 @@ export function Ring({ value, size = 96, stroke = 8, children }: { value: number
             <stop offset="100%" stopColor="var(--color-accent-magenta)" />
           </linearGradient>
         </defs>
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--color-surface-3)" strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke="var(--color-surface-3)"
+          strokeWidth={stroke}
+          fill="none"
+        />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -231,7 +264,11 @@ export function Slider({
           backgroundImage: `linear-gradient(to right, var(--color-accent-violet), var(--color-accent-cyan) ${pct}%, transparent ${pct}%)`,
         }}
       />
-      {format ? <span className="w-12 shrink-0 text-right font-mono text-2xs text-fg-subtle tabular-nums">{format(value)}</span> : null}
+      {format ? (
+        <span className="w-12 shrink-0 text-right font-mono text-2xs text-fg-subtle tabular-nums">
+          {format(value)}
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -268,9 +305,20 @@ export function EmptyState({
   )
 }
 
-export function ErrorState({ title = 'Something went wrong', body, action }: { title?: string; body?: ReactNode; action?: ReactNode }) {
+export function ErrorState({
+  title = 'Something went wrong',
+  body,
+  action,
+}: {
+  title?: string
+  body?: ReactNode
+  action?: ReactNode
+}) {
   return (
-    <div role="alert" className="flex flex-col items-center rounded-2xl border border-status-failed/25 bg-status-failed/5 px-6 py-12 text-center">
+    <div
+      role="alert"
+      className="flex flex-col items-center rounded-2xl border border-status-failed/25 bg-status-failed/5 px-6 py-12 text-center"
+    >
       <h3 className="font-display text-lg font-semibold">{title}</h3>
       {body ? <p className="mt-1.5 max-w-md text-sm text-fg-muted">{body}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}

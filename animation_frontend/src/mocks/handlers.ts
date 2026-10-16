@@ -145,12 +145,27 @@ export const handlers = [
       const oldest = (lastHour.length >= 5 ? lastHour : lastDay)[0].created_at
       const window = lastHour.length >= 5 ? 3_600_000 : 86_400_000
       const retry = Math.max(1, Math.ceil((oldest + window - Date.now()) / 1000))
-      return json(429, { success: false, message: 'Too many requests, try again later' }, { 'Retry-After': String(retry) })
+      return json(
+        429,
+        { success: false, message: 'Too many requests, try again later' },
+        { 'Retry-After': String(retry) },
+      )
     }
     const job_id = crypto.randomUUID()
-    state.jobs.push({ job_id, owner: user.email, prompt, library, created_at: Date.now(), fail: /\bfail\b/i.test(prompt) })
+    state.jobs.push({
+      job_id,
+      owner: user.email,
+      prompt,
+      library,
+      created_at: Date.now(),
+      fail: /\bfail\b/i.test(prompt),
+    })
     save(state)
-    return json(200, { success: true, message: 'Render job created successfully', data: { job_id, library, status: 'Pending' } })
+    return json(200, {
+      success: true,
+      message: 'Render job created successfully',
+      data: { job_id, library, status: 'Pending' },
+    })
   }),
 
   http.get('/api/jobs/:id', ({ params }) => {
@@ -174,7 +189,10 @@ export const handlers = [
         duration_seconds: done ? RENDER_FACTS[render].duration : null,
         file_size_bytes: done ? RENDER_FACTS[render].size : null,
         render_time_ms: done ? 11_200 + (job.prompt.length % 7) * 830 : null,
-        error_message: status === 'Failed' ? 'Renderer exited with code 1: scene "Intro" raised ValueError: invalid color "fail"' : null,
+        error_message:
+          status === 'Failed'
+            ? 'Renderer exited with code 1: scene "Intro" raised ValueError: invalid color "fail"'
+            : null,
       },
     })
   }),

@@ -75,8 +75,13 @@ export function CommandPalette() {
                 <Kbd>Esc</Kbd>
               </div>
               <Command.List className="max-h-[52vh] overflow-y-auto p-2">
-                <Command.Empty className="px-3 py-8 text-center text-sm text-fg-subtle">Nothing matches “{search}”.</Command.Empty>
-                <Command.Group heading="Actions" className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase">
+                <Command.Empty className="px-3 py-8 text-center text-sm text-fg-subtle">
+                  Nothing matches “{search}”.
+                </Command.Empty>
+                <Command.Group
+                  heading="Actions"
+                  className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
+                >
                   <Command.Item className={itemClass} onSelect={() => go('/app/create')}>
                     <Sparkles /> New animation from a prompt
                   </Command.Item>
@@ -98,26 +103,50 @@ export function CommandPalette() {
                     <LogOut /> Log out
                   </Command.Item>
                 </Command.Group>
-                <Command.Group heading="Navigate" className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase">
+                <Command.Group
+                  heading="Navigate"
+                  className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
+                >
                   {NAV.map((n) => (
-                    <Command.Item key={n.to} className={itemClass} value={`go ${n.label}`} onSelect={() => go(n.to)}>
+                    <Command.Item
+                      key={n.to}
+                      className={itemClass}
+                      value={`go ${n.label}`}
+                      onSelect={() => go(n.to)}
+                    >
                       <n.icon /> {n.label}
                     </Command.Item>
                   ))}
                 </Command.Group>
                 {projects.data?.length ? (
-                  <Command.Group heading="Projects" className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase">
+                  <Command.Group
+                    heading="Projects"
+                    className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
+                  >
                     {projects.data.slice(0, 8).map((p) => (
-                      <Command.Item key={p.id} className={itemClass} value={`project ${p.name} ${p.id}`} onSelect={() => go(`/app/projects/${p.id}/edit`)}>
+                      <Command.Item
+                        key={p.id}
+                        className={itemClass}
+                        value={`project ${p.name} ${p.id}`}
+                        onSelect={() => go(`/app/projects/${p.id}/edit`)}
+                      >
                         <Clapperboard /> {p.name}
                       </Command.Item>
                     ))}
                   </Command.Group>
                 ) : null}
                 {jobs.data?.length ? (
-                  <Command.Group heading="Recent jobs" className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase">
+                  <Command.Group
+                    heading="Recent jobs"
+                    className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
+                  >
                     {jobs.data.slice(0, 6).map((j) => (
-                      <Command.Item key={j.id} className={itemClass} value={`job ${j.prompt} ${j.id}`} onSelect={() => go(`/app/jobs/${j.id}`)}>
+                      <Command.Item
+                        key={j.id}
+                        className={itemClass}
+                        value={`job ${j.prompt} ${j.id}`}
+                        onSelect={() => go(`/app/jobs/${j.id}`)}
+                      >
                         <FileVideo /> <span className="truncate">{j.prompt}</span>
                       </Command.Item>
                     ))}

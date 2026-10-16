@@ -12,7 +12,11 @@ function subscribe(cb: () => void) {
 }
 
 export function OfflineBanner() {
-  const online = useSyncExternalStore(subscribe, () => navigator.onLine, () => true)
+  const online = useSyncExternalStore(
+    subscribe,
+    () => navigator.onLine,
+    () => true,
+  )
   return (
     <AnimatePresence>
       {!online ? (
@@ -23,7 +27,8 @@ export function OfflineBanner() {
           exit={{ y: -40, opacity: 0 }}
           className="fixed inset-x-0 top-0 z-[var(--z-toast)] flex items-center justify-center gap-2 bg-status-warning/15 py-1.5 text-xs font-medium text-status-warning backdrop-blur-md"
         >
-          <WifiOff className="size-3.5" /> You are offline. Editing and export keep working; generating needs a connection.
+          <WifiOff className="size-3.5" /> You are offline. Editing and export keep working; generating needs
+          a connection.
         </motion.div>
       ) : null}
     </AnimatePresence>

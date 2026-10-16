@@ -92,7 +92,10 @@ export const projectsTable = table<Project>('projects')
 export const brandTable = table<BrandKit>('brand')
 export const exportsTable = table<ExportRecord>('exports')
 
-export async function mine<T extends { owner: string }>(t: { all: () => Promise<T[]> }, owner: string): Promise<T[]> {
+export async function mine<T extends { owner: string }>(
+  t: { all: () => Promise<T[]> },
+  owner: string,
+): Promise<T[]> {
   return (await t.all()).filter((r) => r.owner === owner)
 }
 

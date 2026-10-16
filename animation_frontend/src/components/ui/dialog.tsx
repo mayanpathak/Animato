@@ -6,7 +6,11 @@ import { cn } from '@/lib/cn'
 import { ease } from '@/lib/motion'
 import { IconButton } from './button'
 
-function useDialogBehaviour(open: boolean, onClose: () => void, panel: React.RefObject<HTMLDivElement | null>) {
+function useDialogBehaviour(
+  open: boolean,
+  onClose: () => void,
+  panel: React.RefObject<HTMLDivElement | null>,
+) {
   useEffect(() => {
     if (!open) return
     const previous = document.activeElement as HTMLElement | null
@@ -57,7 +61,16 @@ interface DialogProps {
   layoutId?: string
 }
 
-export function Dialog({ open, onClose, title, description, children, footer, className, layoutId }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  className,
+  layoutId,
+}: DialogProps) {
   const panel = useRef<HTMLDivElement>(null)
   useDialogBehaviour(open, onClose, panel)
   return createPortal(
@@ -98,7 +111,11 @@ export function Dialog({ open, onClose, title, description, children, footer, cl
               </IconButton>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-            {footer ? <div className="flex justify-end gap-2 border-t border-line bg-surface-2/50 px-5 py-3">{footer}</div> : null}
+            {footer ? (
+              <div className="flex justify-end gap-2 border-t border-line bg-surface-2/50 px-5 py-3">
+                {footer}
+              </div>
+            ) : null}
           </motion.div>
         </div>
       ) : null}

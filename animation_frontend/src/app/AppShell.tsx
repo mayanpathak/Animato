@@ -70,7 +70,10 @@ function StorageMeter({ collapsed }: { collapsed: boolean }) {
         <HardDrive className="size-3.5" /> Local storage
       </div>
       <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-3">
-        <div className="h-full rounded-full bg-gradient-accent" style={{ width: `${Math.max(2, pct * 100)}%` }} />
+        <div
+          className="h-full rounded-full bg-gradient-accent"
+          style={{ width: `${Math.max(2, pct * 100)}%` }}
+        />
       </div>
       <p className="mt-1.5 font-mono text-2xs text-fg-faint">
         {formatBytes(data.usage)} of {formatBytes(data.quota)}
@@ -82,8 +85,9 @@ function StorageMeter({ collapsed }: { collapsed: boolean }) {
 /** The newest unfinished job, shown live in the top bar. */
 function ActiveJob() {
   const history = useJobHistory()
+  const [mountedAt] = useState(() => Date.now())
   const latest = history.data?.[0]
-  const recent = latest && Date.now() - latest.createdAt < 30 * 60_000 ? latest : undefined
+  const recent = latest && mountedAt - latest.createdAt < 30 * 60_000 ? latest : undefined
   const job = useJob(recent?.id)
   const navigate = useNavigate()
   if (!recent || !job.data || isFinished(job.data.status)) return null
@@ -107,7 +111,12 @@ function UserMenu() {
   return (
     <Menu
       trigger={(p) => (
-        <button {...p} type="button" aria-label="Account menu" className="rounded-full ring-offset-2 ring-offset-base focus-visible:ring-2">
+        <button
+          {...p}
+          type="button"
+          aria-label="Account menu"
+          className="rounded-full ring-offset-2 ring-offset-canvas focus-visible:ring-2"
+        >
           <Avatar name={user.username} size={30} />
         </button>
       )}
@@ -151,8 +160,11 @@ export function AppShell() {
   }, [location.pathname])
 
   return (
-    <div className="flex min-h-dvh bg-base">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[var(--z-toast)] focus:rounded-md focus:bg-surface-3 focus:px-3 focus:py-2">
+    <div className="flex min-h-dvh bg-canvas">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[var(--z-toast)] focus:rounded-md focus:bg-surface-3 focus:px-3 focus:py-2"
+      >
         Skip to content
       </a>
       <motion.aside
@@ -171,7 +183,11 @@ export function AppShell() {
             </IconButton>
           )}
         </div>
-        <NavLink to="/app/create" className={buttonClass('primary', 'md', cn('mt-6 w-full', collapsed && 'px-0'))} title="New animation">
+        <NavLink
+          to="/app/create"
+          className={buttonClass('primary', 'md', cn('mt-6 w-full', collapsed && 'px-0'))}
+          title="New animation"
+        >
           <Sparkles className="size-4" />
           {collapsed ? null : 'New animation'}
         </NavLink>
@@ -194,7 +210,7 @@ export function AppShell() {
       </Drawer>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-[var(--z-sticky)] flex h-14 items-center gap-3 border-b border-line bg-base/75 px-4 backdrop-blur-xl sm:px-6">
+        <header className="sticky top-0 z-[var(--z-sticky)] flex h-14 items-center gap-3 border-b border-line bg-canvas/75 px-4 backdrop-blur-xl sm:px-6">
           <IconButton label="Open menu" className="lg:hidden" onClick={() => setMobileOpen(true)}>
             <MenuIcon />
           </IconButton>

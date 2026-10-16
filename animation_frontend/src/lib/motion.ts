@@ -40,6 +40,7 @@ export const fadeUp = {
 }
 
 export function prefersReducedMotion(): boolean {
-  if (typeof document !== 'undefined' && document.documentElement.dataset.reducedMotion === 'true') return true
+  if (typeof document !== 'undefined' && document.documentElement.dataset.reducedMotion === 'true')
+    return true
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }

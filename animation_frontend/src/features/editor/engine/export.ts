@@ -1,7 +1,15 @@
 // Local export: composite every frame, encode with WebCodecs (VideoEncoder /
 // AudioEncoder), mix audio offline with the Rust audio engine, and mux with
 // mediabunny straight into an OPFS file. Runs in a worker.
-import { EncodedAudioPacketSource, EncodedPacket, EncodedVideoPacketSource, Mp4OutputFormat, Output, StreamTarget, WebMOutputFormat } from 'mediabunny'
+import {
+  EncodedAudioPacketSource,
+  EncodedPacket,
+  EncodedVideoPacketSource,
+  Mp4OutputFormat,
+  Output,
+  StreamTarget,
+  WebMOutputFormat,
+} from 'mediabunny'
 import type { MediaAsset } from '@/lib/local/models'
 import { fileHandle, removeFile } from '@/lib/local/opfs'
 import { recordCall } from '@/wasm/stats'
@@ -53,7 +61,13 @@ function vp9Level(w: number, h: number): string {
   return px <= 1280 * 720 ? '31' : px <= 2048 * 1152 ? '41' : '51'
 }
 
-async function pickVideoCodec(format: ExportFormat, width: number, height: number, bitrate: number, fps: number) {
+async function pickVideoCodec(
+  format: ExportFormat,
+  width: number,
+  height: number,
+  bitrate: number,
+  fps: number,
+) {
   const big = width * height > 2048 * 1152
   const candidates: [MbVideoCodec, string][] =
     format === 'mp4'
@@ -80,11 +94,19 @@ async function pickVideoCodec(format: ExportFormat, width: number, height: numbe
     const support = await VideoEncoder.isConfigSupported(config).catch(() => null)
     if (support?.supported) return { name, config }
   }
-  throw new Error(`This browser cannot encode ${format.toUpperCase()} at ${width}×${height}. Try WebM or a lower resolution.`)
+  throw new Error(
+    `This browser cannot encode ${format.toUpperCase()} at ${width}×${height}. Try WebM or a lower resolution.`,
+  )
 }
 
 async function pickAudioCodec(format: ExportFormat) {
-  const candidates: [MbAudioCodec, string][] = format === 'mp4' ? [['aac', 'mp4a.40.2'], ['opus', 'opus']] : [['opus', 'opus']]
+  const candidates: [MbAudioCodec, string][] =
+    format === 'mp4'
+      ? [
+          ['aac', 'mp4a.40.2'],
+          ['opus', 'opus'],
+        ]
+      : [['opus', 'opus']]
   for (const [name, codec] of candidates) {
     const config: AudioEncoderConfig = { codec, sampleRate: MIX_RATE, numberOfChannels: 2, bitrate: 160_000 }
     const support = await AudioEncoder.isConfigSupported(config).catch(() => null)
@@ -95,7 +117,11 @@ async function pickAudioCodec(format: ExportFormat) {
 
 const BITS_PER_PIXEL: Record<ExportQuality, number> = { draft: 0.05, standard: 0.1, high: 0.18 }
 
-export async function runExport(opts: ExportOptions, progress: (p: ExportProgress) => void, signal: AbortSignal): Promise<ExportResult> {
+export async function runExport(
+  opts: ExportOptions,
+  progress: (p: ExportProgress) => void,
+  signal: AbortSignal,
+): Promise<ExportResult> {
   const wasm = await loadWasm()
   const { timeline, width, height, fps } = opts
   const assets = new Map(opts.assets.map((a) => [a.id, a]))
@@ -138,7 +164,8 @@ export async function runExport(opts: ExportOptions, progress: (p: ExportProgres
   const compositor = await createCompositor(canvas, opts.compositor)
   const pool = new SourcePool()
   pool.setAssets(assets)
-  const kf = (keys: { time: number; value: number; ease?: string }[], t: number) => wasm.keyframe_value(JSON.stringify(keys), t)
+  const kf = (keys: { time: number; value: number; ease?: string }[], t: number) =>
+    wasm.keyframe_value(JSON.stringify(keys), t)
   const frameUs = 1e6 / fps
   const started = performance.now()
 
@@ -154,9 +181,15 @@ export async function runExport(opts: ExportOptions, progress: (p: ExportProgres
       const t0 = performance.now()
       encoder.encode(frame, { keyFrame: i % (fps * 2) === 0 })
       frame.close()
-      recordCall({ category: 'encode', name: `video-${video.name}`, backend: 'WebCodecs', ms: performance.now() - t0 })
+      recordCall({
+        category: 'encode',
+        name: `video-${video.name}`,
+        backend: 'WebCodecs',
+        ms: performance.now() - t0,
+      })
       while (encoder.encodeQueueSize > 6) await new Promise((r) => setTimeout(r, 2))
-      if (i % 3 === 0 || i === frames - 1) progress({ frame: i + 1, frames, fps: (i + 1) / ((performance.now() - started) / 1000) })
+      if (i % 3 === 0 || i === frames - 1)
+        progress({ frame: i + 1, frames, fps: (i + 1) / ((performance.now() - started) / 1000) })
     }
     await encoder.flush()
 
@@ -171,7 +204,9 @@ export async function runExport(opts: ExportOptions, progress: (p: ExportProgres
       engine.set_playing(true)
       const aEncoder = new AudioEncoder({
         output: (chunk, meta) => {
-          muxChain = muxChain.then(() => audioTrack.add(EncodedPacket.fromEncodedChunk(chunk), meta)).catch(fail)
+          muxChain = muxChain
+            .then(() => audioTrack.add(EncodedPacket.fromEncodedChunk(chunk), meta))
+            .catch(fail)
         },
         error: fail,
       })
@@ -184,7 +219,14 @@ export async function runExport(opts: ExportOptions, progress: (p: ExportProgres
         const n = Math.min(block, total - at)
         const buf = new Float32Array(n * 2)
         engine.render(buf, n)
-        const data = new AudioData({ format: 'f32', sampleRate: MIX_RATE, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round((at / MIX_RATE) * 1e6), data: buf })
+        const data = new AudioData({
+          format: 'f32',
+          sampleRate: MIX_RATE,
+          numberOfFrames: n,
+          numberOfChannels: 2,
+          timestamp: Math.round((at / MIX_RATE) * 1e6),
+          data: buf,
+        })
         aEncoder.encode(data)
         data.close()
         while (aEncoder.encodeQueueSize > 16) await new Promise((r) => setTimeout(r, 1))

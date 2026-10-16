@@ -41,38 +41,160 @@ function PageSuspense({ children }: { children: ReactNode }) {
 }
 
 export const router = createBrowserRouter([
-  { path: '/', element: <S><Landing /></S> },
-  { path: '/pricing', element: <S><Pricing /></S> },
+  {
+    path: '/',
+    element: (
+      <S>
+        <Landing />
+      </S>
+    ),
+  },
+  {
+    path: '/pricing',
+    element: (
+      <S>
+        <Pricing />
+      </S>
+    ),
+  },
   {
     element: <PublicOnlyRoute />,
     children: [
-      { path: '/login', element: <S><Login /></S> },
-      { path: '/signup', element: <S><Signup /></S> },
-      { path: '/forgot-password', element: <S><ForgotPassword /></S> },
-      { path: '/reset-password/:token', element: <S><ResetPassword /></S> },
+      {
+        path: '/login',
+        element: (
+          <S>
+            <Login />
+          </S>
+        ),
+      },
+      {
+        path: '/signup',
+        element: (
+          <S>
+            <Signup />
+          </S>
+        ),
+      },
+      {
+        path: '/forgot-password',
+        element: (
+          <S>
+            <ForgotPassword />
+          </S>
+        ),
+      },
+      {
+        path: '/reset-password/:token',
+        element: (
+          <S>
+            <ResetPassword />
+          </S>
+        ),
+      },
     ],
   },
-  { element: <VerifyRoute />, children: [{ path: '/verify-email', element: <S><VerifyEmail /></S> }] },
+  {
+    element: <VerifyRoute />,
+    children: [
+      {
+        path: '/verify-email',
+        element: (
+          <S>
+            <VerifyEmail />
+          </S>
+        ),
+      },
+    ],
+  },
   {
     element: <ProtectedRoute />,
     children: [
-      { path: '/app/projects/:id/edit', element: <S><Editor /></S> },
+      {
+        path: '/app/projects/:id/edit',
+        element: (
+          <S>
+            <Editor />
+          </S>
+        ),
+      },
       {
         element: <AppShell />,
         children: [
-          { path: '/app', element: <PageSuspense><Home /></PageSuspense> },
-          { path: '/app/create', element: <PageSuspense><Create /></PageSuspense> },
-          { path: '/app/jobs/:id', element: <PageSuspense><JobPage /></PageSuspense> },
-          { path: '/app/projects', element: <PageSuspense><Projects /></PageSuspense> },
-          { path: '/app/templates', element: <PageSuspense><Templates /></PageSuspense> },
-          { path: '/app/brand', element: <PageSuspense><Brand /></PageSuspense> },
-          { path: '/app/settings', element: <PageSuspense><Settings /></PageSuspense> },
-          { path: '/app/*', element: <PageSuspense><NotFound /></PageSuspense> },
+          {
+            path: '/app',
+            element: (
+              <PageSuspense>
+                <Home />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: '/app/create',
+            element: (
+              <PageSuspense>
+                <Create />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: '/app/jobs/:id',
+            element: (
+              <PageSuspense>
+                <JobPage />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: '/app/projects',
+            element: (
+              <PageSuspense>
+                <Projects />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: '/app/templates',
+            element: (
+              <PageSuspense>
+                <Templates />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: '/app/brand',
+            element: (
+              <PageSuspense>
+                <Brand />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: '/app/settings',
+            element: (
+              <PageSuspense>
+                <Settings />
+              </PageSuspense>
+            ),
+          },
+          {
+            path: '/app/*',
+            element: (
+              <PageSuspense>
+                <NotFound />
+              </PageSuspense>
+            ),
+          },
         ],
       },
     ],
   },
-  { path: '*', element: <S><NotFound /></S> },
+  {
+    path: '*',
+    element: (
+      <S>
+        <NotFound />
+      </S>
+    ),
+  },
 ])
-
-

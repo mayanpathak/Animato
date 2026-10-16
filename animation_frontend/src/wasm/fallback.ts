@@ -71,14 +71,19 @@ export const fallback: CoreFunctions = {
     const speed = Math.max(0.01, num(clip, 'speed', 1))
     if (at <= start + MIN_CLIP || at >= start + duration - MIN_CLIP) return JSON.stringify(tl)
     const left = at - start
-    clips.splice(loc[1], 1, { ...clip, duration: r6(left), fadeOut: 0 }, {
-      ...clip,
-      id: newId,
-      start: r6(at),
-      duration: r6(duration - left),
-      offset: r6(num(clip, 'offset', 0) + left * speed),
-      fadeIn: 0,
-    })
+    clips.splice(
+      loc[1],
+      1,
+      { ...clip, duration: r6(left), fadeOut: 0 },
+      {
+        ...clip,
+        id: newId,
+        start: r6(at),
+        duration: r6(duration - left),
+        offset: r6(num(clip, 'offset', 0) + left * speed),
+        fadeIn: 0,
+      },
+    )
     return JSON.stringify(tl)
   },
   trim_clip(timeline, id, edge, to) {
@@ -92,7 +97,11 @@ export const fallback: CoreFunctions = {
     const speed = Math.max(0.01, num(clip, 'speed', 1))
     if (edge === 'start') {
       const ns = Math.min(Math.max(to, Math.max(0, start - offset / speed)), end - MIN_CLIP)
-      Object.assign(clip, { start: r6(ns), duration: r6(end - ns), offset: r6(offset + (ns - start) * speed) })
+      Object.assign(clip, {
+        start: r6(ns),
+        duration: r6(end - ns),
+        offset: r6(offset + (ns - start) * speed),
+      })
     } else {
       clip.duration = r6(Math.max(to, start + MIN_CLIP) - start)
     }
@@ -125,15 +134,24 @@ export const fallback: CoreFunctions = {
     return JSON.stringify(cues)
   },
   to_srt(json) {
-    const cues = (JSON.parse(json) as { start: number; end: number; text: string }[]).sort((a, b) => a.start - b.start)
-    return cues.map((c, i) => `${i + 1}\n${fmtSrt(c.start)} --> ${fmtSrt(c.end)}\n${c.text.trim()}\n\n`).join('')
+    const cues = (JSON.parse(json) as { start: number; end: number; text: string }[]).sort(
+      (a, b) => a.start - b.start,
+    )
+    return cues
+      .map((c, i) => `${i + 1}\n${fmtSrt(c.start)} --> ${fmtSrt(c.end)}\n${c.text.trim()}\n\n`)
+      .join('')
   },
   captions_from_words(json) {
     const words = JSON.parse(json) as { text: string; startMs: number; endMs: number }[]
     const cues: { start: number; end: number; text: string }[] = []
     let cur: typeof words = []
     const flush = () => {
-      if (cur.length) cues.push({ start: cur[0].startMs / 1000, end: cur[cur.length - 1].endMs / 1000, text: cur.map((w) => w.text.trim()).join(' ') })
+      if (cur.length)
+        cues.push({
+          start: cur[0].startMs / 1000,
+          end: cur[cur.length - 1].endMs / 1000,
+          text: cur.map((w) => w.text.trim()).join(' '),
+        })
       cur = []
     }
     words.forEach((w, i) => {
@@ -160,7 +178,9 @@ export const fallback: CoreFunctions = {
     return out
   },
   keyframe_value(json, time) {
-    const keys = (JSON.parse(json) as { time: number; value: number; ease?: string }[]).sort((a, b) => a.time - b.time)
+    const keys = (JSON.parse(json) as { time: number; value: number; ease?: string }[]).sort(
+      (a, b) => a.time - b.time,
+    )
     if (!keys.length) return 0
     if (time <= keys[0].time) return keys[0].value
     const last = keys[keys.length - 1]

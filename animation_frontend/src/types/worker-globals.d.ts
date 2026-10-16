@@ -9,5 +9,7 @@ interface FileSystemSyncAccessHandle {
 }
 
 interface FileSystemFileHandle {
-  createSyncAccessHandle(options?: { mode?: 'read-only' | 'readwrite' | 'readwrite-unsafe' }): Promise<FileSystemSyncAccessHandle>
+  createSyncAccessHandle(options?: {
+    mode?: 'read-only' | 'readwrite' | 'readwrite-unsafe'
+  }): Promise<FileSystemSyncAccessHandle>
 }

@@ -1,4 +1,13 @@
-import { Clapperboard, FolderOpen, Home, LayoutTemplate, Palette, Settings, Sparkles, type LucideIcon } from 'lucide-react'
+import {
+  Clapperboard,
+  FolderOpen,
+  Home,
+  LayoutTemplate,
+  Palette,
+  Settings,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 
 export interface NavItem {
   to: string

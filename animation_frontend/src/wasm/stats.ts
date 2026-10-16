@@ -2,7 +2,8 @@
 // performance badge and read by the e2e suite (window.__animatoEngineCalls).
 import { create } from 'zustand'
 
-export type EngineCategory = 'timeline' | 'demux' | 'decode' | 'composite' | 'audio' | 'encode' | 'captions' | 'dsp'
+export type EngineCategory =
+  'timeline' | 'demux' | 'decode' | 'composite' | 'audio' | 'encode' | 'captions' | 'dsp'
 
 export interface EngineCall {
   category: EngineCategory

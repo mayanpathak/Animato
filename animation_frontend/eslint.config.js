@@ -5,7 +5,16 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'src/wasm/pkg', 'public/mockServiceWorker.js', 'crates', 'test-results', 'playwright-report'] },
+  {
+    ignores: [
+      'dist',
+      'src/wasm/pkg',
+      'public/mockServiceWorker.js',
+      'crates',
+      'test-results',
+      'playwright-report',
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
@@ -14,8 +23,16 @@ export default tseslint.config(
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true, allowExportNames: ['buttonClass', 'usePalette'] },
+      ],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
+  },
+  {
+    // Route table and entry point: not component modules, fast refresh does not apply.
+    files: ['src/app/router.tsx', 'src/main.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 )

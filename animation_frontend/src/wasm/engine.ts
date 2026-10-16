@@ -52,7 +52,12 @@ function wrap(fns: CoreFunctions, backend: 'wasm' | 'ts'): CoreEngine {
   const timed = <T>(category: EngineCategory, name: string, run: () => T): T => {
     const t0 = performance.now()
     const out = run()
-    recordCall({ category, name, backend: backend === 'wasm' ? 'Rust/WASM' : 'TS fallback', ms: performance.now() - t0 })
+    recordCall({
+      category,
+      name,
+      backend: backend === 'wasm' ? 'Rust/WASM' : 'TS fallback',
+      ms: performance.now() - t0,
+    })
     return out
   }
   return {
@@ -60,17 +65,30 @@ function wrap(fns: CoreFunctions, backend: 'wasm' | 'ts'): CoreEngine {
     version: fns.engine_version(),
     secondsToTimecode: (s, fps) => fns.seconds_to_timecode(s, fps),
     timecodeToSeconds: (tc, fps) => fns.timecode_to_seconds(tc, fps),
-    snap: (time, targets, threshold) => timed('timeline', 'snap', () => fns.snap(time, Float64Array.from(targets), threshold)),
+    snap: (time, targets, threshold) =>
+      timed('timeline', 'snap', () => fns.snap(time, Float64Array.from(targets), threshold)),
     splitClip: (t, id, at, newId) =>
-      timed('timeline', 'split', () => JSON.parse(fns.split_clip(JSON.stringify(t), id, at, newId)) as Timeline),
+      timed(
+        'timeline',
+        'split',
+        () => JSON.parse(fns.split_clip(JSON.stringify(t), id, at, newId)) as Timeline,
+      ),
     trimClip: (t, id, edge, to) =>
       timed('timeline', 'trim', () => JSON.parse(fns.trim_clip(JSON.stringify(t), id, edge, to)) as Timeline),
     rippleDelete: (t, id) =>
-      timed('timeline', 'ripple-delete', () => JSON.parse(fns.ripple_delete(JSON.stringify(t), id)) as Timeline),
+      timed(
+        'timeline',
+        'ripple-delete',
+        () => JSON.parse(fns.ripple_delete(JSON.stringify(t), id)) as Timeline,
+      ),
     parseSrt: (text) => timed('captions', 'parse-srt', () => JSON.parse(fns.parse_srt(text)) as Cue[]),
     toSrt: (cues) => timed('captions', 'to-srt', () => fns.to_srt(JSON.stringify(cues))),
     captionsFromWords: (words) =>
-      timed('captions', 'normalize-transcript', () => JSON.parse(fns.captions_from_words(JSON.stringify(words))) as Cue[]),
+      timed(
+        'captions',
+        'normalize-transcript',
+        () => JSON.parse(fns.captions_from_words(JSON.stringify(words))) as Cue[],
+      ),
     waveformPeaks: (pcm, buckets) => timed('dsp', 'waveform-peaks', () => fns.waveform_peaks(pcm, buckets)),
     keyframeValue: (keys, time) => fns.keyframe_value(JSON.stringify(keys), time),
   }

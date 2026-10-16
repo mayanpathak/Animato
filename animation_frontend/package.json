@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "build:mocks": "VITE_USE_MOCKS=true vite build",
     "typecheck": "tsc -b --noEmit",
-    "lint": "eslint . --max-warnings=0 && oxlint && prettier --check .",
+    "lint": "eslint . --max-warnings=0 && oxlint --deny-warnings && prettier --check .",
     "format": "prettier --write .",
     "preview": "vite preview",
     "wasm:build": "bash scripts/build-wasm.sh",

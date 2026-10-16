@@ -43,7 +43,13 @@ const MP4ISH = /\.(mp4|m4v|mov|m4a|qt)$/i
 interface RustProbe {
   container: string
   duration: number
-  video: { codec: string; codec_string: string; coded_width: number; coded_height: number; avg_fps: number } | null
+  video: {
+    codec: string
+    codec_string: string
+    coded_width: number
+    coded_height: number
+    avg_fps: number
+  } | null
   audio: { codec: string; codec_string: string; sample_rate: number; channels: number } | null
 }
 
@@ -87,7 +93,10 @@ async function openWithRust(path: string): Promise<OpenedMedia> {
             codedWidth: vInfo.coded_width,
             codedHeight: vInfo.coded_height,
             // avcC is the decoder description for H.264; VP9 needs none.
-            description: vInfo.codec === 'H264' || vInfo.codec === 'Av1' ? demuxer.video_description() ?? undefined : undefined,
+            description:
+              vInfo.codec === 'H264' || vInfo.codec === 'Av1'
+                ? (demuxer.video_description() ?? undefined)
+                : undefined,
           },
           width: vInfo.coded_width,
           height: vInfo.coded_height,
@@ -110,7 +119,7 @@ async function openWithRust(path: string): Promise<OpenedMedia> {
             codec: audioCodecString(aInfo.codec, aInfo.codec_string),
             sampleRate: aInfo.sample_rate,
             numberOfChannels: aInfo.channels,
-            description: aInfo.codec === 'Aac' ? demuxer.audio_description() ?? undefined : undefined,
+            description: aInfo.codec === 'Aac' ? (demuxer.audio_description() ?? undefined) : undefined,
           },
           sampleRate: aInfo.sample_rate,
           channels: aInfo.channels,
@@ -141,7 +150,12 @@ async function openWithRust(path: string): Promise<OpenedMedia> {
 type Wasm = Awaited<ReturnType<typeof loadWasm>>
 
 function fromPacket(p: EncodedPacket): EncodedSample {
-  return { data: p.data, timestampUs: Math.round(p.timestamp * 1e6), durationUs: Math.round(p.duration * 1e6), key: p.type === 'key' }
+  return {
+    data: p.data,
+    timestampUs: Math.round(p.timestamp * 1e6),
+    durationUs: Math.round(p.duration * 1e6),
+    key: p.type === 'key',
+  }
 }
 
 async function openWithMediabunny(path: string): Promise<OpenedMedia> {

@@ -28,7 +28,8 @@ function setProject(t: Timeline, list: MediaAsset[], width: number, height: numb
   timeline = t
   assets = new Map(list.map((a) => [a.id, a]))
   pool.setAssets(assets)
-  if (compositor && (compositor.width !== width || compositor.height !== height)) compositor.resize(width, height)
+  if (compositor && (compositor.width !== width || compositor.height !== height))
+    compositor.resize(width, height)
 }
 
 async function render(time: number) {
@@ -37,19 +38,24 @@ async function render(time: number) {
   const t0 = performance.now()
   const plan = planFrame(timeline, time, assets, (keys, t) => wasm.keyframe_value(JSON.stringify(keys), t))
   const sources = await pool.gather(plan)
-  await compositor.draw(plan, sources)
+  const bitmap = await compositor.draw(plan, sources)
   pool.release(sources)
-  visible.transferFromImageBitmap(compositor.canvas.transferToImageBitmap())
+  visible.transferFromImageBitmap(bitmap)
   return { ms: performance.now() - t0, label: compositor.label }
 }
 
 serve({
-  init: (a) => init(a[0] as OffscreenCanvas, a[1] as number, a[2] as number, a[3] as 'webgpu' | 'canvas2d' | undefined),
+  init: (a) =>
+    init(a[0] as OffscreenCanvas, a[1] as number, a[2] as number, a[3] as 'webgpu' | 'canvas2d' | undefined),
   setProject: (a) => setProject(a[0] as Timeline, a[1] as MediaAsset[], a[2] as number, a[3] as number),
   render: (a) => render(a[0] as number),
   export: (a, ctx) => runExport(a[0] as ExportOptions, (p: ExportProgress) => ctx.progress(p), ctx.signal),
 })
 
 useEngineStats.subscribe((s) => {
-  if (s.last) (self as unknown as { postMessage(m: unknown): void }).postMessage({ event: 'engine-call', payload: s.last })
+  if (s.last)
+    (self as unknown as { postMessage(m: unknown): void }).postMessage({
+      event: 'engine-call',
+      payload: s.last,
+    })
 })

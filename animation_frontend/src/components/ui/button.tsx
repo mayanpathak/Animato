@@ -41,7 +41,18 @@ export function buttonClass(variant: Variant = 'primary', size: Size = 'md', cla
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', loading, leftIcon, rightIcon, className, children, disabled, type, ...rest },
+  {
+    variant = 'primary',
+    size = 'md',
+    loading,
+    leftIcon,
+    rightIcon,
+    className,
+    children,
+    disabled,
+    type,
+    ...rest
+  },
   ref,
 ) {
   return (
@@ -67,7 +78,12 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
   active?: boolean
 }
 
-const iconSizes = { xs: 'size-6 rounded-sm', sm: 'size-7 rounded-md', md: 'size-8 rounded-md', lg: 'size-10 rounded-lg' }
+const iconSizes = {
+  xs: 'size-6 rounded-sm',
+  sm: 'size-7 rounded-md',
+  md: 'size-8 rounded-md',
+  lg: 'size-10 rounded-lg',
+}
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
   { label, size = 'md', variant = 'ghost', active, className, children, type, ...rest },

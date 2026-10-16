@@ -47,10 +47,15 @@ export function formatNumber(n: number): string {
 }
 
 export function formatCurrency(n: number): string {
-  return new Intl.NumberFormat('en', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
+    n,
+  )
 }
 
 export function initials(name: string): string {
-  const parts = name.trim().split(/[\s._-]+/).filter(Boolean)
+  const parts = name
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean)
   return (parts[0]?.[0] ?? '?').toUpperCase() + (parts[1]?.[0] ?? '').toUpperCase()
 }

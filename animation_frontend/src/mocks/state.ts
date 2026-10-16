@@ -69,7 +69,7 @@ const STAGES: [JobStatus, number][] = [
 ]
 
 export function jobStatus(job: MockJob, now = Date.now()): JobStatus {
-  let t = (now - job.created_at) / 1000 * mockSpeed()
+  let t = ((now - job.created_at) / 1000) * mockSpeed()
   for (const [status, secs] of STAGES) {
     if (job.fail && status === 'Rendering' && t >= secs * 0.4) return 'Failed'
     if (t < secs) return status

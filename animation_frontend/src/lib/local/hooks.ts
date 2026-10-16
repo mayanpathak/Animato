@@ -53,7 +53,12 @@ export function useCreateJob() {
   const owner = useOwner()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { prompt: string; library: Library; options: JobRecord['options']; serverPrompt: string }) => {
+    mutationFn: async (input: {
+      prompt: string
+      library: Library
+      options: JobRecord['options']
+      serverPrompt: string
+    }) => {
       const created = await jobsApi.create(input.serverPrompt, input.library)
       const record: JobRecord = {
         id: created.id,

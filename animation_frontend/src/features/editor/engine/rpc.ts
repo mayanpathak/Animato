@@ -14,10 +14,15 @@ export type RpcReply =
   | { id: number; progress: unknown }
   | { event: string; payload: unknown }
 
-type Handler = (args: unknown[], ctx: { progress: (p: unknown) => void; signal: AbortSignal }) => unknown | Promise<unknown>
+type Handler = (
+  args: unknown[],
+  ctx: { progress: (p: unknown) => void; signal: AbortSignal },
+) => unknown | Promise<unknown>
 
 /** Worker side: dispatches requests to handlers. `cancel` aborts a running request. */
-export function serve(handlers: Record<string, Handler>): { emit: (event: string, payload: unknown, transfer?: Transferable[]) => void } {
+export function serve(handlers: Record<string, Handler>): {
+  emit: (event: string, payload: unknown, transfer?: Transferable[]) => void
+} {
   const scope = self as unknown as {
     postMessage(message: unknown, transfer?: Transferable[]): void
     onmessage: ((e: MessageEvent) => void) | null
@@ -60,7 +65,11 @@ function collectTransferables(value: unknown): Transferable[] {
 }
 
 export interface RpcClient {
-  call<T>(method: string, args: unknown[], opts?: { onProgress?: (p: unknown) => void; signal?: AbortSignal; transfer?: Transferable[] }): Promise<T>
+  call<T>(
+    method: string,
+    args: unknown[],
+    opts?: { onProgress?: (p: unknown) => void; signal?: AbortSignal; transfer?: Transferable[] },
+  ): Promise<T>
   on(event: string, cb: (payload: unknown) => void): () => void
   terminate(): void
 }
@@ -68,7 +77,10 @@ export interface RpcClient {
 /** UI side. */
 export function connect(worker: Worker): RpcClient {
   let seq = 0
-  const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; onProgress?: (p: unknown) => void }>()
+  const pending = new Map<
+    number,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void; onProgress?: (p: unknown) => void }
+  >()
   const listeners = new Map<string, Set<(p: unknown) => void>>()
   worker.onmessage = (e: MessageEvent<RpcReply>) => {
     const msg = e.data
@@ -91,7 +103,11 @@ export function connect(worker: Worker): RpcClient {
     pending.clear()
   }
   return {
-    call<T>(method: string, args: unknown[], opts: { onProgress?: (p: unknown) => void; signal?: AbortSignal; transfer?: Transferable[] } = {}) {
+    call<T>(
+      method: string,
+      args: unknown[],
+      opts: { onProgress?: (p: unknown) => void; signal?: AbortSignal; transfer?: Transferable[] } = {},
+    ) {
       const id = ++seq
       return new Promise<T>((resolve, reject) => {
         pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress: opts.onProgress })

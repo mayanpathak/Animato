@@ -37,7 +37,12 @@ export function Toaster() {
               <p className="text-sm font-medium">{t.title}</p>
               {t.body ? <p className="mt-0.5 text-xs text-fg-muted">{t.body}</p> : null}
             </div>
-            <button type="button" aria-label="Dismiss" onClick={() => dismiss(t.id)} className="text-fg-faint hover:text-fg [&_svg]:size-3.5">
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => dismiss(t.id)}
+              className="text-fg-faint hover:text-fg [&_svg]:size-3.5"
+            >
               <X />
             </button>
           </motion.div>

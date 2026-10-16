@@ -1,4 +1,10 @@
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import {
+  forwardRef,
+  useId,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/lib/cn'
 
@@ -14,11 +20,25 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, ...rest }, ref) {
-    return <textarea ref={ref} className={cn(control, 'min-h-24 resize-y py-2.5 leading-relaxed', className)} {...rest} />
+    return (
+      <textarea
+        ref={ref}
+        className={cn(control, 'min-h-24 resize-y py-2.5 leading-relaxed', className)}
+        {...rest}
+      />
+    )
   },
 )
 
-export function Label({ htmlFor, children, className }: { htmlFor?: string; children: ReactNode; className?: string }) {
+export function Label({
+  htmlFor,
+  children,
+  className,
+}: {
+  htmlFor?: string
+  children: ReactNode
+  className?: string
+}) {
   return (
     <label htmlFor={htmlFor} className={cn('mb-1.5 block text-xs font-medium text-fg-muted', className)}>
       {children}
@@ -89,13 +109,7 @@ export function Select({
 }: React.SelectHTMLAttributes<HTMLSelectElement> & { children: ReactNode }) {
   return (
     <div className={cn('relative', className)}>
-      <select
-        className={cn(
-          control,
-          'h-9 appearance-none pr-8 [&>option]:bg-surface-2',
-        )}
-        {...rest}
-      >
+      <select className={cn(control, 'h-9 appearance-none pr-8 [&>option]:bg-surface-2')} {...rest}>
         {children}
       </select>
       <svg

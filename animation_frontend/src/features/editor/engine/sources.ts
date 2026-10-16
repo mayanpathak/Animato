@@ -35,7 +35,9 @@ export class SourcePool {
       const asset = this.assets.get(assetId)
       entry = asset
         ? openMedia(asset.path, asset.name)
-            .then((media) => (media.video ? { media, decoder: new FrameDecoder(media.video) } : (media.close(), null)))
+            .then((media) =>
+              media.video ? { media, decoder: new FrameDecoder(media.video) } : (media.close(), null),
+            )
             .catch(() => null)
         : Promise.resolve(null)
       this.videos.set(assetId, entry)

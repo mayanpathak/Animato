@@ -22,8 +22,10 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id: string) {
             if (id.includes('node_modules/gsap')) return 'gsap'
-            if (id.includes('node_modules/motion') || id.includes('node_modules/framer-motion')) return 'motion'
-            if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'react'
+            if (id.includes('node_modules/motion') || id.includes('node_modules/framer-motion'))
+              return 'motion'
+            if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router'))
+              return 'react'
             return undefined
           },
         },
