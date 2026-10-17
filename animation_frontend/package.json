@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "og:image": "node scripts/og-image.mjs",
     "build:mocks": "cross-env VITE_USE_MOCKS=true vite build",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint . --max-warnings=0 && oxlint --deny-warnings && prettier --check . && node scripts/check-tokens.mjs",

@@ -79,3 +79,17 @@ test('protected routes send logged-out users to login and back', async ({ page }
   await page.getByTestId('login-submit').click()
   await expect(page).toHaveURL(/\/app\/settings$/)
 })
+
+test('the landing page carries Open Graph tags and the image exists (plan P10)', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/')
+  await expect(page).toHaveTitle(/Animato/)
+  const image = await page.locator('meta[property="og:image"]').getAttribute('content')
+  expect(image).toMatch(/\/og\.png$/)
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /Animato/)
+  const res = await request.get(new URL(image as string, page.url()).toString())
+  expect(res.ok()).toBe(true)
+  expect(res.headers()['content-type']).toContain('image/png')
+})

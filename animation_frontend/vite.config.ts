@@ -11,7 +11,16 @@ export default defineConfig(({ mode }) => {
   const apiTarget = env.VITE_API_TARGET || 'http://localhost:5000'
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        // Open Graph needs absolute URLs: VITE_SITE_URL when set, else root-relative.
+        name: 'animato-site-url',
+        transformIndexHtml: (html) =>
+          html.replaceAll('%SITE_URL%', (env.VITE_SITE_URL ?? '').replace(/\/$/, '')),
+      },
+    ],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

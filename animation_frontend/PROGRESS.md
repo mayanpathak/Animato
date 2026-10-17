@@ -160,3 +160,11 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
   an unknown label: applied with a warning), and one Undo reverts it.
 - G6 in plan section 17 now carries the endpoint shape from 13.7.
 
+## P10 notes
+
+- Open Graph and Twitter tags in `index.html`; `public/og.png` (1200×630, 66 KB) is a capture of the real landing
+  hero (`npm run og:image`), not a render frame: the repo has none (see DESIGN_NOTES). Title fixed ("myanimate").
+- Post text, remix analytics events, first-video and first-export tips and the storage prompt were built in P3/P6;
+  checked, not rebuilt.
+- e2e: `routes.spec.ts` checks the title, the tags and that the image is served.
+
