@@ -15,8 +15,8 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 | P5 | Vello graphics layer: version alignment, `animato-graphics`, `animato-overlay`, `FrameRenderer` | done | `0cb6229` |
 | P6 | Finish, simple mode, export | done | `a39a85c`, `db9c3fa`, `c14b2e5` |
 | P7 | Voice and captions | done | `6ee1c99` |
-| P8 | Fine-tune mode and assets | todo | |
-| P9 | AI editor seams | todo | |
+| P8 | Fine-tune mode and assets | done | `9811762` |
+| P9 | AI editor seams | done | see P9 notes |
 | P10 | Growth polish | todo | |
 | P11 | Hardening | todo | |
 
@@ -134,4 +134,29 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
   now records a take, stops it with Space, waits for the automatic captions, edits a caption word and sees the
   graphics scene rebuilt within 1 s, and runs Whisper on the speech fixture.
 - **Not measured:** the 80 ms active-word accuracy against real speech (no labelled 30 s fixture; see DESIGN_NOTES).
+
+
+## P8 notes
+
+- Commands (plan 13.1) landed with P7; every timeline operation is a JSON command recorded with its undo step.
+- Assets rail "In this video": Main, B-roll slots ("Clip 1", "Clip 2", …) with a note and "Insert at playhead",
+  "Generate a clip" (a render that lands in the next slot when ready), Music, Voice. Library items can be made B-roll.
+- Timeline: Graphics lane (Finish title card, end card, titles) and a B-roll lane above the main video.
+- "Import a clip" on the Videos composer strip: a new video with the user's own file as the main clip, opened in Finish.
+- Fixed: the editor replaced its open document (and undo) from IndexedDB on a mode switch or any record change.
+- Acceptance: `e2e/assets.spec.ts` generates a B-roll render from Finish, waits for it in slot "Clip 1", inserts it at
+  the playhead, undoes and redoes the insert, and finds the note after a reload; unit tests cover labels, slots and
+  the silent cutaway on the B-roll track.
+
+## P9 notes
+
+- `plan/schema.ts` (EditPlanV0, zod), `plan/compile.ts` (`compileEditPlan`, pure), `plan/DevHarness.tsx` (`?dev=plan`).
+- Acceptance 13.4: 13 fixture plans in `plan/compile.test.ts` (insert at word, cutaway at time with fade, overlay,
+  music with ducking and removal, keep ranges with anchors mapped through the cut, unknown label, out-of-range times,
+  empty plan, bad word index, titles, format/look/captions, unbuilt features as warnings, schema errors) plus one
+  through the store: one Undo restores the timeline exactly.
+- typecheck, lint, build: pass. vitest 188. Playwright `npm run test:e2e` 47/47 (P8 and P9 together).
+- Acceptance 13.5: `e2e/plan.spec.ts` pastes an invalid plan (refused with reasons), then a valid one (look, format and
+  an unknown label: applied with a warning), and one Undo reverts it.
+- G6 in plan section 17 now carries the endpoint shape from 13.7.
 

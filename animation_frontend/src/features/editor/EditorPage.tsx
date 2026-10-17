@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import {
@@ -85,6 +85,11 @@ function HistoryToast() {
 
 type LeftTab = 'media' | 'text' | 'captions' | 'voice'
 const SNAPSHOT = (id: string) => `animato:editor-snapshot:${id}`
+
+// The edit-plan harness (plan 13.5): development and the e2e build only, so
+// production bundles leave it out.
+const PLAN_HARNESS = import.meta.env.DEV || import.meta.env.VITE_USE_MOCKS === 'true'
+const DevHarness = PLAN_HARNESS ? lazy(() => import('./plan/DevHarness')) : null
 
 function isTyping(el: EventTarget | null): boolean {
   const t = el as HTMLElement | null
@@ -510,6 +515,11 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
       data-testid="editor"
       data-mode={mode}
     >
+      {DevHarness && new URLSearchParams(location.search).get('dev') === 'plan' ? (
+        <Suspense fallback={null}>
+          <DevHarness />
+        </Suspense>
+      ) : null}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface-1/80 px-2 backdrop-blur-xl sm:px-3">
         <Link
           to={finishMode || !hasTakes ? '/app' : `/app/v/${project.id}`}

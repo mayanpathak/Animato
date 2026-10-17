@@ -1492,7 +1492,7 @@ after this plan (features, then usage limits, quotas and billing, then deploy).
 | G3 | `GET /api/jobs/:id` has no `prompt`, `created_at`, `retry_count`, progress | Prompt kept locally; status transitions observed by polling | Cross-device videos; honest "fixing" stage |
 | G4 | No `GET /api/usage` (renders used / remaining) | Show default limits; trust `Retry-After` | Quota UX and the upgrade moment in billing |
 | G5 | No cancel or delete of a job | "Delete" only removes local data; copy says so | User control; storage cost |
-| G6 | No edit-plan endpoint for the AI editor | Dev harness with pasted JSON | The AI editor feature |
+| G6 | No edit-plan endpoint for the AI editor. Needed: `POST /api/edit-plans` with `{ transcript, assets: [{label, role, duration, note}], instructions, previousPlan? }` → `{ plan }` (EditPlanV0, `src/features/editor/plan/schema.ts`); the LLM key stays on the server | Dev harness with pasted JSON (`?dev=plan`, dev and e2e builds) | The AI editor feature |
 | G7 | No analytics ingestion | In-memory ring buffer | Measuring the funnel in section 1.6 |
 | G8 | `error_message` is raw worker output | Keyword mapping, raw text hidden | Leaks internals; sanitise server-side |
 | G9 | Aspect ratio and length are not parameters | Formats done in Finish; length as a prompt hint | Native vertical renders would look better than re-laid-out landscape |
