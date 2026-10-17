@@ -56,6 +56,8 @@ export interface Take {
   createdAt: number
   /** Last terminal status seen; finished takes are not polled again from the grid. */
   status?: 'Completed' | 'Failed'
+  /** B-roll only: the media asset the render became once imported. */
+  assetId?: string
 }
 
 /**
@@ -87,6 +89,20 @@ export interface Project {
   timelineV1Backup?: TimelineV1
   /** Word-timed transcript of the voice (plan 9.2). */
   transcript?: Transcript | null
+  /** Media in this video with a role, a stable label and a note (plan 3.3, 13.2). */
+  assets?: VideoAsset[]
+  /** Renders generated as B-roll for this video (plan 6.6 "Generate a clip"); never the main take. */
+  broll?: Take[]
+}
+
+export type AssetRole = 'main' | 'broll' | 'music' | 'voice' | 'logo'
+
+/** An asset as this video knows it. Labels never change once given: the user (and later the assistant) names clips by them. */
+export interface VideoAsset {
+  assetId: string
+  role: AssetRole
+  label: string
+  note: string
 }
 
 export interface BrandKit {

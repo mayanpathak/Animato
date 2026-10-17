@@ -4,7 +4,7 @@ import { ApiError } from '@/lib/api/http'
 import { jobsApi, type Job } from '@/lib/api/jobs'
 import { isLost, nextPoll, observe, type PollState } from '@/lib/api/polling'
 import { isFinished, type JobStatus, type Library } from '@/lib/api/types'
-import { addTake, createVideo, markTakeStatus, takeFrom } from '@/features/videos/model'
+import { addBroll, addTake, createVideo, markTakeStatus, takeFrom } from '@/features/videos/model'
 import { usePreferences } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
 import {
@@ -131,6 +131,8 @@ export function useCreateJob() {
       options: JobRecord['options']
       serverPrompt: string
       videoId?: string
+      /** With `videoId`: the render is B-roll for that video, not a new take. */
+      purpose?: 'take' | 'broll'
     }): Promise<{ record: JobRecord; video: Project }> => {
       const created = await jobsApi.create(input.serverPrompt, input.library)
       const record: JobRecord = {
@@ -146,7 +148,9 @@ export function useCreateJob() {
       const existing = input.videoId ? await projectsTable.get(input.videoId) : undefined
       const video =
         existing && existing.owner === owner
-          ? await addTake(existing, takeFrom(record))
+          ? input.purpose === 'broll'
+            ? await addBroll(existing, takeFrom(record))
+            : await addTake(existing, takeFrom(record))
           : await createVideo(owner, takeFrom(record), usePreferences.getState().defaultFormat)
       return { record, video }
     },

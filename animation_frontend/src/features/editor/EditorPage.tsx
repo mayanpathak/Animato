@@ -62,7 +62,7 @@ import { VoicePanel } from './ui/VoicePanel'
 import { ExportSheet } from './ui/ExportSheet'
 import { ShortcutsDialog } from './ui/ShortcutsDialog'
 import { PerfBadge } from './ui/PerfBadge'
-import type { MediaAsset } from '@/lib/local/models'
+import type { MediaAsset, Project } from '@/lib/local/models'
 
 /** A brief pill naming the last edit ("Split", "Undo Trim end"). */
 function HistoryToast() {
@@ -95,6 +95,22 @@ function isTyping(el: EventTarget | null): boolean {
   )
 }
 
+/**
+ * Saves the editor's side of a video over the stored record: takes and B-roll
+ * renders added meanwhile (another tab, "Generate a clip") are kept.
+ */
+async function saveEdit(proj: Project, patch: Partial<Project>): Promise<void> {
+  const stored = (await projectsTable.get(proj.id)) ?? proj
+  await projectsTable.put({
+    ...stored,
+    name: proj.name,
+    selectedTake: proj.selectedTake,
+    assets: proj.assets,
+    ...patch,
+    updatedAt: Date.now(),
+  })
+}
+
 function LeftPanel({
   library,
   tab,
@@ -112,7 +128,7 @@ function LeftPanel({
           size="sm"
           value={tab}
           onChange={setTab}
-          className="w-full justify-between"
+          fill
           items={[
             { value: 'media', label: 'Media', icon: <Film /> },
             { value: 'text', label: 'Text', icon: <Type /> },
@@ -143,7 +159,7 @@ function RightPanel({ hasFinish, onAddVoice }: { hasFinish: boolean; onAddVoice:
           size="sm"
           value={tab}
           onChange={setTab}
-          className="w-full justify-between"
+          fill
           items={[
             { value: 'clip', label: 'Clip' },
             { value: 'finish', label: 'Finish' },
@@ -229,6 +245,22 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
       .then(([engine, lib, allKits]) => {
         if (!live) return
         setLibrary(lib)
+        // Already open (a mode switch, or the record changed under us: a new
+        // B-roll render, a take's status): keep the document, its unsaved
+        // edits and undo; take only the record's other fields.
+        const open = useEditor.getState()
+        if (open.project?.id === p.id && open.timeline && (!finishMode || open.timeline.finish)) {
+          useEditor.setState({
+            project: {
+              ...p,
+              name: open.project.name,
+              selectedTake: open.project.selectedTake,
+              assets: open.project.assets,
+            },
+          })
+          if (finishMode) useEditor.getState().setPlayhead(posterTime(outputDuration(open.timeline)))
+          return
+        }
         // Timeline v1 records migrate on open (plan 10.2); the v1 document is kept as a backup.
         const { timeline: migratedTl, migrated } = timelineOf(p)
         // Finish opens with its defaults the first time (plan 6.6): the title
@@ -240,7 +272,8 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
           tl = startFinish(
             tl,
             {
-              title: take?.prompt ? titleFromPrompt(take.prompt) : p.name,
+              // The user's own clip has no prompt: no title until they write one.
+              title: take?.prompt ? titleFromPrompt(take.prompt) : '',
               watermark: getEntitlements(useSession.getState().user).watermark !== 'off',
               format: p.format,
               look: usePreferences.getState().defaultLook,
@@ -322,13 +355,7 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
       try {
         const firstVideo = tl.clips.find((c) => s.assets.get(c.assetId)?.kind !== 'audio')
         const thumb = firstVideo ? s.assets.get(firstVideo.assetId)?.thumbnails[0] : undefined
-        await projectsTable.put({
-          ...proj,
-          timeline: tl,
-          transcript,
-          thumbnail: thumb ?? proj.thumbnail,
-          updatedAt: Date.now(),
-        })
+        await saveEdit(proj, { timeline: tl, transcript, thumbnail: thumb ?? proj.thumbnail })
         localStorage.removeItem(SNAPSHOT(proj.id))
         setSavedRevision(revision)
         setSaveError(false)
@@ -337,6 +364,15 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
       }
     }, 700)
   }, [revision])
+
+  // Asset labels and notes are records, not edits: saved as they change, outside undo.
+  const assetRefs = useEditor((st) => st.project?.assets)
+  useEffect(() => {
+    const proj = useEditor.getState().project
+    if (!proj || !assetRefs) return
+    const t = setTimeout(() => void saveEdit(proj, {}).catch(() => setSaveError(true)), 500)
+    return () => clearTimeout(t)
+  }, [assetRefs])
 
   const togglePlay = useCallback(() => {
     const s = useEditor.getState()
@@ -490,12 +526,7 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
           onBlur={(e) => {
             const name = e.target.value.trim() || 'Untitled video'
             useEditor.setState({ project: { ...project, name } })
-            void projectsTable.put({
-              ...project,
-              name,
-              timeline: useEditor.getState().timeline ?? timeline,
-              updatedAt: Date.now(),
-            })
+            void saveEdit({ ...project, name }, { timeline: useEditor.getState().timeline ?? timeline })
           }}
           className="min-w-0 max-w-56 flex-1 truncate rounded-md bg-transparent px-2 py-1 font-display text-sm font-semibold hover:bg-surface-2 focus:bg-surface-2 focus:outline-none"
         />

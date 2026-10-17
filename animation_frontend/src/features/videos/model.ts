@@ -99,6 +99,28 @@ export async function addTake(video: Project, take: Take): Promise<Project> {
   return next
 }
 
+/** A render made as B-roll for a video ("Generate a clip", plan 6.6): kept apart from its takes. */
+export async function addBroll(video: Project, take: Take): Promise<Project> {
+  const next = await projectsTable.put({
+    ...video,
+    broll: [...(video.broll ?? []), take],
+    updatedAt: Date.now(),
+  })
+  announceVideosChanged()
+  return next
+}
+
+/** Records which media asset a B-roll render became, so it is not imported again. */
+export async function markBrollImported(videoId: string, jobId: string, assetId: string): Promise<void> {
+  const video = await projectsTable.get(videoId)
+  if (!video?.broll?.some((t) => t.jobId === jobId)) return
+  await projectsTable.put({
+    ...video,
+    broll: video.broll.map((t) => (t.jobId === jobId ? { ...t, assetId } : t)),
+  })
+  announceVideosChanged()
+}
+
 export async function findVideoForJob(owner: string, jobId: string): Promise<Project | null> {
   const all = await projectsTable.all()
   return all.find((v) => v.owner === owner && v.takes?.some((t) => t.jobId === jobId)) ?? null
@@ -127,11 +149,16 @@ export function selectedTake(video: Project): Take | null {
 export async function markTakeStatus(jobId: string, status: 'Completed' | 'Failed'): Promise<void> {
   const all = await projectsTable.all()
   for (const v of all) {
-    const takes = v.takes ?? []
-    const i = takes.findIndex((t) => t.jobId === jobId)
-    if (i < 0 || takes[i].status === status) continue
-    const next = takes.map((t, j) => (j === i ? { ...t, status } : t))
-    await projectsTable.put({ ...v, takes: next })
+    let changed = false
+    const mark = (list: Take[] | undefined) =>
+      list?.map((t) => {
+        if (t.jobId !== jobId || t.status === status) return t
+        changed = true
+        return { ...t, status }
+      })
+    const next = { ...v, takes: mark(v.takes), broll: mark(v.broll) }
+    if (!changed) continue
+    await projectsTable.put(next)
     announceVideosChanged()
   }
 }

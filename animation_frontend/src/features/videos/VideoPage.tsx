@@ -14,6 +14,7 @@ import { DraftView } from './DraftView'
 import { TakeView } from './TakeView'
 import { selectedTake } from './model'
 import { timelineOf } from '@/features/editor/projects'
+import { MAIN_VIDEO } from '@/features/editor/model/timelineV2'
 
 const Editor = lazy(() => import('@/features/editor/EditorPage'))
 
@@ -67,7 +68,13 @@ export default function VideoPage() {
   const take = video.data ? selectedTake(video.data) : null
   // Ready and in this browser: Finish (plan 6.6). The take views import the
   // render first; they also cover rendering, failure and import errors.
-  if (video.data && take?.status === 'Completed' && timelineOf(video.data).timeline.clips.length > 0)
+  // The user's own clip (no takes) opens in Finish too, once it is on the main track.
+  const ownClip =
+    video.data && !take && timelineOf(video.data).timeline.clips.some((c) => c.trackId === MAIN_VIDEO)
+  if (
+    video.data &&
+    (ownClip || (take?.status === 'Completed' && timelineOf(video.data).timeline.clips.length > 0))
+  )
     return (
       <Suspense fallback={<FullPageSpinner />}>
         <Editor mode="finish" />

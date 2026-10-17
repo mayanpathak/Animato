@@ -1,7 +1,12 @@
 // The composer on top of Videos (plan 6.3): one line, expands on focus, with
 // the engine pill and Generate. Generate starts the job; no page in between.
 import { useRef, useState, type FormEvent } from 'react'
-import { ArrowUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowUp, Film } from 'lucide-react'
+import { ROUTES } from '@/app/nav'
+import { useOwner } from '@/lib/local/hooks'
+import { usePreferences } from '@/stores/preferences'
+import { toast } from '@/stores/toast'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { formatWait } from '@/lib/api/http'
@@ -30,6 +35,24 @@ export function ComposerStrip({
   const { start, pending, error, clearError } = useStartVideo()
   const wait = useRenderWait()
   const expanded = focused || prompt.length > 0
+  const owner = useOwner()
+  const navigate = useNavigate()
+  const clipInput = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+
+  /** The user's own clip as the main clip of a new video (secondary to Generate). */
+  const importClip = async (file: File) => {
+    setImporting(true)
+    try {
+      const { videoFromClip } = await import('@/features/editor/projects')
+      const video = await videoFromClip(owner, file, usePreferences.getState().defaultFormat)
+      navigate(ROUTES.video(video.id))
+    } catch (e) {
+      toast.error(`Could not import ${file.name}`, e instanceof Error ? e.message : undefined)
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault()
@@ -92,6 +115,35 @@ export function ComposerStrip({
             {ENGINE_LABEL[engine]}
           </button>
           <span className="ml-auto" />
+          {stay ? null : (
+            <>
+              <input
+                ref={clipInput}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+                className="sr-only"
+                tabIndex={-1}
+                aria-label="Import a clip"
+                data-testid="import-clip-input"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file) void importClip(file)
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                loading={importing}
+                leftIcon={<Film className="size-3.5" />}
+                onClick={() => clipInput.current?.click()}
+                data-testid="import-clip"
+              >
+                Import a clip
+              </Button>
+            </>
+          )}
           <Button
             type="submit"
             size="sm"

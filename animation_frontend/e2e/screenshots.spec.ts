@@ -72,6 +72,11 @@ for (const [size, viewport] of Object.entries(VIEWPORTS) as [
       // The preview has drawn its first frame.
       await expect(page.getByTestId('preview-pending')).toHaveCount(0, { timeout: 60_000 })
       await shot(page, 'video-ready', size)
+      if (size === 'desktop') {
+        await page.getByTestId('assets-rail').getByRole('button', { name: 'Media' }).click()
+        await expect(page.getByTestId('video-assets')).toBeVisible()
+        await shot(page, 'finish-assets', size)
+      }
       await createJob(page, 'A render that times out on purpose [e2e:timeout]')
       await expect(page.getByText("That one didn't render.")).toBeVisible({ timeout: 30_000 })
       await shot(page, 'video-failed', size)

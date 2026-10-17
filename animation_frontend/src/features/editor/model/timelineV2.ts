@@ -176,8 +176,14 @@ export const MAIN_VIDEO = 'trk_v1'
 export const MAIN_AUDIO = 'trk_a1'
 export const VOICE_VIDEO = 'trk_v_voice'
 export const VOICE_AUDIO = 'trk_a_voice'
+/** B-roll sits on the video track above the main clip (plan 6.6); its audio half stays empty. */
+export const BROLL_VIDEO = 'trk_v_broll'
+export const BROLL_AUDIO = 'trk_a_broll'
 
-/** Two render-engine track pairs: the main pair and a voice pair (its video half stays empty). */
+/**
+ * Three render-engine track pairs: main, voice (its video half stays empty) and
+ * B-roll above them (its audio half stays empty: cutaways keep the main sound).
+ */
 export function defaultTracks(): TrackV2[] {
   const t = (
     id: string,
@@ -203,7 +209,16 @@ export function defaultTracks(): TrackV2[] {
     t(MAIN_AUDIO, 0, 'audio', MAIN_VIDEO, 'music', 'Music & audio'),
     t(VOICE_VIDEO, 1, 'video', VOICE_AUDIO, 'voice', 'Voice video'),
     t(VOICE_AUDIO, 1, 'audio', VOICE_VIDEO, 'voice', 'Voice'),
+    t(BROLL_VIDEO, 2, 'video', BROLL_AUDIO, 'broll', 'B-roll'),
+    t(BROLL_AUDIO, 2, 'audio', BROLL_VIDEO, 'broll', 'B-roll audio'),
   ]
+}
+
+/** A timeline with every default track (B-roll arrived in P8; older timelines lack it). */
+export function withDefaultTracks(tl: TimelineV2): TimelineV2 {
+  const have = new Set(tl.tracks.map((t) => t.id))
+  const missing = defaultTracks().filter((t) => !have.has(t.id))
+  return missing.length ? { ...tl, tracks: [...tl.tracks, ...missing] } : tl
 }
 
 export function defaultCaptions(): CaptionsItem {

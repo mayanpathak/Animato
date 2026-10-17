@@ -57,7 +57,7 @@ export function Tabs<T extends string>({
             className={cn(
               'relative inline-flex items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition-colors duration-[var(--duration-fast)] [&_svg]:size-3.5',
               fill && 'flex-1',
-              size === 'sm' ? 'h-7 px-3 text-xs' : 'h-8 px-3.5 text-sm',
+              size === 'sm' ? cn('h-7 text-xs', fill ? 'min-w-0 px-2' : 'px-3') : 'h-8 px-3.5 text-sm',
               active ? 'text-fg' : 'text-fg-subtle hover:text-fg-muted',
             )}
           >

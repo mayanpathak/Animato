@@ -33,7 +33,7 @@ export function useStartVideo() {
     prompt: string,
     engine: Engine,
     options: CreateOptions = DEFAULT_OPTIONS,
-    { stay = false }: { stay?: boolean } = {},
+    { stay = false, brollFor }: { stay?: boolean; brollFor?: string } = {},
   ): Promise<boolean> => {
     setError(null)
     const text = prompt.trim()
@@ -50,6 +50,7 @@ export function useStartVideo() {
         prompt: text,
         library,
         serverPrompt,
+        ...(brollFor ? { videoId: brollFor, purpose: 'broll' as const } : {}),
         options: {
           aspect: '16:9',
           duration: lengthSeconds(options.length),
@@ -57,8 +58,8 @@ export function useStartVideo() {
           brandKitId: kit?.id ?? null,
         },
       })
-      track('job_create', { library, from: stay ? 'sheet' : 'composer' })
-      if (!stay) navigate(ROUTES.video(video.id))
+      track('job_create', { library, from: brollFor ? 'broll' : stay ? 'sheet' : 'composer' })
+      if (!stay && !brollFor) navigate(ROUTES.video(video.id))
       return true
     } catch (err) {
       const mapped = mapCreateJobError(err)

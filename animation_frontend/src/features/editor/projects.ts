@@ -1,10 +1,12 @@
 // Bringing renders into a video's timeline. Everything here is local to this browser.
 import { jobsApi } from '@/lib/api/jobs'
 import { mediaTable, projectsTable, type MediaAsset, type Project } from '@/lib/local/models'
+import { announceVideosChanged, newVideo } from '@/features/videos/model'
+import type { VideoFormat } from '@/stores/preferences'
 import { importFile, type ImportProgress } from './media/client'
 import { isV2, migrateTimeline } from './model/migrate'
 import { appendAsset } from './model/ops'
-import { clipId, emptyTimelineV2, type TimelineV2 } from './model/timelineV2'
+import { clipId, emptyTimelineV2, withDefaultTracks, type TimelineV2 } from './model/timelineV2'
 
 /**
  * The video's Timeline v2, migrating a v1 document on the way (plan 10.2). The
@@ -17,10 +19,13 @@ export function timelineOf(project: Project): {
 } {
   const t = project.timeline as { version?: number } | undefined
   if (!t) return { timeline: emptyTimelineV2(), migrated: {} }
-  if (isV2(t as { version: number })) return { timeline: t as TimelineV2, migrated: null }
+  if (isV2(t as { version: number })) {
+    const timeline = withDefaultTracks(t as TimelineV2)
+    return { timeline, migrated: timeline === t ? null : {} }
+  }
   const { timeline, transcript } = migrateTimeline(project.timeline as never)
   return {
-    timeline,
+    timeline: withDefaultTracks(timeline),
     migrated: {
       timelineV1Backup: project.timeline as never,
       ...(transcript && !project.transcript ? { transcript } : {}),
@@ -73,4 +78,27 @@ export async function addJobToProject(
     thumbnail: project.thumbnail ?? asset.thumbnails[0] ?? null,
     updatedAt: Date.now(),
   })
+}
+
+/**
+ * A new video whose main clip is the user's own file (plan P8, "Import a
+ * clip"): it opens in Finish like a finished render. Only video files.
+ */
+export async function videoFromClip(
+  owner: string,
+  file: File,
+  format: VideoFormat,
+  onProgress?: ImportProgress,
+): Promise<Project> {
+  const asset = await importFile(file, { owner, name: file.name }, onProgress)
+  if (asset.kind !== 'video') throw new Error('Choose a video file (MP4, MOV or WebM).')
+  const name = file.name.replace(/\.[^.]+$/, '').trim() || 'My clip'
+  const video = newVideo(owner, null, format, name)
+  const saved = await projectsTable.put({
+    ...video,
+    timeline: appendAsset(timelineOf(video).timeline, asset, clipId()),
+    thumbnail: asset.thumbnails[0] ?? null,
+  })
+  announceVideosChanged()
+  return saved
 }

@@ -11,6 +11,7 @@ import {
   clipStart,
   outputDuration,
   VOICE_VIDEO,
+  BROLL_AUDIO,
   type MediaClipV2,
   type TimelineV2,
   type TrackV2,
@@ -35,7 +36,8 @@ interface MediaView {
 /** One block on a lane: a media clip, a title or a caption chunk, in seconds. */
 interface Item {
   id: string
-  type: 'media' | 'text' | 'caption'
+  /** `card`: Finish's title card or end card (length only; they sit at the start and the end). */
+  type: 'media' | 'text' | 'caption' | 'card'
   label: string
   start: number
   duration: number
@@ -77,7 +79,36 @@ function rowKind(track: TrackV2): RowKind {
   return track.role === 'voice' ? 'voice' : 'audio'
 }
 
-/** Lanes top to bottom: titles, video, captions, voice, music & audio. */
+const CARD_TITLE = 'card:title'
+const CARD_END = 'card:end'
+
+/** Finish's title card and end card as Graphics lane items. */
+function cardsOf(tl: TimelineV2): Item[] {
+  const f = tl.finish
+  if (!f) return []
+  const out: Item[] = []
+  if (f.title.enabled && f.title.text.trim())
+    out.push({
+      id: CARD_TITLE,
+      type: 'card',
+      label: `Title · ${f.title.text}`,
+      start: 0,
+      duration: f.title.duration,
+    })
+  if (f.endCard.enabled) {
+    const end = outputDuration(tl)
+    out.push({
+      id: CARD_END,
+      type: 'card',
+      label: `End card · ${f.endCard.headline}`,
+      start: end - f.endCard.duration,
+      duration: f.endCard.duration,
+    })
+  }
+  return out
+}
+
+/** Lanes top to bottom: graphics, B-roll, video, captions, voice, music & audio. */
 function rowsOf(tl: TimelineV2, cues: { start: number; end: number; text: string }[]): Row[] {
   const titles = tl.extraGraphics.flatMap((g) =>
     g.kind === 'title'
@@ -91,10 +122,18 @@ function rowsOf(tl: TimelineV2, cues: { start: number; end: number; text: string
     track,
     items: tl.clips.filter((c) => c.trackId === track.id).map((c) => mediaItem(tl, c)),
   }))
-  // The voice pair's video half stays empty; it only shows once something lands on it.
-  const visible = tracks.filter((r) => r.key !== VOICE_VIDEO || r.items.length)
-  const rows: Row[] = [{ key: 'titles', kind: 'text', name: 'Titles', items: titles }]
-  rows.push(...visible.filter((r) => r.kind === 'video'))
+  // The voice pair's video half and the B-roll pair's audio half stay empty;
+  // they only show once something lands on them.
+  const visible = tracks.filter((r) => (r.key !== VOICE_VIDEO && r.key !== BROLL_AUDIO) || r.items.length)
+  const rows: Row[] = [
+    { key: 'graphics', kind: 'text', name: 'Graphics', items: [...cardsOf(tl), ...titles] },
+  ]
+  // Upper video tracks draw on top: B-roll above the main video.
+  rows.push(
+    ...visible
+      .filter((r) => r.kind === 'video')
+      .sort((a, b) => (b.track?.index ?? 0) - (a.track?.index ?? 0)),
+  )
   if (cues.length)
     rows.push({
       key: 'captions',
@@ -233,7 +272,7 @@ function ClipView({
   const media = clip.media
   const editable = clip.type !== 'caption'
   const tone =
-    clip.type === 'text'
+    clip.type === 'text' || clip.type === 'card'
       ? 'bg-track-text/25 border-track-text/50'
       : clip.type === 'caption'
         ? 'bg-track-text/15 border-track-text/40'
@@ -292,14 +331,16 @@ function ClipView({
       ) : null}
       {editable ? (
         <>
-          <span
-            data-testid="clip-trim-start"
-            onPointerDown={(e) => {
-              e.stopPropagation()
-              onPointerDown(e, clip, 'start')
-            }}
-            className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-white/0 transition-colors group-hover:bg-white/25"
-          />
+          {clip.type === 'card' ? null : (
+            <span
+              data-testid="clip-trim-start"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onPointerDown(e, clip, 'start')
+              }}
+              className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-white/0 transition-colors group-hover:bg-white/25"
+            />
+          )}
           <span
             data-testid="clip-trim-end"
             onPointerDown={(e) => {
@@ -357,7 +398,13 @@ export function Timeline() {
         s.setPlayhead(clip.start)
         return
       }
-      s.select(clip.id)
+      if (clip.type === 'card' && mode !== 'end') {
+        // Cards sit at the start and the end; only their length changes here.
+        s.select(null)
+        s.setPlayhead(clip.start)
+        return
+      }
+      s.select(clip.type === 'card' ? null : clip.id)
       const target = e.currentTarget as HTMLElement
       target.setPointerCapture(e.pointerId)
       const startX = e.clientX
@@ -381,6 +428,16 @@ export function Timeline() {
           st.move(clip.id, start, under?.dataset.trackId, key)
         } else if (mode === 'start') {
           st.trim(clip.id, 'start', snap(origStart + dt, clip.id), key)
+        } else if (clip.type === 'card') {
+          const length = Math.round(Math.max(0.5, Math.min(10, origEnd + dt - origStart)) * 10) / 10
+          st.updateFinish(
+            (f) =>
+              clip.id === CARD_TITLE
+                ? { ...f, title: { ...f.title, duration: length } }
+                : { ...f, endCard: { ...f.endCard, duration: length } },
+            clip.id === CARD_TITLE ? 'Title length' : 'End card length',
+            key,
+          )
         } else {
           st.trim(clip.id, 'end', snap(origEnd + dt, clip.id), key)
         }

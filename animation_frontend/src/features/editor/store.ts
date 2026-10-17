@@ -5,12 +5,14 @@
 // @tooscut/render-engine (model/ops.ts); snapping and timecode stay in Rust.
 import type { BrandRender } from './graphics/looks'
 import { create } from 'zustand'
-import type { MediaAsset, Project } from '@/lib/local/models'
+import type { MediaAsset, Project, VideoAsset } from '@/lib/local/models'
 import type { CoreEngine, Cue } from '@/wasm/engine'
 import { recordCall } from '@/wasm/stats'
+import * as refs from './model/assetRefs'
 import { applyCommands, defaultTrackFor, type Command, type Doc } from './model/commands'
 import { findGraphic, findMedia } from './model/ops'
 import {
+  BROLL_VIDEO,
   clipEnd,
   clipId,
   clipStart,
@@ -109,6 +111,11 @@ export interface EditorState {
   /** Makes a take's render the main clip (takes strip, plan 6.6). */
   chooseTake(jobId: string, asset: MediaAsset): void
   snapTargets(excludeId?: string): number[]
+  /** A B-roll slot for an asset (plan 6.6), without placing it. */
+  addBrollSlot(asset: MediaAsset): void
+  /** The asset on the B-roll track at the playhead, its own sound off (a cutaway keeps the main audio). */
+  insertBroll(asset: MediaAsset, at?: number): string
+  updateAssetRef(assetId: string, patch: Partial<Pick<VideoAsset, 'label' | 'note'>>): void
 }
 
 function timed<T>(name: string, run: () => T): T {
@@ -123,6 +130,12 @@ const TIMED: Partial<Record<Command['type'], string>> = {
   'clip.split': 'split',
   'clip.trim': 'trim',
   'clip.rippleDelete': 'ripple-delete',
+}
+
+/** The project with asset refs for what the timeline uses (same object when nothing changed). */
+function withRefs(project: Project, tl: TimelineV2): Project {
+  const next = refs.syncAssetRefs(project.assets, tl)
+  return next === project.assets ? project : { ...project, assets: next }
 }
 
 export const useEditor = create<EditorState>((set, get) => ({
@@ -146,7 +159,7 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   load: (project, timeline, assets, engine) =>
     set({
-      project,
+      project: withRefs(project, timeline),
       timeline,
       transcript: project.transcript ?? null,
       assets: new Map(assets.map((a) => [a.id, a])),
@@ -185,7 +198,9 @@ export const useEditor = create<EditorState>((set, get) => ({
     const now = Date.now()
     const merge = coalesceKey !== undefined && coalesceKey === lastKey && now - lastAt < COALESCE_MS
     const prev = past[past.length - 1]
+    const project = get().project
     set({
+      project: project && withRefs(project, next.timeline),
       timeline: next.timeline,
       transcript: next.transcript,
       past:
@@ -204,7 +219,9 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { past, future, timeline, transcript } = get()
     const prev = past[past.length - 1]
     if (!prev || !timeline) return
+    const project = get().project
     set({
+      project: project && withRefs(project, prev.timeline),
       timeline: prev.timeline,
       transcript: prev.transcript,
       past: past.slice(0, -1),
@@ -219,7 +236,9 @@ export const useEditor = create<EditorState>((set, get) => ({
     const { past, future, timeline, transcript } = get()
     const next = future[0]
     if (!next || !timeline) return
+    const project = get().project
     set({
+      project: project && withRefs(project, next.timeline),
       timeline: next.timeline,
       transcript: next.transcript,
       past: [...past, { label: next.label, timeline, transcript, commands: next.commands }],
@@ -392,6 +411,32 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   setFormat: (aspect) => get().run('Change format', [{ type: 'finish.format', aspect }]),
+
+  addBrollSlot: (asset) => {
+    const { project } = get()
+    set({ assets: new Map(get().assets).set(asset.id, asset) })
+    if (project)
+      set({ project: { ...project, assets: refs.addAssetRef(project.assets ?? [], asset.id, 'broll') } })
+  },
+
+  insertBroll: (asset, at) => {
+    get().addBrollSlot(asset)
+    const id = clipId()
+    const main = get().timeline?.clips.find((c) => c.trackId === MAIN_VIDEO)
+    get().run(`Insert ${refs.labelOf(get().project?.assets, asset.id) ?? asset.name}`, [
+      { type: 'clip.add', id, assetId: asset.id, trackId: BROLL_VIDEO, start: at ?? get().playhead },
+      // Same place and size as the main video, so the cutaway fits the look.
+      { type: 'clip.update', id, patch: { volume: 0, ...(main ? { transform: main.transform } : {}) } },
+    ])
+    set({ selection: id })
+    return id
+  },
+
+  updateAssetRef: (assetId, patch) => {
+    const { project } = get()
+    if (project)
+      set({ project: { ...project, assets: refs.updateAssetRef(project.assets ?? [], assetId, patch) } })
+  },
 
   snapTargets: (excludeId) => {
     const { timeline, playhead } = get()

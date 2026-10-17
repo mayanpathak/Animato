@@ -32,6 +32,7 @@ import {
   defaultCaptions,
   MAIN_AUDIO,
   MAIN_VIDEO,
+  toFrames,
   type AspectKey,
   type CaptionStyleId,
   type FinishSettings,
@@ -56,7 +57,16 @@ export interface CommandContext {
 
 export type Command =
   /** An asset on a track at `start` seconds; `start: 'end'` appends after the track's last clip. */
-  | { type: 'clip.add'; id: string; assetId: string; trackId: string; start: number | 'end' }
+  | {
+      type: 'clip.add'
+      id: string
+      assetId: string
+      trackId: string
+      start: number | 'end'
+      /** Seconds into the source where the clip starts, and how long it runs (both clamped to the media). */
+      inPoint?: number
+      duration?: number
+    }
   | { type: 'clip.split'; id: string; at: number; newId: string }
   | { type: 'clip.trim'; id: string; edge: 'start' | 'end'; to: number }
   | { type: 'clip.remove'; id: string }
@@ -104,7 +114,16 @@ export function applyCommand(d: Doc, c: Command, ctx: CommandContext): Doc {
       const asset = ctx.assets.get(c.assetId)
       if (!asset) return d
       const start = c.start === 'end' ? trackEnd(tl, c.trackId) : c.start
-      return onTimeline(d, insertClip(tl, mediaClipFor(tl, asset, start, c.trackId, c.id)))
+      const clip = mediaClipFor(tl, asset, start, c.trackId, c.id)
+      if (c.inPoint !== undefined || c.duration !== undefined) {
+        const length = clip.duration
+        const inPoint = Math.min(Math.max(0, toFrames(tl, c.inPoint ?? 0)), length - 1)
+        const rest = length - inPoint
+        clip.inPoint = inPoint
+        clip.duration =
+          c.duration === undefined ? rest : Math.max(1, Math.min(rest, toFrames(tl, c.duration)))
+      }
+      return onTimeline(d, insertClip(tl, clip))
     }
     case 'clip.split':
       return onTimeline(
