@@ -17,7 +17,7 @@ Markers: `todo`, `wip`, `done`, `blocked` (plan 0.3). The F0–F11 checklist of 
 | P7 | Voice and captions | done | `6ee1c99` |
 | P8 | Fine-tune mode and assets | done | `9811762` |
 | P9 | AI editor seams | done | `3f04571` |
-| P10 | Growth polish | todo | |
+| P10 | Growth polish | done | `545d446` |
 | P11 | Hardening | todo | |
 
 ## P0 notes
