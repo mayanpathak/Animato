@@ -34,9 +34,9 @@ export function Tooltip({
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.12, delay: 0.25 }}
+            transition={{ duration: 0.12, delay: 0.3 }}
             className={cn(
-              'pointer-events-none absolute z-[var(--z-tooltip)] rounded-md border border-line-strong bg-surface-4 px-2 py-1 text-xs whitespace-nowrap text-fg shadow-md',
+              'pointer-events-none absolute z-[var(--z-tooltip)] rounded-md bg-surface-4 px-2 py-1 text-xs whitespace-nowrap text-fg shadow-md',
               side === 'top' && 'bottom-full left-1/2 mb-2 -translate-x-1/2',
               side === 'bottom' && 'top-full left-1/2 mt-2 -translate-x-1/2',
               side === 'right' && 'top-1/2 left-full ml-2 -translate-y-1/2',

@@ -1,5 +1,6 @@
 // Local export: composite every frame, encode with WebCodecs (VideoEncoder /
-// AudioEncoder), mix audio offline with the Rust audio engine, and mux with
+// AudioEncoder), mix audio offline with the Rust audio engine (windowed decode,
+// audioRender.ts), and mux with
 // mediabunny straight into an OPFS file. Runs in a worker.
 import {
   EncodedAudioPacketSource,
@@ -11,10 +12,13 @@ import {
   WebMOutputFormat,
 } from 'mediabunny'
 import type { MediaAsset } from '@/lib/local/models'
-import { fileHandle, removeFile } from '@/lib/local/opfs'
+import { fileHandle, readFile, removeFile } from '@/lib/local/opfs'
 import { recordCall } from '@/wasm/stats'
-import type { Timeline } from '../model/timeline'
-import { timelineDuration } from '../model/timeline'
+import { outputDuration, type TimelineV2 } from '../model/timelineV2'
+import type { Transcript } from '../model/transcript'
+import { buildGraphics, graphicsTranscript } from '../graphics/build'
+import type { BrandRender } from '../graphics/looks'
+import { renderAudioWindowed } from './audioRender'
 import { audioAssetIds, buildAudioTimeline, planFrame } from './compose'
 import { createCompositor } from './compositor'
 import { MIX_RATE } from './decode'
@@ -25,7 +29,8 @@ export type ExportFormat = 'mp4' | 'webm'
 export type ExportQuality = 'draft' | 'standard' | 'high'
 
 export interface ExportOptions {
-  timeline: Timeline
+  timeline: TimelineV2
+  transcript: Transcript | null
   assets: MediaAsset[]
   width: number
   height: number
@@ -35,6 +40,8 @@ export interface ExportOptions {
   path: string
   /** Force a compositor (tests); default picks WebGPU when available. */
   compositor?: 'webgpu' | 'canvas2d'
+  /** The brand kit the Finish choices use (logo, colours, font). */
+  brand?: BrandRender | null
 }
 
 export interface ExportResult {
@@ -125,7 +132,7 @@ export async function runExport(
   const wasm = await loadWasm()
   const { timeline, width, height, fps } = opts
   const assets = new Map(opts.assets.map((a) => [a.id, a]))
-  const duration = timelineDuration(timeline)
+  const duration = outputDuration(timeline)
   if (duration <= 0) throw new Error('The timeline is empty.')
   const frames = Math.max(1, Math.round(duration * fps))
   const bitrate = Math.round(width * height * fps * BITS_PER_PIXEL[opts.quality])
@@ -160,12 +167,19 @@ export async function runExport(
   })
   encoder.configure(video.config)
 
-  const canvas = new OffscreenCanvas(width, height)
-  const compositor = await createCompositor(canvas, opts.compositor)
+  const compositor = await createCompositor(width, height, opts.compositor)
+  // Captions draw only when the export burns them in (opts.transcript set).
+  if (opts.brand?.logo && opts.brand.logoUrl)
+    await compositor.setImage(
+      opts.brand.logo.id,
+      await createImageBitmap(await (await fetch(opts.brand.logoUrl)).blob()),
+    )
+  await compositor.setGraphics(
+    buildGraphics(timeline, { canvas: { width, height }, brand: opts.brand ?? null, assets }),
+    graphicsTranscript(opts.transcript),
+  )
   const pool = new SourcePool()
   pool.setAssets(assets)
-  const kf = (keys: { time: number; value: number; ease?: string }[], t: number) =>
-    wasm.keyframe_value(JSON.stringify(keys), t)
   const frameUs = 1e6 / fps
   const started = performance.now()
 
@@ -174,7 +188,7 @@ export async function runExport(
       if (signal.aborted) throw new DOMException('Export cancelled', 'AbortError')
       if (failure) throw failure
       const t = i / fps
-      const plan = planFrame(timeline, t, assets, kf)
+      const plan = planFrame(timeline, t, assets)
       const sources = await pool.gather(plan)
       const frame = await compositor.capture(plan, sources, Math.round(i * frameUs), Math.round(frameUs))
       pool.release(sources)
@@ -195,13 +209,6 @@ export async function runExport(
 
     if (audio && audioTrack) {
       const engine = new wasm.AudioEngine(MIX_RATE)
-      for (const id of audioIds) {
-        const pcm = await readPcm(id)
-        if (pcm) engine.upload_audio(id, pcm, MIX_RATE, 2)
-      }
-      engine.set_timeline(JSON.stringify(buildAudioTimeline(timeline, assets)))
-      engine.seek(0)
-      engine.set_playing(true)
       const aEncoder = new AudioEncoder({
         output: (chunk, meta) => {
           muxChain = muxChain
@@ -212,13 +219,23 @@ export async function runExport(
       })
       aEncoder.configure(audio.config)
       const total = Math.round(duration * MIX_RATE)
-      const block = 1024
       const t0 = performance.now()
-      for (let at = 0; at < total; at += block) {
-        if (signal.aborted) throw new DOMException('Export cancelled', 'AbortError')
-        const n = Math.min(block, total - at)
-        const buf = new Float32Array(n * 2)
-        engine.render(buf, n)
+      const sources = await Promise.all(
+        audioIds
+          .map((id) => assets.get(id))
+          .filter((a): a is MediaAsset => Boolean(a))
+          .map(async (a) => ({ sourceId: a.id, blob: await readFile(a.path) })),
+      )
+      let at = 0
+      for await (const buf of renderAudioWindowed({
+        engine,
+        sources,
+        timelineJson: JSON.stringify(buildAudioTimeline(timeline, assets)),
+        totalSamples: total,
+        sampleRate: MIX_RATE,
+        signal,
+      })) {
+        const n = buf.length / 2
         const data = new AudioData({
           format: 'f32',
           sampleRate: MIX_RATE,
@@ -227,6 +244,7 @@ export async function runExport(
           timestamp: Math.round((at / MIX_RATE) * 1e6),
           data: buf,
         })
+        at += n
         aEncoder.encode(data)
         data.close()
         while (aEncoder.encodeQueueSize > 16) await new Promise((r) => setTimeout(r, 1))
@@ -234,7 +252,12 @@ export async function runExport(
       await aEncoder.flush()
       aEncoder.close()
       engine.free()
-      recordCall({ category: 'audio', name: 'offline-mix', backend: 'Rust/WASM', ms: performance.now() - t0 })
+      recordCall({
+        category: 'audio',
+        name: 'offline-mix',
+        backend: 'Rust/WASM · windowed',
+        ms: performance.now() - t0,
+      })
       recordCall({ category: 'encode', name: `audio-${audio.name}`, backend: 'WebCodecs', ms: 0 })
     }
 
@@ -259,14 +282,5 @@ export async function runExport(
     if (encoder.state !== 'closed') encoder.close()
     pool.close()
     compositor.dispose()
-  }
-}
-
-async function readPcm(assetId: string): Promise<Float32Array | null> {
-  try {
-    const file = await (await fileHandle(`pcm/${assetId}.f32`)).getFile()
-    return new Float32Array(await file.arrayBuffer())
-  } catch {
-    return null
   }
 }

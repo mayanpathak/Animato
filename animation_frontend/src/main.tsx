@@ -7,6 +7,7 @@ import './index.css'
 import { router } from './app/router'
 import { ErrorBoundary } from './app/ErrorBoundary'
 import { OfflineBanner } from './app/OfflineBanner'
+import { ServerBanner } from './app/ServerBanner'
 import { Toaster } from './components/ui/toaster'
 import { queryClient } from './lib/query'
 import { applyPreferences, usePreferences } from './stores/preferences'
@@ -21,6 +22,7 @@ function Root() {
           <RouterProvider router={router} />
           <Toaster />
           <OfflineBanner />
+          <ServerBanner />
         </QueryClientProvider>
       </ErrorBoundary>
     </MotionConfig>

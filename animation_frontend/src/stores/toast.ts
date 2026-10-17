@@ -7,6 +7,8 @@ export interface Toast {
   title: string
   body?: string
   tone: ToastTone
+  /** A link shown under the message (e.g. "Free up space"). */
+  action?: { label: string; href: string }
 }
 
 interface ToastState {
@@ -22,7 +24,7 @@ export const useToasts = create<ToastState>((set, get) => ({
   push: (t) => {
     const id = ++seq
     set({ toasts: [...get().toasts.slice(-3), { ...t, id }] })
-    setTimeout(() => get().dismiss(id), t.tone === 'error' ? 7000 : 4200)
+    setTimeout(() => get().dismiss(id), t.tone === 'error' ? 7000 : 4000)
   },
   dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
 }))
@@ -30,5 +32,6 @@ export const useToasts = create<ToastState>((set, get) => ({
 export const toast = {
   info: (title: string, body?: string) => useToasts.getState().push({ title, body, tone: 'info' }),
   success: (title: string, body?: string) => useToasts.getState().push({ title, body, tone: 'success' }),
-  error: (title: string, body?: string) => useToasts.getState().push({ title, body, tone: 'error' }),
+  error: (title: string, body?: string, action?: Toast['action']) =>
+    useToasts.getState().push({ title, body, tone: 'error', action }),
 }

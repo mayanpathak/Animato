@@ -10,13 +10,13 @@ test('landing fits a phone', async ({ page }) => {
   await expectNoHorizontalScroll(page)
 })
 
-test('dashboard, Prompt Studio and a job fit a phone', async ({ page }) => {
+test('Videos, Create and a video page fit a phone', async ({ page }) => {
   await login(page)
   await expectNoHorizontalScroll(page)
-  await page.goto('/app/create')
+  await page.goto('/app/new')
   await expect(page.getByTestId('create-prompt')).toBeVisible()
   await expectNoHorizontalScroll(page)
   await createJob(page)
-  await expect(page.getByTestId('job-status')).toContainText('Ready', { timeout: 30_000 })
+  await expect(page.getByTestId('finish-inspector')).toBeVisible({ timeout: 60_000 })
   await expectNoHorizontalScroll(page)
 })

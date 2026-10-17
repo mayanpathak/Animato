@@ -3,27 +3,6 @@
 import { brandTable, exportsTable, jobsTable, mediaTable, mine, projectsTable } from '@/lib/local/models'
 import { clearDirectory, removeFile } from '@/lib/local/opfs'
 
-/** Approximate bytes of generated previews (thumbnail data URLs and waveform peaks). */
-export function previewCacheBytes(media: { thumbnails: string[]; waveform: number[] }[]): number {
-  let bytes = 0
-  for (const a of media) {
-    for (const t of a.thumbnails) bytes += t.length
-    bytes += a.waveform.length * 8
-  }
-  return bytes
-}
-
-export async function clearPreviewCache(owner: string): Promise<number> {
-  const media = await mine(mediaTable, owner)
-  let n = 0
-  for (const a of media) {
-    if (a.thumbnails.length === 0 && a.waveform.length === 0) continue
-    await mediaTable.put({ ...a, thumbnails: [], waveform: [] })
-    n++
-  }
-  return n
-}
-
 /**
  * Removes this user's files and records. The OPFS directory itself is only
  * swept when no other account in this browser still has records in it.
@@ -45,6 +24,12 @@ async function purge<T extends { id: string; owner: string; path: string }>(
 
 export function deleteAllExports(owner: string): Promise<number> {
   return purge(exportsTable, owner, 'exports')
+}
+
+/** Imported media and renders copied into this browser, with their audio caches. */
+export async function deleteAllMedia(owner: string): Promise<number> {
+  for (const a of await mine(mediaTable, owner)) await removeFile(`pcm/${a.id}.f32`)
+  return purge(mediaTable, owner, 'media')
 }
 
 export async function deleteEverythingLocal(owner: string): Promise<void> {

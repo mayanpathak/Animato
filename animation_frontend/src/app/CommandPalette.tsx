@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
 import { AnimatePresence, motion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
-import { Clapperboard, FileVideo, LogOut, Plus, Search, Sparkles } from 'lucide-react'
-import { NAV } from './nav'
-import { useJobHistory, useProjects } from '@/lib/local/hooks'
+import { Film, Keyboard, LogOut, Palette, Plus, Search, Settings, Upload } from 'lucide-react'
+import { ROUTES } from './nav'
+import { useShortcuts } from './shortcuts'
+import { useOwner, useProjects } from '@/lib/local/hooks'
+import { createVideo } from '@/features/videos/model'
+import { usePreferences } from '@/stores/preferences'
 import { useSession } from '@/stores/session'
 import { toast } from '@/stores/toast'
 import { errorMessage } from '@/lib/api/http'
@@ -23,7 +26,7 @@ export function CommandPalette() {
   const { open, setOpen } = usePalette()
   const navigate = useNavigate()
   const projects = useProjects()
-  const jobs = useJobHistory()
+  const owner = useOwner()
   const logout = useSession((s) => s.logout)
   const [search, setSearch] = useState('')
 
@@ -49,7 +52,7 @@ export function CommandPalette() {
       {open ? (
         <div className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center px-4 pt-[14vh]">
           <motion.div
-            className="absolute inset-0 bg-overlay backdrop-blur-sm"
+            className="absolute inset-0 bg-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -60,16 +63,16 @@ export function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-line-strong bg-glass-strong shadow-lg backdrop-blur-2xl"
+            className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-surface-2 shadow-lg shadow-inner-highlight"
           >
             <Command label="Command palette" loop onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
               <div className="flex items-center gap-3 border-b border-line px-4">
-                <Search className="size-4 text-fg-faint" />
+                <Search className="size-4 text-fg-subtle" />
                 <Command.Input
                   autoFocus
                   value={search}
                   onValueChange={setSearch}
-                  placeholder="Jump to a page, project or job…"
+                  placeholder="Search videos or type a command…"
                   className="h-13 flex-1 bg-transparent text-[15px] text-fg placeholder:text-fg-faint focus:outline-none"
                 />
                 <Kbd>Esc</Kbd>
@@ -80,13 +83,35 @@ export function CommandPalette() {
                 </Command.Empty>
                 <Command.Group
                   heading="Actions"
-                  className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
+                  className="text-2xs text-fg-subtle [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium "
                 >
-                  <Command.Item className={itemClass} onSelect={() => go('/app/create')}>
-                    <Sparkles /> New animation from a prompt
+                  <Command.Item className={itemClass} onSelect={() => go(ROUTES.newVideo)}>
+                    <Plus /> New video
                   </Command.Item>
-                  <Command.Item className={itemClass} onSelect={() => go('/app/projects?new=1')}>
-                    <Plus /> New empty project
+                  <Command.Item
+                    className={itemClass}
+                    data-testid="palette-own-clip"
+                    onSelect={async () => {
+                      const video = await createVideo(owner, null, usePreferences.getState().defaultFormat)
+                      go(`${ROUTES.video(video.id)}?mode=timeline`)
+                    }}
+                  >
+                    <Upload /> Start from my own clip
+                  </Command.Item>
+                  <Command.Item className={itemClass} onSelect={() => go(ROUTES.brand)}>
+                    <Palette /> Brand kit
+                  </Command.Item>
+                  <Command.Item className={itemClass} onSelect={() => go(ROUTES.settings)}>
+                    <Settings /> Settings
+                  </Command.Item>
+                  <Command.Item
+                    className={itemClass}
+                    onSelect={() => {
+                      setOpen(false)
+                      useShortcuts.getState().setOpen(true)
+                    }}
+                  >
+                    <Keyboard /> Keyboard shortcuts
                   </Command.Item>
                   <Command.Item
                     className={itemClass}
@@ -103,51 +128,19 @@ export function CommandPalette() {
                     <LogOut /> Log out
                   </Command.Item>
                 </Command.Group>
-                <Command.Group
-                  heading="Navigate"
-                  className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
-                >
-                  {NAV.map((n) => (
-                    <Command.Item
-                      key={n.to}
-                      className={itemClass}
-                      value={`go ${n.label}`}
-                      onSelect={() => go(n.to)}
-                    >
-                      <n.icon /> {n.label}
-                    </Command.Item>
-                  ))}
-                </Command.Group>
                 {projects.data?.length ? (
                   <Command.Group
-                    heading="Projects"
-                    className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
+                    heading="Videos"
+                    className="text-2xs text-fg-subtle [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium "
                   >
                     {projects.data.slice(0, 8).map((p) => (
                       <Command.Item
                         key={p.id}
                         className={itemClass}
-                        value={`project ${p.name} ${p.id}`}
-                        onSelect={() => go(`/app/projects/${p.id}/edit`)}
+                        value={`video ${p.name} ${p.id}`}
+                        onSelect={() => go(ROUTES.video(p.id))}
                       >
-                        <Clapperboard /> {p.name}
-                      </Command.Item>
-                    ))}
-                  </Command.Group>
-                ) : null}
-                {jobs.data?.length ? (
-                  <Command.Group
-                    heading="Recent jobs"
-                    className="text-2xs text-fg-faint [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase"
-                  >
-                    {jobs.data.slice(0, 6).map((j) => (
-                      <Command.Item
-                        key={j.id}
-                        className={itemClass}
-                        value={`job ${j.prompt} ${j.id}`}
-                        onSelect={() => go(`/app/jobs/${j.id}`)}
-                      >
-                        <FileVideo /> <span className="truncate">{j.prompt}</span>
+                        <Film /> {p.name}
                       </Command.Item>
                     ))}
                   </Command.Group>

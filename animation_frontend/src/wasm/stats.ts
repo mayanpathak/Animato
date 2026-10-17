@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 
 export type EngineCategory =
-  'timeline' | 'demux' | 'decode' | 'composite' | 'audio' | 'encode' | 'captions' | 'dsp'
+  'timeline' | 'demux' | 'decode' | 'composite' | 'graphics' | 'audio' | 'encode' | 'captions' | 'dsp'
 
 export interface EngineCall {
   category: EngineCategory

@@ -1,6 +1,9 @@
 // Records kept in this browser (IndexedDB). None of these exist on the server.
+import type { Observed } from '@/lib/api/polling'
 import type { Library } from '@/lib/api/types'
-import type { Timeline } from '@/features/editor/model/timeline'
+import type { TimelineV2 } from '@/features/editor/model/timelineV2'
+import type { Timeline as TimelineV1 } from '@/features/editor/model/timelineV1'
+import type { Transcript } from '@/features/editor/model/transcript'
 import { table, uid } from './db'
 
 /** A job this browser created. The server has no "list my jobs" endpoint. */
@@ -12,6 +15,8 @@ export interface JobRecord {
   createdAt: number
   /** Options chosen in Prompt Studio; folded into the prompt text the server receives. */
   options: { aspect: string; duration: number; style: string; brandKitId: string | null }
+  /** Status changes this browser observed while polling, with timestamps (ms epoch). */
+  observed?: Observed[]
 }
 
 export type MediaKind = 'video' | 'audio' | 'image'
@@ -43,16 +48,61 @@ export interface MediaAsset {
   waveform: number[]
 }
 
+/** One render of a video (plan 3.3). The job's live status comes from polling. */
+export interface Take {
+  jobId: string
+  prompt: string
+  library: Library
+  createdAt: number
+  /** Last terminal status seen; finished takes are not polled again from the grid. */
+  status?: 'Completed' | 'Failed'
+  /** B-roll only: the media asset the render became once imported. */
+  assetId?: string
+}
+
+/**
+ * A Video in the UI (plan 3.3). The store keeps the name `projects` so no
+ * IndexedDB migration is needed; `takes`, `selectedTake` and `format` are
+ * optional so records written before plan v2 still load.
+ */
 export interface Project {
   id: string
   owner: string
   name: string
+  takes?: Take[]
+  /** Job id of the take used as the main clip. */
+  selectedTake?: string | null
+  format?: '16:9' | '9:16' | '1:1'
+  /**
+   * A video waiting for its first job (plan 3.4 `drafting`). `autoStart` is set
+   * only for the very first video after signup: it starts after a 3 s Cancel.
+   */
+  draft?: { prompt: string; engine: 'auto' | 'manim' | 'remotion'; autoStart: boolean; error?: string } | null
   tags: string[]
   createdAt: number
   updatedAt: number
   /** JPEG data URL of a real frame. */
   thumbnail: string | null
-  timeline: Timeline
+  /** Timeline v2; records written before plan v2 hold v1 until first opened (projects.ts timelineOf). */
+  timeline: TimelineV2 | TimelineV1
+  /** The v1 document, kept when it was migrated. */
+  timelineV1Backup?: TimelineV1
+  /** Word-timed transcript of the voice (plan 9.2). */
+  transcript?: Transcript | null
+  /** Media in this video with a role, a stable label and a note (plan 3.3, 13.2). */
+  assets?: VideoAsset[]
+  /** Renders generated as B-roll for this video (plan 6.6 "Generate a clip"); never the main take. */
+  broll?: Take[]
+}
+
+export type AssetRole = 'main' | 'broll' | 'music' | 'voice' | 'logo'
+
+/** An asset as this video knows it. Labels never change once given: the user (and later the assistant) names clips by them. */
+export interface VideoAsset {
+  assetId: string
+  role: AssetRole
+  label: string
+  note: string
 }
 
 export interface BrandKit {
@@ -67,6 +117,15 @@ export interface BrandKit {
   tone: string
   appendToPrompts: boolean
   updatedAt: number
+  /** Fonts uploaded to this kit (TTF/OTF in OPFS), by the family name the file reports. */
+  fonts?: UploadedFont[]
+}
+
+export interface UploadedFont {
+  family: string
+  /** OPFS path of the file. */
+  path: string
+  fileName: string
 }
 
 export interface ExportRecord {

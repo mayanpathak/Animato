@@ -4,12 +4,157 @@ import type { MediaAsset } from '@/lib/local/models'
 import { cn } from '@/lib/cn'
 import { IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
-import { useEditor } from '../store'
-import { timelineDuration, type Clip, type MediaClip, type Track } from '../model/timeline'
+import { useEditor, type Lane } from '../store'
+import {
+  captionsItem,
+  clipEnd,
+  clipStart,
+  outputDuration,
+  VOICE_VIDEO,
+  BROLL_AUDIO,
+  type MediaClipV2,
+  type TimelineV2,
+  type TrackV2,
+} from '../model/timelineV2'
+import { cuesFromTranscript } from '../model/transcript'
 
 const HEADER_W = 148
-const ROW_H: Record<Track['kind'], number> = { video: 64, text: 38, caption: 34, voice: 52, audio: 52 }
+type RowKind = 'video' | 'text' | 'caption' | 'voice' | 'audio'
+const ROW_H: Record<RowKind, number> = { video: 64, text: 38, caption: 34, voice: 52, audio: 52 }
 const SNAP_PX = 8
+
+/** A media clip in seconds, as the lanes draw it (Timeline v2 stores frames). */
+interface MediaView {
+  offset: number
+  duration: number
+  speed: number
+  volume: number
+  fadeIn: number
+  fadeOut: number
+}
+
+/** One block on a lane: a media clip, a title or a caption chunk, in seconds. */
+interface Item {
+  id: string
+  /** `card`: Finish's title card or end card (length only; they sit at the start and the end). */
+  type: 'media' | 'text' | 'caption' | 'card'
+  label: string
+  start: number
+  duration: number
+  assetId?: string
+  media?: MediaView
+}
+
+interface Row {
+  key: string
+  kind: RowKind
+  name: string
+  track?: TrackV2
+  items: Item[]
+}
+
+function mediaItem(tl: TimelineV2, c: MediaClipV2): Item {
+  const start = clipStart(tl, c)
+  const duration = clipEnd(tl, c) - start
+  return {
+    id: c.id,
+    type: 'media',
+    label: c.name,
+    start,
+    duration,
+    assetId: c.assetId,
+    media: {
+      offset: c.inPoint / tl.fps,
+      duration,
+      speed: c.speed,
+      volume: c.volume,
+      fadeIn: c.fadeIn / tl.fps,
+      fadeOut: c.fadeOut / tl.fps,
+    },
+  }
+}
+
+function rowKind(track: TrackV2): RowKind {
+  if (track.type === 'video') return 'video'
+  return track.role === 'voice' ? 'voice' : 'audio'
+}
+
+const CARD_TITLE = 'card:title'
+const CARD_END = 'card:end'
+
+/** Finish's title card and end card as Graphics lane items. */
+function cardsOf(tl: TimelineV2): Item[] {
+  const f = tl.finish
+  if (!f) return []
+  const out: Item[] = []
+  if (f.title.enabled && f.title.text.trim())
+    out.push({
+      id: CARD_TITLE,
+      type: 'card',
+      label: `Title · ${f.title.text}`,
+      start: 0,
+      duration: f.title.duration,
+    })
+  if (f.endCard.enabled) {
+    const end = outputDuration(tl)
+    out.push({
+      id: CARD_END,
+      type: 'card',
+      label: `End card · ${f.endCard.headline}`,
+      start: end - f.endCard.duration,
+      duration: f.endCard.duration,
+    })
+  }
+  return out
+}
+
+/** Lanes top to bottom: graphics, B-roll, video, captions, voice, music & audio. */
+function rowsOf(tl: TimelineV2, cues: { start: number; end: number; text: string }[]): Row[] {
+  const titles = tl.extraGraphics.flatMap((g) =>
+    g.kind === 'title'
+      ? [{ id: g.id, type: 'text' as const, label: g.text, start: g.start, duration: g.end - g.start }]
+      : [],
+  )
+  const tracks = tl.tracks.map((track): Row => ({
+    key: track.id,
+    kind: rowKind(track),
+    name: track.name ?? track.id,
+    track,
+    items: tl.clips.filter((c) => c.trackId === track.id).map((c) => mediaItem(tl, c)),
+  }))
+  // The voice pair's video half and the B-roll pair's audio half stay empty;
+  // they only show once something lands on them.
+  const visible = tracks.filter((r) => (r.key !== VOICE_VIDEO && r.key !== BROLL_AUDIO) || r.items.length)
+  const rows: Row[] = [
+    { key: 'graphics', kind: 'text', name: 'Graphics', items: [...cardsOf(tl), ...titles] },
+  ]
+  // Upper video tracks draw on top: B-roll above the main video.
+  rows.push(
+    ...visible
+      .filter((r) => r.kind === 'video')
+      .sort((a, b) => (b.track?.index ?? 0) - (a.track?.index ?? 0)),
+  )
+  if (cues.length)
+    rows.push({
+      key: 'captions',
+      kind: 'caption',
+      name: 'Captions',
+      items: cues.map((c, i) => ({
+        id: `caption-${i}`,
+        type: 'caption',
+        label: c.text,
+        start: c.start,
+        duration: c.end - c.start,
+      })),
+    })
+  rows.push(...visible.filter((r) => r.kind === 'voice'))
+  rows.push(...visible.filter((r) => r.kind === 'audio'))
+  return rows
+}
+
+function laneFor(kind: RowKind): Lane {
+  return kind === 'voice' ? 'voice' : kind === 'audio' ? 'audio' : 'video'
+}
 
 export const ASSET_MIME = 'application/x-animato-asset'
 
@@ -25,7 +170,7 @@ const Waveform = memo(function Waveform({
   height,
 }: {
   asset: MediaAsset
-  clip: MediaClip
+  clip: MediaView
   width: number
   height: number
 }) {
@@ -67,7 +212,7 @@ const Thumbnails = memo(function Thumbnails({
   height,
 }: {
   asset: MediaAsset
-  clip: MediaClip
+  clip: MediaView
   width: number
   height: number
 }) {
@@ -108,32 +253,34 @@ const Thumbnails = memo(function Thumbnails({
 
 function ClipView({
   clip,
-  track,
+  kind,
   asset,
   zoom,
   selected,
   onPointerDown,
 }: {
-  clip: Clip
-  track: Track
+  clip: Item
+  kind: RowKind
   asset: MediaAsset | undefined
   zoom: number
   selected: boolean
-  onPointerDown: (e: ReactPointerEvent, clip: Clip, mode: 'move' | 'start' | 'end') => void
+  onPointerDown: (e: ReactPointerEvent, clip: Item, mode: 'move' | 'start' | 'end') => void
 }) {
   const width = Math.max(4, clip.duration * zoom)
-  const height = ROW_H[track.kind] - 8
-  const label = clip.type === 'media' ? clip.name : clip.text
+  const height = ROW_H[kind] - 8
+  const label = clip.label
+  const media = clip.media
+  const editable = clip.type !== 'caption'
   const tone =
-    clip.type === 'text'
-      ? 'bg-accent-violet/25 border-accent-violet/50'
+    clip.type === 'text' || clip.type === 'card'
+      ? 'bg-track-text/25 border-track-text/50'
       : clip.type === 'caption'
-        ? 'bg-accent-magenta/20 border-accent-magenta/40'
-        : track.kind === 'voice'
-          ? 'bg-accent-cyan/15 border-accent-cyan/45'
-          : track.kind === 'audio'
-            ? 'bg-status-succeeded/10 border-status-succeeded/35'
-            : 'bg-surface-4 border-line-strong'
+        ? 'bg-track-text/15 border-track-text/40'
+        : kind === 'voice'
+          ? 'bg-track-voice/20 border-track-voice/45'
+          : kind === 'audio'
+            ? 'bg-track-audio/20 border-track-audio/45'
+            : 'bg-track-video/25 border-track-video/50'
   return (
     <div
       role="button"
@@ -147,62 +294,70 @@ function ClipView({
       data-duration={clip.duration.toFixed(3)}
       onPointerDown={(e) => onPointerDown(e, clip, 'move')}
       className={cn(
-        'group absolute top-1 cursor-grab overflow-hidden rounded-md border text-left select-none active:cursor-grabbing',
+        'group absolute top-1 overflow-hidden rounded-md border text-left select-none',
+        editable && 'cursor-grab active:cursor-grabbing',
         tone,
         selected && 'z-10 ring-2 ring-accent ring-offset-1 ring-offset-canvas',
         clip.type === 'media' && !asset && 'border-dashed border-status-failed/60',
       )}
       style={{ left: clip.start * zoom, width, height }}
     >
-      {clip.type === 'media' && asset && asset.kind !== 'audio' && track.kind === 'video' ? (
-        <Thumbnails asset={asset} clip={clip} width={width} height={height} />
+      {media && asset && asset.kind !== 'audio' && kind === 'video' ? (
+        <Thumbnails asset={asset} clip={media} width={width} height={height} />
       ) : null}
-      {clip.type === 'media' && asset && (track.kind !== 'video' || asset.kind === 'audio') ? (
-        <Waveform asset={asset} clip={clip} width={width} height={height} />
+      {media && asset && (kind !== 'video' || asset.kind === 'audio') ? (
+        <Waveform asset={asset} clip={media} width={width} height={height} />
       ) : null}
       <span className="pointer-events-none relative flex items-center gap-1 truncate px-2 pt-1 text-2xs font-medium text-fg drop-shadow">
-        {clip.type === 'media' && clip.speed !== 1 ? (
-          <span className="rounded bg-black/60 px-1 font-mono">{clip.speed}×</span>
+        {media && media.speed !== 1 ? (
+          <span className="rounded bg-black/60 px-1 font-mono">{media.speed}×</span>
         ) : null}
         <span className="truncate">
           {clip.type === 'media' && !asset ? `Offline media · ${label}` : label}
         </span>
       </span>
-      {clip.type === 'media' && (clip.fadeIn > 0 || clip.fadeOut > 0) ? (
+      {media && (media.fadeIn > 0 || media.fadeOut > 0) ? (
         <svg className="pointer-events-none absolute inset-0" width={width} height={height} aria-hidden>
-          {clip.fadeIn > 0 ? (
-            <path d={`M0 ${height}L${clip.fadeIn * zoom} 0V${height}Z`} className="fill-black/35" />
+          {media.fadeIn > 0 ? (
+            <path d={`M0 ${height}L${media.fadeIn * zoom} 0V${height}Z`} className="fill-black/35" />
           ) : null}
-          {clip.fadeOut > 0 ? (
+          {media.fadeOut > 0 ? (
             <path
-              d={`M${width} ${height}L${width - clip.fadeOut * zoom} 0V${height}Z`}
+              d={`M${width} ${height}L${width - media.fadeOut * zoom} 0V${height}Z`}
               className="fill-black/35"
             />
           ) : null}
         </svg>
       ) : null}
-      <span
-        data-testid="clip-trim-start"
-        onPointerDown={(e) => {
-          e.stopPropagation()
-          onPointerDown(e, clip, 'start')
-        }}
-        className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-white/0 transition-colors group-hover:bg-white/25"
-      />
-      <span
-        data-testid="clip-trim-end"
-        onPointerDown={(e) => {
-          e.stopPropagation()
-          onPointerDown(e, clip, 'end')
-        }}
-        className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-white/0 transition-colors group-hover:bg-white/25"
-      />
+      {editable ? (
+        <>
+          {clip.type === 'card' ? null : (
+            <span
+              data-testid="clip-trim-start"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onPointerDown(e, clip, 'start')
+              }}
+              className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-white/0 transition-colors group-hover:bg-white/25"
+            />
+          )}
+          <span
+            data-testid="clip-trim-end"
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              onPointerDown(e, clip, 'end')
+            }}
+            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-white/0 transition-colors group-hover:bg-white/25"
+          />
+        </>
+      ) : null}
     </div>
   )
 }
 
 export function Timeline() {
   const timeline = useEditor((s) => s.timeline)
+  const transcript = useEditor((s) => s.transcript)
   const assets = useEditor((s) => s.assets)
   const zoom = useEditor((s) => s.zoom)
   const playhead = useEditor((s) => s.playhead)
@@ -211,7 +366,12 @@ export function Timeline() {
   const scroller = useRef<HTMLDivElement>(null)
   const lane = useRef<HTMLDivElement>(null)
 
-  const duration = timeline ? timelineDuration(timeline) : 0
+  const rows = useMemo(() => {
+    if (!timeline) return []
+    const captions = captionsItem(timeline)
+    return rowsOf(timeline, captions ? cuesFromTranscript(transcript, captions.maxWords) : [])
+  }, [timeline, transcript])
+  const duration = timeline ? outputDuration(timeline) : 0
   const contentW = Math.max((duration + 10) * zoom, 800)
   const step = tickStep(zoom)
 
@@ -227,11 +387,24 @@ export function Timeline() {
   }, [])
 
   const onClipPointerDown = useCallback(
-    (e: ReactPointerEvent, clip: Clip, mode: 'move' | 'start' | 'end') => {
+    (e: ReactPointerEvent, clip: Item, mode: 'move' | 'start' | 'end') => {
       if (e.button !== 0) return
       e.preventDefault()
       const s = useEditor.getState()
-      s.select(clip.id)
+      if (clip.type === 'caption') {
+        // Caption chunks follow the transcript; edit them in the Captions panel.
+        if (s.playing) window.dispatchEvent(new CustomEvent('animato:toggle-play'))
+        s.select(null)
+        s.setPlayhead(clip.start)
+        return
+      }
+      if (clip.type === 'card' && mode !== 'end') {
+        // Cards sit at the start and the end; only their length changes here.
+        s.select(null)
+        s.setPlayhead(clip.start)
+        return
+      }
+      s.select(clip.type === 'card' ? null : clip.id)
       const target = e.currentTarget as HTMLElement
       target.setPointerCapture(e.pointerId)
       const startX = e.clientX
@@ -255,6 +428,16 @@ export function Timeline() {
           st.move(clip.id, start, under?.dataset.trackId, key)
         } else if (mode === 'start') {
           st.trim(clip.id, 'start', snap(origStart + dt, clip.id), key)
+        } else if (clip.type === 'card') {
+          const length = Math.round(Math.max(0.5, Math.min(10, origEnd + dt - origStart)) * 10) / 10
+          st.updateFinish(
+            (f) =>
+              clip.id === CARD_TITLE
+                ? { ...f, title: { ...f.title, duration: length } }
+                : { ...f, endCard: { ...f.endCard, duration: length } },
+            clip.id === CARD_TITLE ? 'Title length' : 'End card length',
+            key,
+          )
         } else {
           st.trim(clip.id, 'end', snap(origEnd + dt, clip.id), key)
         }
@@ -297,7 +480,7 @@ export function Timeline() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-1" data-testid="timeline">
       <div className="flex h-9 shrink-0 items-center gap-1 border-b border-line px-2">
-        <span className="px-1 text-2xs font-medium tracking-wide text-fg-faint uppercase">Timeline</span>
+        <span className="px-1 text-2xs font-medium tracking-wide text-fg-subtle uppercase">Timeline</span>
         <div className="ml-auto flex items-center gap-1">
           <Tooltip content={snapping ? 'Snapping on (N)' : 'Snapping off (N)'}>
             <IconButton
@@ -358,7 +541,7 @@ export function Timeline() {
               {Array.from({ length: Math.ceil(contentW / zoom / step) + 1 }, (_, i) => i * step).map((t) => (
                 <span
                   key={t}
-                  className="absolute top-0 h-full border-l border-line pl-1 font-mono text-[10px] leading-7 text-fg-faint"
+                  className="absolute top-0 h-full border-l border-line pl-1 font-mono text-[10px] leading-7 text-fg-subtle"
                   style={{ left: t * zoom }}
                 >
                   {t >= 60
@@ -370,88 +553,77 @@ export function Timeline() {
           </div>
           {/* Tracks */}
           <div className="relative">
-            {timeline.tracks.map((track) => (
-              <div key={track.id} className="flex border-b border-line" style={{ height: ROW_H[track.kind] }}>
-                <div
-                  className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-line bg-surface-1 px-2"
-                  style={{ width: HEADER_W }}
-                >
-                  <span className="flex-1 truncate text-xs text-fg-muted">{track.name}</span>
-                  {track.kind === 'audio' || track.kind === 'voice' || track.kind === 'video' ? (
-                    <IconButton
-                      label={track.muted ? `Unmute ${track.name}` : `Mute ${track.name}`}
-                      size="xs"
-                      active={track.muted}
-                      onClick={() =>
-                        s.apply(track.muted ? 'Unmute track' : 'Mute track', (t) => ({
-                          ...t,
-                          tracks: t.tracks.map((tr) =>
-                            tr.id === track.id ? { ...tr, muted: !tr.muted } : tr,
-                          ),
-                        }))
-                      }
-                    >
-                      {track.muted ? <VolumeX /> : <Volume2 />}
-                    </IconButton>
-                  ) : null}
-                  {track.kind !== 'audio' && track.kind !== 'voice' ? (
-                    <IconButton
-                      label={track.hidden ? `Show ${track.name}` : `Hide ${track.name}`}
-                      size="xs"
-                      active={track.hidden}
-                      onClick={() =>
-                        s.apply(track.hidden ? 'Show track' : 'Hide track', (t) => ({
-                          ...t,
-                          tracks: t.tracks.map((tr) =>
-                            tr.id === track.id ? { ...tr, hidden: !tr.hidden } : tr,
-                          ),
-                        }))
-                      }
-                    >
-                      {track.hidden ? <EyeOff /> : <Eye />}
-                    </IconButton>
-                  ) : null}
+            {rows.map((row, ri) => {
+              const track = row.track
+              return (
+                <div key={row.key} className="flex border-b border-line" style={{ height: ROW_H[row.kind] }}>
+                  <div
+                    className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-line bg-surface-1 px-2"
+                    style={{ width: HEADER_W }}
+                  >
+                    <span className="flex-1 truncate text-xs text-fg-muted">{row.name}</span>
+                    {track ? (
+                      <IconButton
+                        label={track.muted ? `Unmute ${track.name}` : `Mute ${track.name}`}
+                        size="xs"
+                        active={track.muted}
+                        onClick={() => s.updateTrack(track.id, { muted: !track.muted })}
+                      >
+                        {track.muted ? <VolumeX /> : <Volume2 />}
+                      </IconButton>
+                    ) : null}
+                    {track?.type === 'video' ? (
+                      <IconButton
+                        label={track.hidden ? `Show ${track.name}` : `Hide ${track.name}`}
+                        size="xs"
+                        active={track.hidden}
+                        onClick={() => s.updateTrack(track.id, { hidden: !track.hidden })}
+                      >
+                        {track.hidden ? <EyeOff /> : <Eye />}
+                      </IconButton>
+                    ) : null}
+                  </div>
+                  <div
+                    ref={ri === 0 ? lane : undefined}
+                    className={cn('relative flex-1', track?.hidden && 'opacity-40')}
+                    data-track-id={track?.id}
+                    data-testid={`track-${row.kind}`}
+                    onPointerDown={(e) => {
+                      if (e.target === e.currentTarget) onScrub(e)
+                    }}
+                    onDragOver={(e) => {
+                      if (e.dataTransfer.types.includes(ASSET_MIME)) e.preventDefault()
+                    }}
+                    onDrop={(e) => {
+                      const id = e.dataTransfer.getData(ASSET_MIME)
+                      const asset = useEditor.getState().assets.get(id)
+                      if (!asset) return
+                      e.preventDefault()
+                      useEditor.getState().addAssetAt(asset, laneFor(row.kind), snap(timeAt(e.clientX)))
+                    }}
+                  >
+                    {row.items.map((clip) => (
+                      <ClipView
+                        key={clip.id}
+                        clip={clip}
+                        kind={row.kind}
+                        asset={clip.assetId ? assets.get(clip.assetId) : undefined}
+                        zoom={zoom}
+                        selected={selection === clip.id}
+                        onPointerDown={onClipPointerDown}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div
-                  ref={track === timeline.tracks[0] ? lane : undefined}
-                  className={cn('relative flex-1', track.hidden && 'opacity-40')}
-                  data-track-id={track.id}
-                  data-testid={`track-${track.kind}`}
-                  onPointerDown={(e) => {
-                    if (e.target === e.currentTarget) onScrub(e)
-                  }}
-                  onDragOver={(e) => {
-                    if (e.dataTransfer.types.includes(ASSET_MIME)) e.preventDefault()
-                  }}
-                  onDrop={(e) => {
-                    const id = e.dataTransfer.getData(ASSET_MIME)
-                    const asset = useEditor.getState().assets.get(id)
-                    if (!asset) return
-                    e.preventDefault()
-                    useEditor.getState().addAssetAt(asset, track.kind, snap(timeAt(e.clientX)))
-                  }}
-                >
-                  {track.clips.map((clip) => (
-                    <ClipView
-                      key={clip.id}
-                      clip={clip}
-                      track={track}
-                      asset={clip.type === 'media' ? assets.get(clip.assetId) : undefined}
-                      zoom={zoom}
-                      selected={selection === clip.id}
-                      onPointerDown={onClipPointerDown}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+              )
+            })}
             <div
               aria-hidden
               data-testid="playhead"
-              className="pointer-events-none absolute top-[-28px] bottom-0 z-30 w-px bg-accent-magenta shadow-[0_0_8px_var(--color-accent-magenta)]"
+              className="pointer-events-none absolute top-[-28px] bottom-0 z-30 w-px bg-accent"
               style={{ left: HEADER_W + playhead * zoom }}
             >
-              <span className="absolute -top-px -left-[5px] size-[11px] rotate-45 rounded-[2px] bg-accent-magenta" />
+              <span className="absolute -top-px -left-[5px] size-[11px] rotate-45 rounded-[2px] bg-accent" />
             </div>
           </div>
         </div>

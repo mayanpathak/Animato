@@ -1,4 +1,5 @@
 // Runs one export in its own worker so the preview stays interactive.
+import { hasWebCodecs } from '@/lib/support'
 import type { MediaAsset } from '@/lib/local/models'
 import { recordCall, type EngineCall } from '@/wasm/stats'
 import { connect } from './rpc'
@@ -28,6 +29,7 @@ export async function encoderSupport(
   width: number,
   height: number,
 ): Promise<{ mp4: boolean; webm: boolean; h264: boolean; aac: boolean }> {
+  if (!hasWebCodecs()) return { mp4: false, webm: false, h264: false, aac: false }
   const ok = async (config: VideoEncoderConfig) =>
     (await VideoEncoder.isConfigSupported(config).catch(() => null))?.supported === true
   const base = { width, height, bitrate: 4_000_000, framerate: 30 }

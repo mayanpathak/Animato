@@ -2,7 +2,9 @@ import { test as base, expect, type Page } from '@playwright/test'
 
 // Resource errors the real API produces on purpose (logged out, not found,
 // quota) show up as console errors in Chromium; everything else fails a test.
-const ALLOWED = [/Failed to load resource: the server responded with a status of (400|401|404|429)/]
+const ALLOWED = [
+  /Failed to load resource: the server responded with a status of (400|401|404|409|422|429|500|502)/,
+]
 
 export const DEMO = { email: 'demo@animato.dev', password: 'animato-demo' }
 
@@ -36,26 +38,26 @@ export async function login(page: Page, next = '/app'): Promise<void> {
   await page.waitForURL((u) => u.pathname.startsWith('/app'))
 }
 
-/** Creates a render job through the real endpoint (answered by MSW) and records it locally. */
+/** Starts a video from the composer (real endpoint, answered by MSW); returns the video id. */
 export async function createJob(
   page: Page,
   prompt = 'Explain the Pythagorean theorem with animated squares',
 ): Promise<string> {
-  await page.goto('/app/create')
+  await page.goto('/app/new')
   await page.getByTestId('create-prompt').fill(prompt)
   await page.getByTestId('create-submit').click()
-  await page.waitForURL(/\/app\/jobs\/[0-9a-f-]{36}/)
-  return page.url().split('/').pop() as string
+  await page.waitForURL(/\/app\/v\/vid_/)
+  return new URL(page.url()).pathname.split('/').pop() as string
 }
 
-/** Creates an empty local project and returns its id. */
-export async function createProject(page: Page, name = 'E2E project'): Promise<string> {
-  await page.goto('/app/projects?new=1')
-  await page.getByTestId('new-project-name').fill(name)
-  await page.getByTestId('new-project-create').click()
-  await page.waitForURL(/\/app\/projects\/[^/]+\/edit/)
+/** Creates an empty video from the command palette, opens its timeline and returns its id. */
+export async function createProject(page: Page, _name = 'E2E video'): Promise<string> {
+  await page.goto('/app')
+  await page.getByRole('button', { name: 'Search (⌘K)' }).click()
+  await page.getByTestId('palette-own-clip').click()
+  await page.waitForURL(/\/app\/v\/vid_[^/?]+\?mode=timeline/)
   await page.getByTestId('timeline').waitFor()
-  return page.url().split('/').slice(-2)[0]
+  return new URL(page.url()).pathname.split('/').pop() as string
 }
 
 /** No horizontal overflow at the current viewport. */

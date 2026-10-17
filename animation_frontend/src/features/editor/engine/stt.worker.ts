@@ -6,8 +6,7 @@ import { env, pipeline, type AutomaticSpeechRecognitionPipeline } from '@hugging
 import type { MediaAsset } from '@/lib/local/models'
 import { fileHandle } from '@/lib/local/opfs'
 import type { TimedWord } from '@/wasm/engine'
-import type { Timeline } from '../model/timeline'
-import { timelineDuration } from '../model/timeline'
+import { timelineDurationV2, type TimelineV2 } from '../model/timelineV2'
 import { audioAssetIds, buildAudioTimeline } from './compose'
 import { MIX_RATE } from './decode'
 import { serve } from './rpc'
@@ -29,7 +28,7 @@ function model(progress: (p: unknown) => void): Promise<AutomaticSpeechRecogniti
   return asr
 }
 
-async function mixdown(tl: Timeline, assets: MediaAsset[]): Promise<Float32Array> {
+async function mixdown(tl: TimelineV2, assets: MediaAsset[]): Promise<Float32Array> {
   const wasm = await loadWasm()
   const map = new Map(assets.map((a) => [a.id, a]))
   const engine = new wasm.AudioEngine(MIX_RATE)
@@ -44,7 +43,7 @@ async function mixdown(tl: Timeline, assets: MediaAsset[]): Promise<Float32Array
   engine.set_timeline(JSON.stringify(buildAudioTimeline(tl, map)))
   engine.seek(0)
   engine.set_playing(true)
-  const frames = Math.round(timelineDuration(tl) * MIX_RATE)
+  const frames = Math.round(timelineDurationV2(tl) * MIX_RATE)
   const mono = new Float32Array(frames)
   const block = 4096
   const buf = new Float32Array(block * 2)
@@ -58,7 +57,7 @@ async function mixdown(tl: Timeline, assets: MediaAsset[]): Promise<Float32Array
 }
 
 async function transcribe(
-  tl: Timeline,
+  tl: TimelineV2,
   assets: MediaAsset[],
   progress: (p: unknown) => void,
 ): Promise<TimedWord[]> {
@@ -85,5 +84,5 @@ async function transcribe(
 }
 
 serve({
-  transcribe: (a, ctx) => transcribe(a[0] as Timeline, a[1] as MediaAsset[], ctx.progress),
+  transcribe: (a, ctx) => transcribe(a[0] as TimelineV2, a[1] as MediaAsset[], ctx.progress),
 })

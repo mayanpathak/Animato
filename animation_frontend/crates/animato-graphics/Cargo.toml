@@ -1,0 +1,15 @@
+[package]
+name = "animato-graphics"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Animato's graphics document: what Vello draws over and under the video, frame by frame"
+
+[lints]
+workspace = true
+
+[dependencies]
+parley = { workspace = true, features = ["std"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

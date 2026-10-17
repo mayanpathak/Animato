@@ -1,0 +1,116 @@
+{
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+  "frames": [
+    {
+      "file": "clip.mp4",
+      "duration": 5.021,
+      "editor": {
+        "demuxer": "mediabunny",
+        "random": {
+          "n": 20,
+          "median": 10.3,
+          "p95": 76.3,
+          "total": 278
+        },
+        "sequential": {
+          "n": 30,
+          "median": 0.8,
+          "p95": 1.4,
+          "total": 27
+        }
+      },
+      "renderEngine": {
+        "random": {
+          "n": 20,
+          "median": 12.6,
+          "p95": 22.4,
+          "total": 244
+        },
+        "sequential": {
+          "n": 29,
+          "median": 14.6,
+          "p95": 25,
+          "total": 401
+        },
+        "failures": 1,
+        "firstError": "t=0.00: No frame found at timestamp 0"
+      }
+    },
+    {
+      "file": "clip.webm",
+      "duration": 5.001,
+      "editor": {
+        "demuxer": "mediabunny",
+        "random": {
+          "n": 20,
+          "median": 10.3,
+          "p95": 49,
+          "total": 243
+        },
+        "sequential": {
+          "n": 30,
+          "median": 0.7,
+          "p95": 3.7,
+          "total": 32
+        }
+      },
+      "renderEngine": {
+        "random": {
+          "n": 20,
+          "median": 12.8,
+          "p95": 26.1,
+          "total": 242
+        },
+        "sequential": {
+          "n": 30,
+          "median": 12.2,
+          "p95": 26.2,
+          "total": 417
+        },
+        "failures": 0,
+        "firstError": ""
+      }
+    }
+  ],
+  "waves": [
+    {
+      "file": "speech.webm",
+      "editor": {
+        "ms": 86,
+        "peaks": 615,
+        "alsoCachesPcm": true
+      },
+      "waveformWorker": {
+        "ms": 104,
+        "bars": 186
+      }
+    },
+    {
+      "file": "tone.wav",
+      "editor": {
+        "ms": 32,
+        "peaks": 400,
+        "alsoCachesPcm": true
+      },
+      "waveformWorker": {
+        "ms": 63,
+        "bars": 120
+      }
+    }
+  ],
+  "audio": [
+    {
+      "sourceSeconds": 300,
+      "editor": {
+        "ms": 1664,
+        "decodedPcmMb": 115.2,
+        "heapDeltaMb": 337.9
+      },
+      "audioRenderWorker": {
+        "ms": 794,
+        "chunks": 60,
+        "boundedBufferMb": 11.5
+      }
+    }
+  ]
+}

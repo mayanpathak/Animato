@@ -1,6 +1,6 @@
 import { request } from './http'
 import { envelope, userResponse } from './schemas'
-import type { z } from 'zod'
+import type * as z from 'zod/mini'
 
 export interface User {
   email: string

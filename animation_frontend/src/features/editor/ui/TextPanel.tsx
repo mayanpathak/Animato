@@ -1,6 +1,7 @@
 import { Heading1, PanelBottom, Subtitles } from 'lucide-react'
 import { useBrandKits } from '@/lib/local/hooks'
 import { useEditor } from '../store'
+import { builtinFont } from '../graphics/fonts'
 
 const PRESETS = [
   { id: 'title', label: 'Title', hint: 'Large centred headline that rises in', icon: Heading1 },
@@ -14,7 +15,7 @@ export function TextPanel() {
   const kit = kits.data?.[0]
   const brand = kit
     ? {
-        font: /serif/i.test(kit.headingFont) && !/sans/i.test(kit.headingFont) ? 'DejaVu Serif' : 'Inter',
+        font: builtinFont(kit.headingFont)?.family ?? 'Inter',
         color: kit.colors[0],
       }
     : undefined
@@ -54,7 +55,7 @@ export function TextPanel() {
           </span>
         </button>
       ) : null}
-      <p className="pt-2 text-2xs text-fg-faint">
+      <p className="pt-2 text-2xs text-fg-subtle">
         Text is placed at the playhead. Edit it in the inspector on the right.
       </p>
     </div>

@@ -12,14 +12,18 @@ test('signup with validation, verify, logout, login', async ({ page }) => {
   await page.getByTestId('signup-submit').click()
   await expect(page.getByText(/between 3 and 30/i)).toBeVisible()
   await expect(page.getByText(/valid email/i)).toBeVisible()
-  await expect(page.getByText(/between 8 and 72/i)).toBeVisible()
+  await expect(page.getByTestId('password-rule')).toHaveText('8 to 72 characters')
+  await expect(page.getByTestId('password-rule')).not.toHaveClass(/succeeded/)
   await expect(page).toHaveURL(/\/signup/)
 
   await page.getByTestId('signup-username').fill(`e2e_${id}`)
   await page.getByTestId('signup-email').fill(email)
   await page.getByTestId('signup-password').fill(password)
+  await expect(page.getByTestId('password-rule')).toHaveClass(/succeeded/)
   await page.getByTestId('signup-submit').click()
   await expect(page).toHaveURL(/\/verify-email/)
+  await expect(page.getByText(email)).toBeVisible()
+  await expect(page.getByRole('button', { name: /Resend code in/ })).toBeDisabled()
 
   // Wrong code first, then the mock's code.
   await page.getByTestId('otp-input').locator('input').first().focus()
@@ -51,4 +55,20 @@ test('login shows the server error and offers signup with the email', async ({ p
     .first()
     .click()
   await expect(page).toHaveURL(/\/signup\?email=demo%40animato\.dev/)
+})
+
+test('signup with an existing email offers log in with the email carried over', async ({ page }) => {
+  await page.goto('/signup')
+  await page.getByTestId('signup-username').fill('someone')
+  await page.getByTestId('signup-email').fill(DEMO.email)
+  await page.getByTestId('signup-password').fill('Long-enough-pass-1')
+  await page.getByTestId('signup-submit').click()
+  await expect(page.getByTestId('auth-error')).toContainText('That email already has an account.')
+  await page.getByTestId('auth-error').getByRole('link', { name: 'Log in' }).click()
+  await expect(page).toHaveURL(/\/login\?email=demo%40animato\.dev/)
+})
+
+test('reset link with a malformed token is rejected without a request', async ({ page }) => {
+  await page.goto('/reset-password/not-a-token')
+  await expect(page.getByText(/not valid/i).first()).toBeVisible()
 })

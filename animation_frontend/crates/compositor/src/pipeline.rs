@@ -1053,8 +1053,11 @@ pub fn create_pipeline(
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: Some("compositor_pipeline_layout"),
-        bind_group_layouts: &[bind_group_layout, color_grading_bind_group_layout],
-        push_constant_ranges: &[],
+        bind_group_layouts: &[
+            Some(bind_group_layout),
+            Some(color_grading_bind_group_layout),
+        ],
+        immediate_size: 0,
     });
 
     let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -1087,7 +1090,7 @@ pub fn create_pipeline(
         },
         depth_stencil: None,
         multisample: MultisampleState::default(),
-        multiview: None,
+        multiview_mask: None,
         cache: None,
     });
 

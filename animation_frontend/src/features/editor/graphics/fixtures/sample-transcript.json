@@ -1,0 +1,17 @@
+{
+  "words": [
+    { "text": "Imagine", "start": 0.6, "end": 1.0 },
+    { "text": "a", "start": 1.05, "end": 1.1 },
+    { "text": "ball", "start": 1.15, "end": 1.5 },
+    { "text": "rolling", "start": 1.55, "end": 1.9 },
+    { "text": "downhill.", "start": 1.95, "end": 2.5, "breakAfter": true },
+    { "text": "Each", "start": 3.0, "end": 3.2 },
+    { "text": "step", "start": 3.25, "end": 3.5 },
+    { "text": "follows", "start": 3.55, "end": 3.9 },
+    { "text": "the", "start": 3.95, "end": 4.05 },
+    { "text": "slope", "start": 4.1, "end": 4.5 },
+    { "text": "to", "start": 4.55, "end": 4.65 },
+    { "text": "the", "start": 4.7, "end": 4.8 },
+    { "text": "bottom.", "start": 4.85, "end": 5.4, "breakAfter": true }
+  ]
+}

@@ -9,10 +9,9 @@ fi
 
 cd "$CLAUDE_PROJECT_DIR/animation_frontend"
 
-npm ci --no-audit --no-fund --loglevel=error
+# --ignore-scripts: onnxruntime-node's postinstall downloads native binaries the
+# browser build never uses, and the download fails behind the sandbox proxy.
+npm ci --no-audit --no-fund --loglevel=error --ignore-scripts
 
-# Browser for the Playwright e2e suite. Non-fatal: the network policy may block it.
-npx playwright install --with-deps chromium >/dev/null 2>&1 \
-  || echo "cloud-setup: Playwright browser install failed; e2e tests will not run"
-
+# Playwright uses the pre-installed Chromium (/opt/pw-browsers); see playwright.config.ts.
 echo "cloud-setup: frontend dependencies installed"

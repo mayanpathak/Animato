@@ -1,13 +1,12 @@
 import { createJob, createProject, expect, login, test } from './fixtures'
 
 const PUBLIC = [
-  ['/', /Describe it/i],
+  ['/', /Explain anything/i],
   ['/pricing', /pricing|plan/i],
   ['/login', /log in|welcome back|sign in/i],
   ['/signup', /create|sign up|start/i],
   ['/forgot-password', /reset|forgot/i],
   [`/reset-password/${'a'.repeat(40)}`, /password/i],
-  ['/no-such-page', /This frame was cut/i],
 ] as const
 
 for (const [path, heading] of PUBLIC) {
@@ -17,33 +16,80 @@ for (const [path, heading] of PUBLIC) {
   })
 }
 
+test('404 is one line with a link home', async ({ page }) => {
+  await page.goto('/no-such-page')
+  await expect(page.getByText('This page doesn’t exist.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/')
+})
+
 test('app routes render for a signed-in user', async ({ page }) => {
   await login(page)
   for (const [path, heading] of [
-    ['/app', /what are we making/i],
-    ['/app/create', /.+/],
-    ['/app/projects', /projects/i],
-    ['/app/templates', /templates/i],
     ['/app/brand', /brand/i],
     ['/app/settings', /settings/i],
-    ['/app/not-a-page', /This frame was cut/i],
   ] as const) {
     await page.goto(path)
     await expect(page.getByRole('heading', { name: heading }).first(), path).toBeVisible()
   }
-  const jobId = await createJob(page)
-  await expect(page.getByTestId('job-pipeline')).toBeVisible()
-  expect(jobId).toMatch(/^[0-9a-f-]{36}$/)
+  await page.goto('/app')
+  await expect(page.getByTestId('composer-strip')).toBeVisible()
+  await page.goto('/app/new')
+  await expect(page.getByTestId('create-prompt')).toBeVisible()
+  const videoId = await createJob(page)
+  await expect(page.getByTestId('render-view').or(page.getByTestId('finish-inspector'))).toBeVisible()
+  expect(videoId).toMatch(/^vid_/)
   await createProject(page)
   await expect(page.getByTestId('editor')).toBeVisible()
-  await expect(page.getByTestId('timeline')).toBeVisible()
+})
+
+test('old routes redirect (plan 3.1)', async ({ page }) => {
+  await login(page)
+  await page.goto('/app/create?prompt=Remix%20this%20idea%20please')
+  await expect(page).toHaveURL(/\/app\/new\?prompt=Remix/)
+  await expect(page.getByTestId('create-prompt')).toHaveValue('Remix this idea please')
+  await page.goto('/app/templates')
+  await expect(page).toHaveURL(/\/app\/new$/)
+  await page.goto('/app/projects')
+  await expect(page).toHaveURL(/\/app$/)
+
+  // A job link opens the video that owns it.
+  const videoId = await createJob(page)
+  const jobId = await page.evaluate(
+    (id) =>
+      new Promise<string>((resolve) => {
+        const req = indexedDB.open('animato-projects')
+        req.onsuccess = () => {
+          const get = req.result.transaction('records').objectStore('records').get(id)
+          get.onsuccess = () => resolve(get.result.selectedTake)
+        }
+      }),
+    videoId,
+  )
+  await page.goto(`/app/jobs/${jobId}`)
+  await expect(page).toHaveURL(new RegExp(`/app/v/${videoId}$`))
+  await page.goto(`/app/projects/${videoId}/edit`)
+  await expect(page).toHaveURL(new RegExp(`/app/v/${videoId}\\?mode=timeline`))
 })
 
 test('protected routes send logged-out users to login and back', async ({ page }) => {
-  await page.goto('/app/templates')
-  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Ftemplates/)
+  await page.goto('/app/settings')
+  await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fsettings/)
   await page.getByTestId('login-email').fill('demo@animato.dev')
   await page.getByTestId('login-password').fill('animato-demo')
   await page.getByTestId('login-submit').click()
-  await expect(page).toHaveURL(/\/app\/templates$/)
+  await expect(page).toHaveURL(/\/app\/settings$/)
+})
+
+test('the landing page carries Open Graph tags and the image exists (plan P10)', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/')
+  await expect(page).toHaveTitle(/Animato/)
+  const image = await page.locator('meta[property="og:image"]').getAttribute('content')
+  expect(image).toMatch(/\/og\.png$/)
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /Animato/)
+  const res = await request.get(new URL(image as string, page.url()).toString())
+  expect(res.ok()).toBe(true)
+  expect(res.headers()['content-type']).toContain('image/png')
 })

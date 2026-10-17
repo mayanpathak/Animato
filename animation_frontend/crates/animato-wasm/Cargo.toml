@@ -3,7 +3,7 @@ name = "animato-wasm"
 version.workspace = true
 edition = "2021"
 publish = false
-description = "The WebAssembly module the Animato editor loads: timeline math, SRT, waveform, keyframes, captions."
+description = "The WebAssembly module the Animato editor loads: timecode, SRT, waveform, captions, MP4 demuxing, the frame renderer (compositor + Vello graphics), the audio mixer."
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -12,7 +12,6 @@ crate-type = ["cdylib", "rlib"]
 workspace = true
 
 [dependencies]
-tooscut-keyframe.workspace = true
 offcut-text.workspace = true
 offcut-dsp.workspace = true
 offcut-types.workspace = true
@@ -23,7 +22,11 @@ serde-wasm-bindgen.workspace = true
 offcut-mp4.workspace = true
 offcut-wasm-core.workspace = true
 tooscut-compositor.workspace = true
+animato-graphics.workspace = true
+animato-overlay.workspace = true
+wgpu.workspace = true
 tooscut-audio-engine.workspace = true
 js-sys.workspace = true
+wasm-bindgen-futures.workspace = true
 web-sys.workspace = true
 console_error_panic_hook.workspace = true

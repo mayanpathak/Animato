@@ -11,6 +11,7 @@ declare class AudioWorkletProcessor {
 
 type Msg =
   | { type: 'init'; module: WebAssembly.Module }
+  | { type: 'init-bytes'; bytes: ArrayBuffer }
   | { type: 'upload'; id: string; pcm: Float32Array }
   | { type: 'remove'; id: string }
   | { type: 'timeline'; json: string }
@@ -26,13 +27,20 @@ class MixerProcessor extends AudioWorkletProcessor {
   constructor() {
     super()
     this.port.onmessage = (e: MessageEvent<Msg>) => this.onMessage(e.data)
+    // Some Chromium builds refuse to post a compiled module into a worklet;
+    // the host then sends the raw bytes instead.
+    this.port.onmessageerror = () => this.port.postMessage({ type: 'messageerror' })
   }
 
   private onMessage(m: Msg) {
-    if (m.type === 'init') {
-      initSync({ module: m.module })
-      this.engine = new AudioEngine(sampleRate)
-      this.port.postMessage({ type: 'ready' })
+    if (m.type === 'init' || m.type === 'init-bytes') {
+      try {
+        initSync({ module: m.type === 'init' ? m.module : new WebAssembly.Module(m.bytes) })
+        this.engine = new AudioEngine(sampleRate)
+        this.port.postMessage({ type: 'ready' })
+      } catch (err) {
+        this.port.postMessage({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+      }
       return
     }
     const e = this.engine

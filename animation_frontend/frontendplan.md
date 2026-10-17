@@ -1492,13 +1492,14 @@ after this plan (features, then usage limits, quotas and billing, then deploy).
 | G3 | `GET /api/jobs/:id` has no `prompt`, `created_at`, `retry_count`, progress | Prompt kept locally; status transitions observed by polling | Cross-device videos; honest "fixing" stage |
 | G4 | No `GET /api/usage` (renders used / remaining) | Show default limits; trust `Retry-After` | Quota UX and the upgrade moment in billing |
 | G5 | No cancel or delete of a job | "Delete" only removes local data; copy says so | User control; storage cost |
-| G6 | No edit-plan endpoint for the AI editor | Dev harness with pasted JSON | The AI editor feature |
+| G6 | No edit-plan endpoint for the AI editor. Needed: `POST /api/edit-plans` with `{ transcript, assets: [{label, role, duration, note}], instructions, previousPlan? }` → `{ plan }` (EditPlanV0, `src/features/editor/plan/schema.ts`); the LLM key stays on the server | Dev harness with pasted JSON (`?dev=plan`, dev and e2e builds) | The AI editor feature |
 | G7 | No analytics ingestion | In-memory ring buffer | Measuring the funnel in section 1.6 |
 | G8 | `error_message` is raw worker output | Keyword mapping, raw text hidden | Leaks internals; sanitise server-side |
 | G9 | Aspect ratio and length are not parameters | Formats done in Finish; length as a prompt hint | Native vertical renders would look better than re-laid-out landscape |
 | G10 | Production static serving expects `frontend/dist` relative to `api_server` | Build output path decided in the deploy phase | Deploy |
 | G11 | CORS origin is hard-coded to `http://localhost:5173` | Same-origin proxy in dev | Deploy |
 | G12 | No webhook/push for job completion | Polling with backoff | Server load at scale |
+| G13 | Video bytes are only reachable through the 302 to a presigned S3 URL, so finishing (OPFS import) depends on the bucket's CORS rule for the app origin | CORS rule documented in `LOCAL_DEV.md`; on failure the video page falls back to the plain `<video>` player, Download and Retry import | Finish breaks silently for anyone whose bucket lacks the rule; a same-origin streaming route (or `Content-Disposition`/range proxy) would remove the dependency |
 
 ---
 

@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "canvas": { "width": 1080, "height": 1920 },
+  "duration": 12,
+  "fonts": [
+    { "family": "Inter", "source": "builtin:Inter-Variable.ttf" },
+    { "family": "Geist", "source": "builtin:Geist-Variable.ttf" }
+  ],
+  "images": [{ "id": "logo", "width": 400, "height": 200 }],
+  "items": [
+    {
+      "kind": "shape",
+      "id": "card",
+      "start": 0,
+      "end": 12,
+      "shape": "roundRect",
+      "box": { "x": 0.04, "y": 0.2, "w": 0.92, "h": 0.5 },
+      "radius": 48,
+      "fill": {
+        "linear": {
+          "from": { "x": 0, "y": 0 },
+          "to": { "x": 1, "y": 1 },
+          "stops": [
+            { "offset": 0, "color": "#1b2a4a" },
+            { "offset": 1, "color": "#2f7bf6" }
+          ]
+        }
+      },
+      "stroke": { "width": 4, "color": "#ffffff33" },
+      "shadow": { "color": "#00000080", "blur": 24, "offsetY": 12 },
+      "enter": { "kind": "pop", "duration": 0.4, "easing": "backOut" },
+      "exit": { "kind": "none", "duration": 0, "easing": "easeOut" },
+      "layer": "under"
+    },
+    {
+      "kind": "shape",
+      "id": "dot",
+      "start": 1,
+      "end": 6,
+      "shape": "ellipse",
+      "box": { "x": 0.1, "y": 0.1, "w": 0.08, "h": 0.045 },
+      "radius": 0,
+      "fill": {
+        "radial": {
+          "center": { "x": 0.5, "y": 0.5 },
+          "radius": 0.5,
+          "stops": [
+            { "offset": 0, "color": "#ffd60a" },
+            { "offset": 1, "color": "#ffd60a00" }
+          ]
+        }
+      },
+      "stroke": null,
+      "shadow": null,
+      "enter": { "kind": "fade", "duration": 0.3, "easing": "linear" },
+      "exit": { "kind": "fade", "duration": 0.3, "easing": "linear" },
+      "layer": "over"
+    },
+    {
+      "kind": "title",
+      "id": "headline",
+      "start": 0.5,
+      "end": 4,
+      "text": "Gradient descent, in one minute",
+      "style": {
+        "font": "Geist",
+        "size": 96,
+        "weight": 800,
+        "color": "#ffffff",
+        "align": "center",
+        "lineHeight": 1.1,
+        "background": "#07070acc",
+        "stroke": null,
+        "case": "asIs"
+      },
+      "box": { "x": 0.08, "y": 0.28, "w": 0.84, "h": 0.2 },
+      "enter": { "kind": "rise", "duration": 0.5, "easing": "easeOut" },
+      "exit": { "kind": "fade", "duration": 0.3, "easing": "easeInOut" },
+      "layer": "over"
+    },
+    {
+      "kind": "title",
+      "id": "typed",
+      "start": 4,
+      "end": 8,
+      "text": "Step by step\ndownhill 🚀",
+      "style": {
+        "font": "Inter",
+        "size": 64,
+        "weight": 700,
+        "color": "#ffd60a",
+        "align": "left",
+        "lineHeight": 1.2,
+        "background": null,
+        "stroke": { "width": 6, "color": "#101014" },
+        "case": "upper"
+      },
+      "box": { "x": 0.08, "y": 0.5, "w": 0.84, "h": 0.15 },
+      "enter": { "kind": "typewriter", "duration": 1, "easing": "linear" },
+      "exit": { "kind": "pop", "duration": 0.2, "easing": "easeOut" },
+      "layer": "over"
+    },
+    {
+      "kind": "image",
+      "id": "logo-mark",
+      "start": 0,
+      "end": 9,
+      "imageId": "logo",
+      "box": { "x": 0.7, "y": 0.14, "w": 0.22, "h": 0.06 },
+      "fit": "contain",
+      "opacity": 0.9,
+      "layer": "over"
+    },
+    {
+      "kind": "captions",
+      "id": "gfx_captions",
+      "style": {
+        "font": "Inter",
+        "size": 54,
+        "weight": 700,
+        "color": "#ffffff",
+        "activeColor": "#ffd60a",
+        "background": "#000000b3",
+        "stroke": null,
+        "case": "asIs"
+      },
+      "box": { "x": 0.05, "y": 0.66, "w": 0.9, "h": 0.12 },
+      "maxWords": 5,
+      "maxLines": 2,
+      "highlight": "word",
+      "layer": "over"
+    },
+    {
+      "kind": "progress",
+      "id": "progress",
+      "box": { "x": 0.08, "y": 0.79, "w": 0.84, "h": 0.006 },
+      "color": "#2f7bf6",
+      "track": "#ffffff26",
+      "layer": "over"
+    },
+    {
+      "kind": "watermark",
+      "id": "watermark",
+      "corner": "br",
+      "text": "Made with Animato",
+      "layer": "over"
+    },
+    {
+      "kind": "endCard",
+      "id": "end",
+      "duration": 2,
+      "headline": "Make yours in a minute",
+      "sub": "example.com",
+      "logo": true,
+      "background": { "solid": "#0b0b0f" },
+      "font": "Geist",
+      "color": "#ffffff",
+      "layer": "over"
+    }
+  ]
+}

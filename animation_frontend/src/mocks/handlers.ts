@@ -86,13 +86,13 @@ export const handlers = [
 
   http.get('/api/auth/check-auth', () => {
     const { user } = sessionUser()
-    if (!user) return fail(401, 'Unauthorized - no token provided')
+    if (!user) return fail(401, 'Not authenticated')
     return json(200, { success: true, user: userBody(user, true) })
   }),
 
   http.post('/api/auth/verify-email', async ({ request }) => {
     const { state, user } = sessionUser()
-    if (!user) return fail(401, 'Unauthorized - no token provided')
+    if (!user) return fail(401, 'Unauthorized')
     const code = str((await body(request)).code)
     if (code !== MOCK_VERIFY_CODE) return fail(400, 'Invalid or expired verification code')
     user.is_verified = true
@@ -102,7 +102,7 @@ export const handlers = [
 
   http.post('/api/auth/resend-verification', () => {
     const { user } = sessionUser()
-    if (!user) return fail(401, 'Unauthorized - no token provided')
+    if (!user) return fail(401, 'Unauthorized')
     return json(200, { success: true, message: 'Verification code sent' })
   }),
 
@@ -111,7 +111,7 @@ export const handlers = [
     if (!EMAIL.test(email)) return fail(400, 'Please enter a valid email address')
     return json(200, {
       success: true,
-      message: 'If an account exists for that email, you will receive a reset link shortly',
+      message: 'If an account exists for that email, a reset link has been sent',
     })
   }),
 
@@ -130,12 +130,15 @@ export const handlers = [
 
   http.post('/api/jobs', async ({ request }) => {
     const { state, user } = sessionUser()
-    if (!user) return fail(401, 'Unauthorized - no token provided')
+    if (!user) return fail(401, 'Unauthorized')
     if (!user.is_verified) return fail(403, 'Please verify your email first')
     const b = await body(request)
     const prompt = str(b.prompt)
     const library = b.library === 'manim' ? 'manim' : 'remotion'
     const len = [...prompt].length
+    // e2e hooks for the error rows of plan 11.4 (this mock never ships).
+    if (prompt.includes('[e2e:422]')) return fail(422, 'Invalid request body')
+    if (prompt.includes('[e2e:500]')) return fail(500, 'Internal server error')
     if (len < 10 || len > 2000) return fail(400, 'Prompt must be between 10 and 2000 characters')
     // Same quota as the server: 5 per hour and 15 per day per user.
     const mine = state.jobs.filter((j) => j.owner === user.email)
@@ -158,7 +161,7 @@ export const handlers = [
       prompt,
       library,
       created_at: Date.now(),
-      fail: /\bfail\b/i.test(prompt),
+      fail: /\bfail\b/i.test(prompt) || prompt.includes('[e2e:timeout]'),
     })
     save(state)
     return json(200, {
@@ -170,7 +173,7 @@ export const handlers = [
 
   http.get('/api/jobs/:id', ({ params }) => {
     const { state, user } = sessionUser()
-    if (!user) return fail(401, 'Unauthorized - no token provided')
+    if (!user) return fail(401, 'Unauthorized')
     if (!user.is_verified) return fail(403, 'Please verify your email first')
     const id = String(params.id)
     if (!UUID.test(id)) return fail(400, 'Invalid job id')
@@ -191,7 +194,9 @@ export const handlers = [
         render_time_ms: done ? 11_200 + (job.prompt.length % 7) * 830 : null,
         error_message:
           status === 'Failed'
-            ? 'Renderer exited with code 1: scene "Intro" raised ValueError: invalid color "fail"'
+            ? job.prompt.includes('[e2e:timeout]')
+              ? 'Render timeout after 300s (container killed)'
+              : 'Renderer exited with code 1: scene "Intro" raised ValueError: invalid color "fail"'
             : null,
       },
     })
@@ -199,11 +204,15 @@ export const handlers = [
 
   // The real endpoint answers 302 to a presigned S3 URL. Here the redirect
   // goes to a real VP9/Opus WebM in public/media/renders.
-  http.get('/api/jobs/:id/video', ({ params }) => {
+  http.get('/api/jobs/:id/video', ({ params, request }) => {
     const { state, user } = sessionUser()
-    if (!user) return fail(401, 'Unauthorized - no token provided')
+    if (!user) return fail(401, 'Unauthorized')
     const job = state.jobs.find((j) => j.job_id === String(params.id) && j.owner === user.email)
     if (!job || jobStatus(job) !== 'Completed') return fail(404, 'Video not available')
+    // e2e hook: the import fetch fails (as a missing S3 CORS rule would) while
+    // the <video> element, which needs no CORS, still plays.
+    // A <video> element fetches in no-cors mode, exactly the case S3 CORS does not affect.
+    if (job.prompt.includes('[e2e:importfail]') && request.mode !== 'no-cors') return fail(502, 'Bad gateway')
     return new HttpResponse(null, {
       status: 302,
       headers: { Location: `/media/renders/${renderFor(job)}.webm`, 'Cache-Control': 'no-store' },

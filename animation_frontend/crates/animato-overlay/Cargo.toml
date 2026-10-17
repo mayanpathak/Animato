@@ -1,0 +1,14 @@
+[package]
+name = "animato-overlay"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+animato-graphics = { workspace = true }
+thiserror = { workspace = true }
+vello = { workspace = true }
+wgpu = { workspace = true }

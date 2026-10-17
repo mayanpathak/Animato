@@ -1,69 +1,36 @@
-// Creating projects and adding media to them. Used by the job page, the
-// library and the editor itself. Everything here is local to this browser.
+// Bringing renders into a video's timeline. Everything here is local to this browser.
 import { jobsApi } from '@/lib/api/jobs'
-import { mediaTable, projectsTable, uid, type MediaAsset, type Project } from '@/lib/local/models'
-import {
-  clipId,
-  defaultTransform,
-  emptyTimeline,
-  timelineDuration,
-  type AspectKey,
-  type MediaClip,
-  type Timeline,
-} from './model/timeline'
+import { mediaTable, projectsTable, type MediaAsset, type Project } from '@/lib/local/models'
+import { announceVideosChanged, newVideo } from '@/features/videos/model'
+import type { VideoFormat } from '@/stores/preferences'
 import { importFile, type ImportProgress } from './media/client'
+import { isV2, migrateTimeline } from './model/migrate'
+import { appendAsset } from './model/ops'
+import { clipId, emptyTimelineV2, withDefaultTracks, type TimelineV2 } from './model/timelineV2'
 
-export function newProject(owner: string, name: string, aspect: AspectKey = '16:9'): Project {
-  const now = Date.now()
-  return {
-    id: uid('prj'),
-    owner,
-    name,
-    tags: [],
-    createdAt: now,
-    updatedAt: now,
-    thumbnail: null,
-    timeline: emptyTimeline(aspect),
+/**
+ * The video's Timeline v2, migrating a v1 document on the way (plan 10.2). The
+ * caller saves the result; `migrated` carries the v1 backup and the transcript
+ * made from v1 caption clips.
+ */
+export function timelineOf(project: Project): {
+  timeline: TimelineV2
+  migrated: Partial<Project> | null
+} {
+  const t = project.timeline as { version?: number } | undefined
+  if (!t) return { timeline: emptyTimelineV2(), migrated: {} }
+  if (isV2(t as { version: number })) {
+    const timeline = withDefaultTracks(t as TimelineV2)
+    return { timeline, migrated: timeline === t ? null : {} }
   }
-}
-
-export async function createEmptyProject(
-  owner: string,
-  name: string,
-  aspect: AspectKey = '16:9',
-): Promise<Project> {
-  return projectsTable.put(newProject(owner, name, aspect))
-}
-
-export function mediaClipFor(asset: MediaAsset, start: number): MediaClip {
+  const { timeline, transcript } = migrateTimeline(project.timeline as never)
   return {
-    id: clipId(),
-    type: 'media',
-    assetId: asset.id,
-    name: asset.name,
-    start,
-    duration: asset.kind === 'image' ? 3 : asset.duration,
-    offset: 0,
-    speed: 1,
-    volume: 1,
-    fadeIn: 0,
-    fadeOut: 0,
-    transform: defaultTransform(),
-    color: { brightness: 1, contrast: 1, saturation: 1 },
-    crop: { top: 0, right: 0, bottom: 0, left: 0 },
-    audio: { normalizeGain: 1, gate: false, eq: { low: 0, mid: 0, high: 0 }, duck: asset.kind === 'audio' },
+    timeline: withDefaultTracks(timeline),
+    migrated: {
+      timelineV1Backup: project.timeline as never,
+      ...(transcript && !project.transcript ? { transcript } : {}),
+    },
   }
-}
-
-/** Appends an asset to the end of the matching track (video/image → Video, audio → Music & audio). */
-export function appendAsset(t: Timeline, asset: MediaAsset): Timeline {
-  const kind = asset.kind === 'audio' ? 'audio' : 'video'
-  const tracks = t.tracks.map((track) => {
-    if (track.kind !== kind) return track
-    const end = track.clips.reduce((m, c) => Math.max(m, c.start + c.duration), 0)
-    return { ...track, clips: [...track.clips, mediaClipFor(asset, end)] }
-  })
-  return { ...t, tracks }
 }
 
 /** Downloads a finished job's video (GET /api/jobs/:id/video) into OPFS as a media asset. */
@@ -93,22 +60,7 @@ export async function importJobVideo(
   )
 }
 
-/** Creates a project holding a finished job's video on the video track. */
-export async function createProjectFromJob(
-  jobId: string,
-  owner: string,
-  name: string,
-  aspect: AspectKey = '16:9',
-  onProgress?: ImportProgress,
-): Promise<Project> {
-  const asset = await importJobVideo(jobId, owner, name, onProgress)
-  const project = newProject(owner, name, aspect)
-  project.timeline = appendAsset(project.timeline, asset)
-  project.thumbnail = asset.thumbnails[0] ?? null
-  return projectsTable.put(project)
-}
-
-/** Adds a finished job's video to the end of an existing project. */
+/** Adds a finished job's video to the end of a video's timeline. */
 export async function addJobToProject(
   jobId: string,
   projectId: string,
@@ -116,15 +68,37 @@ export async function addJobToProject(
   name: string,
 ): Promise<Project> {
   const project = await projectsTable.get(projectId)
-  if (!project) throw new Error('That project no longer exists.')
+  if (!project) throw new Error('That video no longer exists.')
   const asset = await importJobVideo(jobId, owner, name)
-  const timeline = appendAsset(project.timeline, asset)
+  const { timeline, migrated } = timelineOf(project)
   return projectsTable.put({
     ...project,
-    timeline,
+    ...migrated,
+    timeline: appendAsset(timeline, asset, clipId()),
     thumbnail: project.thumbnail ?? asset.thumbnails[0] ?? null,
     updatedAt: Date.now(),
   })
 }
 
-export { timelineDuration }
+/**
+ * A new video whose main clip is the user's own file (plan P8, "Import a
+ * clip"): it opens in Finish like a finished render. Only video files.
+ */
+export async function videoFromClip(
+  owner: string,
+  file: File,
+  format: VideoFormat,
+  onProgress?: ImportProgress,
+): Promise<Project> {
+  const asset = await importFile(file, { owner, name: file.name }, onProgress)
+  if (asset.kind !== 'video') throw new Error('Choose a video file (MP4, MOV or WebM).')
+  const name = file.name.replace(/\.[^.]+$/, '').trim() || 'My clip'
+  const video = newVideo(owner, null, format, name)
+  const saved = await projectsTable.put({
+    ...video,
+    timeline: appendAsset(timelineOf(video).timeline, asset, clipId()),
+    thumbnail: asset.thumbnails[0] ?? null,
+  })
+  announceVideosChanged()
+  return saved
+}

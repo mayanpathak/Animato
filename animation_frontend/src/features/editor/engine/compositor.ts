@@ -1,10 +1,15 @@
-// Compositing backends, both running inside a worker on an OffscreenCanvas.
-// - "webgpu": the Rust `tooscut-compositor` crate (wgpu → WebGPU), text via glyphon.
-// - "canvas2d": a 2D-canvas compositor with the same interface, used when
-//   WebGPU (or the GPU compositor) is unavailable.
+// Compositing backends, both running inside a worker (plan 8.6, 8.7).
+// - "webgpu": animato-wasm's FrameRenderer. One WebGPU device: Vello draws
+//   the graphics under and over the video, the Rust compositor draws the
+//   video layers, and the frame is read back.
+// - "canvas2d": the 2D canvas draws the video layers and the same graphics
+//   display lists (GraphicsScene, no GPU), when WebGPU is unavailable.
 import { recordCall } from '@/wasm/stats'
-import { parseColor, type FramePlan, type MediaLayer, type TextLayer } from './compose'
-import { loadWasm } from './wasm'
+import { drawDisplayList } from '../graphics/draw2d'
+import { ensureFonts } from '../graphics/fonts'
+import type { FrameGraphics, GraphicsDoc, GraphicsTranscript } from '../graphics/schema'
+import type { FramePlan, MediaLayer } from './compose'
+import { loadWasm, type Wasm } from './wasm'
 
 export interface LayerSource {
   image: VideoFrame | ImageBitmap
@@ -17,8 +22,11 @@ export interface CompositorBackend {
   readonly label: string
   readonly width: number
   readonly height: number
-  readonly canvas: OffscreenCanvas
   resize(width: number, height: number): void
+  /** Lays out the graphics drawn with every frame (null: none). Loads their fonts first. */
+  setGraphics(doc: GraphicsDoc | null, transcript: GraphicsTranscript | null): Promise<void>
+  /** Registers an image (a brand logo) for graphics `image` items, by id. */
+  setImage(id: string, bitmap: ImageBitmap): Promise<void>
   /** Composites the plan and returns the picture for the visible canvas. */
   draw(plan: FramePlan, sources: Map<string, LayerSource>): Promise<ImageBitmap>
   /** Composites the plan and returns it as a VideoFrame (for export). */
@@ -28,92 +36,119 @@ export interface CompositorBackend {
     timestampUs: number,
     durationUs: number,
   ): Promise<VideoFrame>
+  /** True when the GPU device is gone and a new backend is needed. */
+  lost(): boolean
   dispose(): void
-}
-
-const FONT_FILES: { family: string; url: string; weight: string }[] = [
-  { family: 'Inter', url: '/fonts/Inter-Regular.otf', weight: '400' },
-  { family: 'Inter', url: '/fonts/Inter-Bold.otf', weight: '700' },
-  { family: 'DejaVu Serif', url: '/fonts/DejaVuSerif-Bold.ttf', weight: '700' },
-]
-
-/** The GPU text renderer ships Inter and DejaVu Serif; other names map onto them. */
-export function gpuFamily(font: string): string {
-  return /serif/i.test(font) && !/sans/i.test(font) ? 'DejaVu Serif' : 'Inter'
-}
-
-const fontBytes = new Map<string, Promise<ArrayBuffer>>()
-function fetchFont(url: string): Promise<ArrayBuffer> {
-  if (!fontBytes.has(url))
-    fontBytes.set(
-      url,
-      fetch(url).then((r) => r.arrayBuffer()),
-    )
-  return fontBytes.get(url) as Promise<ArrayBuffer>
 }
 
 function fit(src: LayerSource, w: number, h: number): number {
   return Math.min(w / Math.max(1, src.width), h / Math.max(1, src.height))
 }
 
-/** The text box in canvas percentages, sized to the text so backgrounds hug it. */
-function textBox(t: TextLayer, W: number, H: number) {
-  const px = (t.size * t.scale * H) / 1080
-  const lines = t.text.split('\n')
-  const longest = Math.max(...lines.map((l) => l.length))
-  const widthPct = Math.min(90, ((longest * px * 0.56 + px) / W) * 100)
-  const heightPct = Math.min(90, ((lines.length * px * 1.25 + px * 0.6) / H) * 100)
-  const cx = t.align === 'Left' ? 5 + widthPct / 2 : t.align === 'Right' ? 95 - widthPct / 2 : t.x * 100
-  const cy = t.y * 100 + (t.offsetY / 1080) * 100
-  return { x: cx - widthPct / 2, y: cy - heightPct / 2, width: widthPct, height: heightPct }
+/** `#rrggbb` → 0..1 floats. */
+function rgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? [...h].map((c) => c + c).join('') : h.slice(0, 6)
+  const v = (i: number) => (parseInt(full.slice(i, i + 2), 16) || 0) / 255
+  return [v(0), v(2), v(4)]
 }
 
 // ---------------------------------------------------------------------------
-// WebGPU (Rust)
+// WebGPU (Rust: compositor + Vello on one device)
 // ---------------------------------------------------------------------------
 
-type Wasm = Awaited<ReturnType<typeof loadWasm>>
-type RustCompositor = Awaited<ReturnType<Wasm['Compositor']['from_offscreen_canvas']>>
+type FrameRenderer = Awaited<ReturnType<Wasm['FrameRenderer']['create']>>
 
 class GpuCompositor implements CompositorBackend {
   readonly name = 'webgpu' as const
-  readonly label = 'Rust/WASM · WebGPU'
+  readonly label = 'Rust/WASM · WebGPU + Vello'
   private textures = new Set<string>()
-  private readonly c: RustCompositor
-  readonly canvas: OffscreenCanvas
+  private readonly r: FrameRenderer
+  private readonly wasm: Wasm
+  private w: number
+  private h: number
+  private isLost = false
+  /**
+   * Every call into the renderer, in order. `render` holds the Rust object
+   * across an await; a second call meanwhile would alias it, which
+   * wasm-bindgen rightly refuses.
+   */
+  private queue: Promise<unknown> = Promise.resolve()
 
-  constructor(c: RustCompositor, canvas: OffscreenCanvas) {
-    this.c = c
-    this.canvas = canvas
+  constructor(r: FrameRenderer, wasm: Wasm) {
+    this.r = r
+    this.wasm = wasm
+    this.w = r.width
+    this.h = r.height
+  }
+
+  private run<T>(fn: () => T | Promise<T>): Promise<T> {
+    const p = this.queue.then(fn)
+    this.queue = p.catch(() => undefined)
+    return p
   }
 
   get width() {
-    return this.canvas.width
+    return this.w
   }
   get height() {
-    return this.canvas.height
+    return this.h
   }
 
   resize(width: number, height: number) {
-    this.c.resize(width, height)
+    this.w = width
+    this.h = height
+    void this.run(() => this.r.resize(width, height))
+  }
+
+  async setGraphics(doc: GraphicsDoc | null, transcript: GraphicsTranscript | null) {
+    if (!doc) return this.run(() => this.r.clear_graphics())
+    await ensureFonts(this.wasm, doc, transcript)
+    await this.run(() => {
+      const t0 = performance.now()
+      this.r.set_graphics(JSON.stringify(doc), JSON.stringify(transcript))
+      recordCall({
+        category: 'graphics',
+        name: 'scene-build',
+        backend: 'Rust/WASM',
+        ms: performance.now() - t0,
+      })
+    })
+  }
+
+  async setImage(id: string, bitmap: ImageBitmap) {
+    const c = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(bitmap, 0, 0)
+    const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height)
+    await this.run(() => this.r.register_image(id, bitmap.width, bitmap.height, new Uint8Array(data.buffer)))
   }
 
   private async frame(plan: FramePlan, sources: Map<string, LayerSource>) {
-    const W = this.canvas.width
-    const H = this.canvas.height
+    const W = this.r.width
+    const H = this.r.height
     const used = new Set<string>()
     const media_layers = []
-    for (const l of plan.media) {
+    // Sources before their copies, so a copy finds its texture; z orders the drawing.
+    const ordered = [...plan.media].sort(
+      (a, b) => Number(Boolean(a.sourceKey)) - Number(Boolean(b.sourceKey)),
+    )
+    for (const l of ordered) {
       const src = sources.get(l.key)
       if (!src) continue
       // copyExternalImageToTexture takes ImageBitmaps; VideoFrames are converted.
-      const bitmap = src.image instanceof ImageBitmap ? src.image : await createImageBitmap(src.image)
-      this.c.upload_bitmap(bitmap, l.key)
-      if (bitmap !== src.image) bitmap.close()
-      used.add(l.key)
+      // A copy (the look's backdrop) samples its source's texture.
+      const texture = l.sourceKey && used.has(l.sourceKey) ? l.sourceKey : l.key
+      if (texture === l.key) {
+        const bitmap = src.image instanceof ImageBitmap ? src.image : await createImageBitmap(src.image)
+        this.r.upload_bitmap(bitmap, l.key)
+        if (bitmap !== src.image) bitmap.close()
+        used.add(l.key)
+      }
       const s = fit(src, W, H) * l.scale
       media_layers.push({
-        texture_id: l.key,
+        texture_id: texture,
         transform: {
           x: l.x * W,
           y: l.y * H,
@@ -129,39 +164,18 @@ class GpuCompositor implements CompositorBackend {
           contrast: l.contrast,
           saturation: l.saturation,
           hue_rotate: 0,
-          blur: 0,
+          blur: l.blur,
         },
         z_index: l.z,
         crop: l.crop,
       })
     }
-    for (const id of this.textures) if (!used.has(id)) this.c.clear_texture(id)
+    for (const id of this.textures) if (!used.has(id)) this.r.clear_texture(id)
     this.textures = used
-    const text_layers = plan.texts.map((t) => {
-      const bg = t.background ? parseColor(t.background) : null
-      return {
-        id: t.key,
-        text: t.text,
-        box: textBox(t, W, H),
-        style: {
-          font_family: gpuFamily(t.font),
-          font_size: t.size * t.scale,
-          font_weight: t.weight,
-          italic: false,
-          color: parseColor(t.color),
-          text_align: t.align,
-          vertical_align: 'Middle',
-          line_height: 1.2,
-          letter_spacing: 0,
-          ...(bg ? { background_color: bg, background_padding: 14, background_border_radius: 10 } : {}),
-        },
-        z_index: t.z,
-        opacity: t.opacity,
-      }
-    })
+    // Text is Vello's: the compositor's text layers stay empty.
     return {
       media_layers,
-      text_layers,
+      text_layers: [],
       shape_layers: [],
       line_layers: [],
       timeline_time: plan.time,
@@ -170,39 +184,44 @@ class GpuCompositor implements CompositorBackend {
     }
   }
 
-  // Frames are rendered to an internal texture and read back. Presenting to
-  // an OffscreenCanvas surface from a worker loses the device after the
-  // first frame (Chromium/wgpu 24), so the surface is never used.
+  private pixels(plan: FramePlan, sources: Map<string, LayerSource>, name: string) {
+    return this.run(async () => {
+      const t0 = performance.now()
+      const [r, g, b] = rgb(plan.background || '#000000')
+      const pixels = await this.r.render(plan.time, await this.frame(plan, sources), r, g, b)
+      this.isLost = this.r.is_lost()
+      recordCall({ category: 'composite', name, backend: this.label, ms: performance.now() - t0 })
+      return { pixels, width: this.r.width, height: this.r.height }
+    })
+  }
+
+  // Frames are rendered to a texture and read back: presenting to an
+  // OffscreenCanvas surface from a worker lost the device (DESIGN_NOTES).
   async draw(plan: FramePlan, sources: Map<string, LayerSource>) {
-    const t0 = performance.now()
-    const pixels = await this.c.render_to_pixels(await this.frame(plan, sources))
-    const bitmap = await createImageBitmap(
-      new ImageData(new Uint8ClampedArray(pixels), this.canvas.width, this.canvas.height),
-    )
-    recordCall({ category: 'composite', name: 'webgpu', backend: this.label, ms: performance.now() - t0 })
-    return bitmap
+    const { pixels, width, height } = await this.pixels(plan, sources, 'webgpu')
+    return createImageBitmap(new ImageData(new Uint8ClampedArray(pixels), width, height))
   }
 
   async capture(plan: FramePlan, sources: Map<string, LayerSource>, timestamp: number, duration: number) {
-    const t0 = performance.now()
-    const pixels = await this.c.render_to_pixels(await this.frame(plan, sources))
-    recordCall({
-      category: 'composite',
-      name: 'webgpu-readback',
-      backend: this.label,
-      ms: performance.now() - t0,
-    })
+    const { pixels, width, height } = await this.pixels(plan, sources, 'webgpu-readback')
     return new VideoFrame(pixels, {
       format: 'RGBA',
-      codedWidth: this.canvas.width,
-      codedHeight: this.canvas.height,
+      codedWidth: width,
+      codedHeight: height,
       timestamp,
       duration,
     })
   }
 
+  lost() {
+    return this.isLost
+  }
+
   dispose() {
-    this.c.clear_all_textures()
+    void this.run(() => {
+      this.r.clear_all_textures()
+      this.r.free()
+    })
   }
 }
 
@@ -215,12 +234,18 @@ class Canvas2DCompositor implements CompositorBackend {
   readonly label = 'Canvas2D fallback'
   readonly canvas: OffscreenCanvas
   private readonly ctx: OffscreenCanvasRenderingContext2D
+  private readonly wasm: Wasm
+  private readonly scene: InstanceType<Wasm['GraphicsScene']>
+  private readonly images = new Map<string, CanvasImageSource>()
+  private hasGraphics = false
 
-  constructor(canvas: OffscreenCanvas) {
+  constructor(canvas: OffscreenCanvas, wasm: Wasm) {
     this.canvas = canvas
     const ctx = canvas.getContext('2d', { alpha: false })
     if (!ctx) throw new Error('2D canvas unavailable')
     this.ctx = ctx
+    this.wasm = wasm
+    this.scene = new wasm.GraphicsScene()
   }
 
   get width() {
@@ -235,6 +260,24 @@ class Canvas2DCompositor implements CompositorBackend {
     this.canvas.height = height
   }
 
+  async setGraphics(doc: GraphicsDoc | null, transcript: GraphicsTranscript | null) {
+    this.hasGraphics = Boolean(doc?.items.length)
+    if (!doc) return this.scene.clear()
+    await ensureFonts(this.wasm, doc, transcript)
+    const t0 = performance.now()
+    this.scene.set(JSON.stringify(doc), JSON.stringify(transcript))
+    recordCall({
+      category: 'graphics',
+      name: 'scene-build',
+      backend: 'Rust/WASM',
+      ms: performance.now() - t0,
+    })
+  }
+
+  async setImage(id: string, bitmap: ImageBitmap) {
+    this.images.set(id, bitmap)
+  }
+
   private drawMedia(l: MediaLayer, src: LayerSource) {
     const { ctx } = this
     const W = this.canvas.width
@@ -244,7 +287,9 @@ class Canvas2DCompositor implements CompositorBackend {
     const ch = src.height * (1 - l.crop.top - l.crop.bottom)
     ctx.save()
     ctx.globalAlpha = Math.max(0, Math.min(1, l.opacity))
-    ctx.filter = `brightness(${l.brightness}) contrast(${l.contrast}) saturate(${l.saturation})`
+    // Blur is in source pixels; the canvas filter takes canvas pixels.
+    const blur = l.blur > 0 ? ` blur(${(l.blur * s).toFixed(1)}px)` : ''
+    ctx.filter = `brightness(${l.brightness}) contrast(${l.contrast}) saturate(${l.saturation})${blur}`
     ctx.translate(l.x * W, l.y * H)
     ctx.rotate((l.rotation * Math.PI) / 180)
     ctx.scale(s, s)
@@ -255,59 +300,23 @@ class Canvas2DCompositor implements CompositorBackend {
     ctx.restore()
   }
 
-  private drawText(t: TextLayer) {
-    const { ctx } = this
-    const W = this.canvas.width
-    const H = this.canvas.height
-    const px = (t.size * t.scale * H) / 1080
-    const family =
-      /serif/i.test(t.font) && !/sans/i.test(t.font) ? `'DejaVu Serif', serif` : `'Inter', sans-serif`
-    ctx.save()
-    ctx.globalAlpha = Math.max(0, Math.min(1, t.opacity))
-    ctx.font = `${t.weight} ${px}px ${family}`
-    ctx.textBaseline = 'middle'
-    const lines = t.text.split('\n')
-    const lineH = px * 1.2
-    const widths = lines.map((line) => ctx.measureText(line).width)
-    const maxW = Math.max(...widths)
-    const boxLeft = W * 0.05
-    const boxW = W * 0.9
-    const cy = t.y * H + (t.offsetY * H) / 1080
-    const top = cy - (lineH * lines.length) / 2
-    const left =
-      t.align === 'Left' ? boxLeft : t.align === 'Right' ? boxLeft + boxW - maxW : boxLeft + (boxW - maxW) / 2
-    if (t.background) {
-      const pad = (14 * H) / 1080
-      const [r, g, b, a] = parseColor(t.background)
-      ctx.fillStyle = `rgba(${r * 255},${g * 255},${b * 255},${a})`
-      ctx.beginPath()
-      ctx.roundRect(left - pad, top - pad, maxW + pad * 2, lineH * lines.length + pad * 2, (10 * H) / 1080)
-      ctx.fill()
-    }
-    const [r, g, b, a] = parseColor(t.color)
-    ctx.fillStyle = `rgba(${r * 255},${g * 255},${b * 255},${a})`
-    lines.forEach((line, i) => {
-      const x =
-        t.align === 'Left'
-          ? left
-          : t.align === 'Right'
-            ? left + maxW - widths[i]
-            : left + (maxW - widths[i]) / 2
-      ctx.fillText(line, x, top + lineH * (i + 0.5))
-    })
-    ctx.restore()
-  }
-
   private paint(plan: FramePlan, sources: Map<string, LayerSource>) {
     const t0 = performance.now()
     const { ctx } = this
+    let graphics: FrameGraphics | null = null
+    if (this.hasGraphics) {
+      const g0 = performance.now()
+      graphics = JSON.parse(this.scene.frame_at(plan.time)) as FrameGraphics
+      recordCall({ category: 'graphics', name: 'frame-at', backend: 'Rust/WASM', ms: performance.now() - g0 })
+    }
     ctx.fillStyle = plan.background || '#000000'
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+    if (graphics) drawDisplayList(ctx, graphics.under.cmds, this.images)
     for (const l of plan.media) {
       const src = sources.get(l.key)
       if (src) this.drawMedia(l, src)
     }
-    for (const t of plan.texts) this.drawText(t)
+    if (graphics) drawDisplayList(ctx, graphics.over.cmds, this.images)
     recordCall({ category: 'composite', name: 'canvas2d', backend: this.label, ms: performance.now() - t0 })
   }
 
@@ -321,48 +330,32 @@ class Canvas2DCompositor implements CompositorBackend {
     return new VideoFrame(this.canvas, { timestamp, duration, alpha: 'discard' })
   }
 
-  dispose() {}
-}
+  lost() {
+    return false
+  }
 
-async function loadCanvasFonts(): Promise<void> {
-  const fonts = (self as unknown as { fonts?: FontFaceSet }).fonts
-  if (!fonts) return
-  await Promise.all(
-    FONT_FILES.map(async (f) => {
-      const face = new FontFace(f.family, await fetchFont(f.url), { weight: f.weight })
-      await face.load()
-      fonts.add(face)
-    }),
-  )
+  dispose() {
+    this.scene.free()
+  }
 }
 
 /**
- * Creates the best available compositor on `canvas`: the Rust WebGPU
- * compositor when WebGPU works, otherwise Canvas2D. `force` picks one.
+ * The best available compositor at `width` x `height`: WebGPU (compositor +
+ * Vello) when it starts, otherwise Canvas2D. `force` picks one.
  */
 export async function createCompositor(
-  canvas: OffscreenCanvas,
+  width: number,
+  height: number,
   force?: 'webgpu' | 'canvas2d',
 ): Promise<CompositorBackend> {
+  const wasm = await loadWasm()
   if (force !== 'canvas2d' && 'gpu' in navigator) {
     try {
-      const adapter = await (
-        navigator as Navigator & { gpu: { requestAdapter(): Promise<unknown> } }
-      ).gpu.requestAdapter()
-      if (adapter) {
-        const wasm = await loadWasm()
-        const c = await wasm.Compositor.from_offscreen_canvas(canvas)
-        await Promise.all(
-          FONT_FILES.map(async (f) => {
-            c.load_font(f.family, new Uint8Array(await fetchFont(f.url)))
-          }),
-        )
-        return new GpuCompositor(c, canvas)
-      }
+      const r = await wasm.FrameRenderer.create(width, height)
+      return new GpuCompositor(r, wasm)
     } catch (e) {
       if (force === 'webgpu') throw e
     }
   }
-  await loadCanvasFonts().catch(() => undefined)
-  return new Canvas2DCompositor(canvas)
+  return new Canvas2DCompositor(new OffscreenCanvas(width, height), wasm)
 }

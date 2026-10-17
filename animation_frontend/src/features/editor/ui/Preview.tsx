@@ -3,7 +3,7 @@ import { Pause, Play, SkipBack, StepBack, StepForward } from 'lucide-react'
 import { IconButton } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { useEditor } from '../store'
-import { timelineDuration } from '../model/timeline'
+import { outputDuration } from '../model/timelineV2'
 import { previewSize, PreviewRenderer, type PreviewInfo } from '../engine/preview-client'
 import type { AudioPreview } from '../engine/audio-preview'
 
@@ -21,7 +21,11 @@ export function Preview({
   const renderer = useRef<PreviewRenderer | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  // The first frame can take a while: shaders compile on its first draw.
+  const [drawn, setDrawn] = useState(false)
   const timeline = useEditor((s) => s.timeline)
+  const transcript = useEditor((s) => s.transcript)
+  const brand = useEditor((s) => s.brand)
   const assets = useEditor((s) => s.assets)
   const playhead = useEditor((s) => s.playhead)
   const playing = useEditor((s) => s.playing)
@@ -50,6 +54,10 @@ export function Preview({
       .then(({ renderer: r, info }) => {
         if (disposed) return r.dispose()
         renderer.current = r
+        r.onFrame = () => {
+          r.onFrame = null
+          setDrawn(true)
+        }
         onInfo(info)
         setReady(true)
       })
@@ -67,9 +75,9 @@ export function Preview({
   useEffect(() => {
     if (!ready || !timeline || !renderer.current) return
     void renderer.current
-      .setProject(timeline, [...assets.values()])
+      .setProject(timeline, [...assets.values()], transcript, brand)
       .then(() => renderer.current?.render(useEditor.getState().playhead))
-  }, [ready, timeline, assets])
+  }, [ready, timeline, assets, transcript, brand])
 
   useEffect(() => {
     if (ready && !playing) renderer.current?.render(playhead)
@@ -78,7 +86,7 @@ export function Preview({
   // Playback: the audio clock drives the playhead; the worker renders the latest time.
   useEffect(() => {
     if (!playing || !timeline) return
-    const end = timelineDuration(timeline)
+    const end = outputDuration(timeline)
     let raf = 0
     const tick = () => {
       const t = audio.now()
@@ -96,7 +104,7 @@ export function Preview({
     return () => cancelAnimationFrame(raf)
   }, [playing, timeline, audio, setPlaying, setPlayhead])
 
-  const duration = timeline ? timelineDuration(timeline) : 0
+  const duration = timeline ? outputDuration(timeline) : 0
   const tc = (t: number) => (engine ? engine.secondsToTimecode(t, fps) : '00:00:00:00')
 
   return (
@@ -106,10 +114,17 @@ export function Preview({
           className="relative max-h-full max-w-full shadow-lg"
           style={{ aspectRatio: `${size.width} / ${size.height}`, height: '100%' }}
         >
-          <div ref={hostRef} className="h-full w-full" />
-          {!ready && !error ? (
-            <div className="absolute inset-0 grid place-items-center text-fg-subtle">
-              <Spinner className="size-5" label="Starting the compositor" />
+          <div ref={hostRef} className="h-full w-full" data-testid="preview" />
+          {!drawn && !error ? (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-fg-subtle"
+              data-testid="preview-pending"
+            >
+              <Spinner
+                className="size-5"
+                label={ready ? 'Preparing the preview' : 'Starting the compositor'}
+              />
+              <span className="text-2xs">{ready ? 'Preparing the preview' : 'Starting the compositor'}</span>
             </div>
           ) : null}
           {error ? (

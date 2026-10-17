@@ -20,21 +20,21 @@ import type {
   ShapeLayerData,
   LineLayerData,
   ColorGrading,
-} from "./types.js";
+} from './types.js'
 
-import { KeyframeEvaluator } from "./keyframe-evaluator.js";
-import { DEFAULT_TRANSFORM, DEFAULT_EFFECTS } from "./types.js";
+import { KeyframeEvaluator } from './keyframe-evaluator.js'
+import { DEFAULT_TRANSFORM, DEFAULT_EFFECTS } from './types.js'
 
 /**
  * Minimal clip interface for visibility checks.
  * All time values are in integer frame counts relative to the project frame rate.
  */
 export interface ClipBounds {
-  id: string;
+  id: string
   /** Start position on the timeline in frames */
-  startTime: number;
+  startTime: number
   /** Duration on the timeline in frames */
-  duration: number;
+  duration: number
 }
 
 /**
@@ -42,22 +42,22 @@ export interface ClipBounds {
  * All time values are in integer frame counts relative to the project frame rate.
  */
 export interface CrossTransitionRef {
-  id: string;
-  outgoingClipId: string;
-  incomingClipId: string;
+  id: string
+  outgoingClipId: string
+  incomingClipId: string
   /** Transition duration in frames */
-  duration: number;
-  type: CrossTransitionType;
+  duration: number
+  type: CrossTransitionType
   /** Original cut point on the timeline in frames. The transition region is [boundary - duration/2, boundary + duration/2]. */
-  boundary: number;
-  easing: Easing;
+  boundary: number
+  easing: Easing
 }
 
 /**
  * Check if a clip is visible at a given time.
  */
 export function isClipVisible(clip: ClipBounds, time: number): boolean {
-  return time >= clip.startTime && time < clip.startTime + clip.duration;
+  return time >= clip.startTime && time < clip.startTime + clip.duration
 }
 
 /**
@@ -68,21 +68,21 @@ export function isClipVisible(clip: ClipBounds, time: number): boolean {
  * or clips.length if no such clip exists.
  */
 function findFirstPotentiallyVisible<T extends ClipBounds>(clips: T[], time: number): number {
-  let low = 0;
-  let high = clips.length;
+  let low = 0
+  let high = clips.length
 
   while (low < high) {
-    const mid = (low + high) >>> 1;
-    const clip = clips[mid];
+    const mid = (low + high) >>> 1
+    const clip = clips[mid]
     // A clip is potentially visible if it hasn't ended yet
     if (clip.startTime + clip.duration <= time) {
-      low = mid + 1;
+      low = mid + 1
     } else {
-      high = mid;
+      high = mid
     }
   }
 
-  return low;
+  return low
 }
 
 /**
@@ -94,27 +94,27 @@ function findFirstPotentiallyVisible<T extends ClipBounds>(clips: T[], time: num
  * For long timelines with few visible clips, this is much faster than O(n) filtering.
  */
 export function getVisibleClips<T extends ClipBounds>(clips: T[], time: number): T[] {
-  if (clips.length === 0) return [];
+  if (clips.length === 0) return []
 
-  const result: T[] = [];
-  const startIdx = findFirstPotentiallyVisible(clips, time);
+  const result: T[] = []
+  const startIdx = findFirstPotentiallyVisible(clips, time)
 
   // Scan forward from the first potentially visible clip
   for (let i = startIdx; i < clips.length; i++) {
-    const clip = clips[i];
+    const clip = clips[i]
 
     // If this clip starts after our time, no more clips can be visible
     if (clip.startTime > time) {
-      break;
+      break
     }
 
     // Check if clip is actually visible
     if (isClipVisible(clip, time)) {
-      result.push(clip);
+      result.push(clip)
     }
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -135,50 +135,50 @@ export function getVisibleClipsWithTransitions<T extends ClipBounds>(
   crossTransitions: CrossTransitionRef[],
   time: number,
 ): T[] {
-  const visibleClips = getVisibleClips(clips, time);
-  const visibleIds = new Set(visibleClips.map((c) => c.id));
+  const visibleClips = getVisibleClips(clips, time)
+  const visibleIds = new Set(visibleClips.map((c) => c.id))
 
   // Find cross transitions that are active at this time
   // A cross transition is active when we're in the overlap region
-  const additionalClipIds = new Set<string>();
+  const additionalClipIds = new Set<string>()
 
   for (const ct of crossTransitions) {
     // Check if either participant is visible
-    const outgoingVisible = visibleIds.has(ct.outgoingClipId);
-    const incomingVisible = visibleIds.has(ct.incomingClipId);
+    const outgoingVisible = visibleIds.has(ct.outgoingClipId)
+    const incomingVisible = visibleIds.has(ct.incomingClipId)
 
     if (outgoingVisible && !incomingVisible) {
       // Outgoing is visible, need to include incoming for the transition
-      additionalClipIds.add(ct.incomingClipId);
+      additionalClipIds.add(ct.incomingClipId)
     } else if (incomingVisible && !outgoingVisible) {
       // Incoming is visible, need to include outgoing for the transition
-      additionalClipIds.add(ct.outgoingClipId);
+      additionalClipIds.add(ct.outgoingClipId)
     }
   }
 
   // If no additional clips needed, return early
   if (additionalClipIds.size === 0) {
-    return visibleClips;
+    return visibleClips
   }
 
   // Build a map for quick lookup of additional clips
-  const clipMap = new Map<string, T>();
+  const clipMap = new Map<string, T>()
   for (const clip of clips) {
     if (additionalClipIds.has(clip.id)) {
-      clipMap.set(clip.id, clip);
+      clipMap.set(clip.id, clip)
     }
   }
 
   // Combine visible clips with additional transition clips
-  const result = [...visibleClips];
+  const result = [...visibleClips]
   for (const id of additionalClipIds) {
-    const clip = clipMap.get(id);
+    const clip = clipMap.get(id)
     if (clip) {
-      result.push(clip);
+      result.push(clip)
     }
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -188,10 +188,10 @@ export function getVisibleClipsWithTransitions<T extends ClipBounds>(
  * Example: Track 3 renders over Track 2, which renders over Track 1.
  */
 export interface Track {
-  id: string;
+  id: string
   /** Track index determines z-order (higher = on top) */
-  index: number;
-  type: "video" | "audio";
+  index: number
+  type: 'video' | 'audio'
 }
 
 /**
@@ -202,20 +202,20 @@ export interface Track {
  * the overlap period of a cross transition.
  */
 export interface TimelineClip {
-  id: string;
-  assetId: string;
-  trackId: string;
-  startTime: number;
-  duration: number;
-  inPoint: number;
-  transform?: Partial<Transform>;
-  effects?: Partial<Effects>;
-  crop?: Crop;
-  keyframes?: KeyframeTracks;
-  transitionIn?: ActiveTransition;
-  transitionOut?: ActiveTransition;
-  crossTransition?: ActiveCrossTransition;
-  colorGrading?: ColorGrading;
+  id: string
+  assetId: string
+  trackId: string
+  startTime: number
+  duration: number
+  inPoint: number
+  transform?: Partial<Transform>
+  effects?: Partial<Effects>
+  crop?: Crop
+  keyframes?: KeyframeTracks
+  transitionIn?: ActiveTransition
+  transitionOut?: ActiveTransition
+  crossTransition?: ActiveCrossTransition
+  colorGrading?: ColorGrading
 }
 
 /**
@@ -225,41 +225,41 @@ export interface TimelineClip {
  * Call clearAllCaches() after seeking.
  */
 export class EvaluatorManager {
-  private evaluators = new Map<string, KeyframeEvaluator>();
+  private evaluators = new Map<string, KeyframeEvaluator>()
   /** Track the keyframes reference to detect changes */
-  private keyframesRefs = new Map<string, KeyframeTracks>();
+  private keyframesRefs = new Map<string, KeyframeTracks>()
 
   /**
    * Get or create an evaluator for a clip.
    * Recreates the evaluator if keyframes have changed.
    */
-  getEvaluator(clip: Pick<TimelineClip, "keyframes" | "id">): KeyframeEvaluator | null {
+  getEvaluator(clip: Pick<TimelineClip, 'keyframes' | 'id'>): KeyframeEvaluator | null {
     if (!clip.keyframes || clip.keyframes.tracks.length === 0) {
       // No keyframes - remove any cached evaluator
-      this.evaluators.delete(clip.id);
-      this.keyframesRefs.delete(clip.id);
-      return null;
+      this.evaluators.delete(clip.id)
+      this.keyframesRefs.delete(clip.id)
+      return null
     }
 
-    const cachedRef = this.keyframesRefs.get(clip.id);
-    let evaluator = this.evaluators.get(clip.id);
+    const cachedRef = this.keyframesRefs.get(clip.id)
+    let evaluator = this.evaluators.get(clip.id)
 
     // Recreate evaluator if keyframes reference changed (immutable update)
     if (!evaluator || cachedRef !== clip.keyframes) {
-      evaluator = new KeyframeEvaluator(clip.keyframes);
-      this.evaluators.set(clip.id, evaluator);
-      this.keyframesRefs.set(clip.id, clip.keyframes);
+      evaluator = new KeyframeEvaluator(clip.keyframes)
+      this.evaluators.set(clip.id, evaluator)
+      this.keyframesRefs.set(clip.id, clip.keyframes)
     }
 
-    return evaluator;
+    return evaluator
   }
 
   /**
    * Remove an evaluator when a clip is deleted.
    */
   removeEvaluator(clipId: string): void {
-    this.evaluators.delete(clipId);
-    this.keyframesRefs.delete(clipId);
+    this.evaluators.delete(clipId)
+    this.keyframesRefs.delete(clipId)
   }
 
   /**
@@ -267,7 +267,7 @@ export class EvaluatorManager {
    */
   clearAllCaches(): void {
     for (const evaluator of this.evaluators.values()) {
-      evaluator.clearCache();
+      evaluator.clearCache()
     }
   }
 
@@ -275,8 +275,8 @@ export class EvaluatorManager {
    * Clear all evaluators.
    */
   clear(): void {
-    this.evaluators.clear();
-    this.keyframesRefs.clear();
+    this.evaluators.clear()
+    this.keyframesRefs.clear()
   }
 }
 
@@ -302,35 +302,35 @@ export function buildMediaLayerData(
   // rendered outside their normal time bounds during the transition period.
   if (!clip.crossTransition) {
     if (timelineTime < clip.startTime || timelineTime >= clip.startTime + clip.duration) {
-      return null;
+      return null
     }
   }
 
   // Local time within the clip (for keyframe evaluation — inPoint is only for source media extraction)
-  const localTime = timelineTime - clip.startTime;
+  const localTime = timelineTime - clip.startTime
 
   // Build transform/effects with Object.assign to avoid multiple spread allocations.
   // Single Object.assign call merges DEFAULT → clip overrides → keyframe overrides
   // into one freshly allocated object (2 objects total vs 4 with chained spreads).
-  const evaluator = evaluatorManager.getEvaluator(clip);
-  let transform: Transform;
-  let effects: Effects;
+  const evaluator = evaluatorManager.getEvaluator(clip)
+  let transform: Transform
+  let effects: Effects
   if (evaluator) {
     transform = Object.assign(
       {} as Transform,
       DEFAULT_TRANSFORM,
       clip.transform,
       evaluator.evaluateTransform(localTime),
-    );
+    )
     effects = Object.assign(
       {} as Effects,
       DEFAULT_EFFECTS,
       clip.effects,
       evaluator.evaluateEffects(localTime),
-    );
+    )
   } else {
-    transform = Object.assign({} as Transform, DEFAULT_TRANSFORM, clip.transform);
-    effects = Object.assign({} as Effects, DEFAULT_EFFECTS, clip.effects);
+    transform = Object.assign({} as Transform, DEFAULT_TRANSFORM, clip.transform)
+    effects = Object.assign({} as Effects, DEFAULT_EFFECTS, clip.effects)
   }
 
   return {
@@ -343,7 +343,7 @@ export function buildMediaLayerData(
     transition_out: clip.transitionOut,
     cross_transition: clip.crossTransition,
     color_grading: clip.colorGrading,
-  };
+  }
 }
 
 /**
@@ -356,7 +356,7 @@ export function buildMediaLayerDataSync(
   timelineTime: number,
   evaluatorManager: EvaluatorManager,
 ): MediaLayerData | null {
-  return buildMediaLayerData(clip, trackIndex, timelineTime, evaluatorManager);
+  return buildMediaLayerData(clip, trackIndex, timelineTime, evaluatorManager)
 }
 
 /**
@@ -364,25 +364,25 @@ export function buildMediaLayerDataSync(
  */
 export interface BuildRenderFrameOptions {
   /** Media clips (video/image) */
-  mediaClips: TimelineClip[];
+  mediaClips: TimelineClip[]
   /** Text clips */
-  textLayers?: TextLayerData[];
+  textLayers?: TextLayerData[]
   /** Shape layers (pre-built) */
-  shapeLayers?: ShapeLayerData[];
+  shapeLayers?: ShapeLayerData[]
   /** Line layers (pre-built) */
-  lineLayers?: LineLayerData[];
+  lineLayers?: LineLayerData[]
   /** All tracks for z-order lookup */
-  tracks: Track[];
+  tracks: Track[]
   /** Pre-built track index map (avoids rebuilding when caller already has one) */
-  trackIndexMap?: Map<string, number>;
+  trackIndexMap?: Map<string, number>
   /** Current timeline time */
-  timelineTime: number;
+  timelineTime: number
   /** Canvas width */
-  width: number;
+  width: number
   /** Canvas height */
-  height: number;
+  height: number
   /** Keyframe evaluator manager */
-  evaluatorManager: EvaluatorManager;
+  evaluatorManager: EvaluatorManager
 }
 
 /**
@@ -400,7 +400,7 @@ export interface BuildRenderFrameOptions {
  *
  * Pure synchronous operation - no async needed.
  */
-export function buildRenderFrame(options: BuildRenderFrameOptions): RenderFrame;
+export function buildRenderFrame(options: BuildRenderFrameOptions): RenderFrame
 /**
  * @deprecated Use the options object overload instead.
  */
@@ -411,7 +411,7 @@ export function buildRenderFrame(
   width: number,
   height: number,
   evaluatorManager: EvaluatorManager,
-): RenderFrame;
+): RenderFrame
 export function buildRenderFrame(
   optionsOrClips: BuildRenderFrameOptions | TimelineClip[],
   tracks?: Track[],
@@ -421,7 +421,7 @@ export function buildRenderFrame(
   evaluatorManager?: EvaluatorManager,
 ): RenderFrame {
   // Handle both overloads
-  let options: BuildRenderFrameOptions;
+  let options: BuildRenderFrameOptions
   if (Array.isArray(optionsOrClips)) {
     // Legacy overload
     options = {
@@ -431,42 +431,37 @@ export function buildRenderFrame(
       width: width!,
       height: height!,
       evaluatorManager: evaluatorManager!,
-    };
+    }
   } else {
-    options = optionsOrClips;
+    options = optionsOrClips
   }
 
   // Reuse caller's map or build one
-  let trackIndexMap = options.trackIndexMap;
+  let trackIndexMap = options.trackIndexMap
   if (!trackIndexMap) {
-    trackIndexMap = new Map<string, number>();
+    trackIndexMap = new Map<string, number>()
     for (const track of options.tracks) {
-      trackIndexMap.set(track.id, track.index);
+      trackIndexMap.set(track.id, track.index)
     }
   }
 
-  const mediaLayers: MediaLayerData[] = [];
+  const mediaLayers: MediaLayerData[] = []
 
   for (const clip of options.mediaClips) {
-    const trackIndex = trackIndexMap.get(clip.trackId) ?? 0;
-    const layer = buildMediaLayerData(
-      clip,
-      trackIndex,
-      options.timelineTime,
-      options.evaluatorManager,
-    );
+    const trackIndex = trackIndexMap.get(clip.trackId) ?? 0
+    const layer = buildMediaLayerData(clip, trackIndex, options.timelineTime, options.evaluatorManager)
     if (layer) {
-      mediaLayers.push(layer);
+      mediaLayers.push(layer)
     }
   }
 
   // Sort media layers by z-index (track index)
-  mediaLayers.sort((a, b) => a.z_index - b.z_index);
+  mediaLayers.sort((a, b) => a.z_index - b.z_index)
 
   // Text, shape, and line layers are pre-sorted by caller
-  const textLayers = options.textLayers ?? [];
-  const shapeLayers = options.shapeLayers ?? [];
-  const lineLayers = options.lineLayers ?? [];
+  const textLayers = options.textLayers ?? []
+  const shapeLayers = options.shapeLayers ?? []
+  const lineLayers = options.lineLayers ?? []
 
   return {
     media_layers: mediaLayers,
@@ -476,7 +471,7 @@ export function buildRenderFrame(
     timeline_time: options.timelineTime,
     width: options.width,
     height: options.height,
-  };
+  }
 }
 
 /**
@@ -491,5 +486,5 @@ export function buildRenderFrameSync(
   height: number,
   evaluatorManager: EvaluatorManager,
 ): RenderFrame {
-  return buildRenderFrame(clips, tracks, timelineTime, width, height, evaluatorManager);
+  return buildRenderFrame(clips, tracks, timelineTime, width, height, evaluatorManager)
 }

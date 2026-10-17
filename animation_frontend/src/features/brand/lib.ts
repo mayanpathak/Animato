@@ -10,8 +10,8 @@ export interface FontOption {
   label: string
   /** CSS font-family used for previews in the app. */
   css: string
-  /** Shipped with the editor's GPU text renderer. */
-  editor: boolean
+  /** The font the video draws for this choice (the same file, or its stand-in). */
+  video: string
 }
 
 export const FONTS: FontOption[] = [
@@ -19,31 +19,31 @@ export const FONTS: FontOption[] = [
     value: 'Inter',
     label: 'Inter',
     css: "'Inter Variable', ui-sans-serif, system-ui, sans-serif",
-    editor: true,
+    video: 'Inter',
   },
   {
     value: 'Geist',
     label: 'Geist',
     css: "'Geist Variable', 'Inter Variable', ui-sans-serif, sans-serif",
-    editor: false,
+    video: 'Geist',
   },
   {
     value: 'JetBrains Mono',
     label: 'JetBrains Mono',
     css: "'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace",
-    editor: false,
+    video: 'JetBrains Mono',
   },
   {
     value: 'DejaVu Serif',
     label: 'DejaVu Serif',
     css: "'DejaVu Serif', 'Bitstream Vera Serif', Georgia, serif",
-    editor: true,
+    video: 'DejaVu Serif',
   },
   {
     value: 'serif',
     label: 'System serif',
     css: "ui-serif, Georgia, 'Times New Roman', serif",
-    editor: false,
+    video: 'DejaVu Serif',
   },
 ]
 
@@ -65,7 +65,7 @@ export function normalizeHex(input: string): string | null {
   return `#${h.length === 3 ? [...h].map((c) => c + c).join('') : h}`
 }
 
-export const DEFAULT_COLORS = ['#8b5cf6', '#22d3ee', '#e879f9']
+export const DEFAULT_COLORS = ['#2f7bf6', '#f5f5f7', '#111113']
 
 export function defaultKit(owner: string, name: string): BrandKit {
   return {

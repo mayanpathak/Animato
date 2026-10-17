@@ -4,7 +4,7 @@ import workletUrl from './audio.worklet.ts?worker&url'
 import wasmUrl from '@/wasm/pkg/animato_wasm_bg.wasm?url'
 import type { MediaAsset } from '@/lib/local/models'
 import { recordCall } from '@/wasm/stats'
-import type { Timeline } from '../model/timeline'
+import type { TimelineV2 } from '../model/timelineV2'
 import { readPcm } from '../media/client'
 import { audioAssetIds, buildAudioTimeline } from './compose'
 
@@ -33,6 +33,14 @@ export class AudioPreview {
           if (e.data?.type === 'ready') {
             clearTimeout(timer)
             resolve()
+          } else if (e.data?.type === 'messageerror') {
+            void fetch(wasmUrl)
+              .then((r) => r.arrayBuffer())
+              .then((bytes) => node.port.postMessage({ type: 'init-bytes', bytes }, [bytes]))
+              .catch(reject)
+          } else if (e.data?.type === 'error') {
+            clearTimeout(timer)
+            reject(new Error(`Audio engine failed to start: ${String(e.data.message)}`))
           }
         }
         node.port.postMessage({ type: 'init', module })
@@ -53,7 +61,7 @@ export class AudioPreview {
   }
 
   /** Sends PCM for new sources and the current mix to the worklet. */
-  async sync(tl: Timeline, assets: Map<string, MediaAsset>): Promise<void> {
+  async sync(tl: TimelineV2, assets: Map<string, MediaAsset>): Promise<void> {
     if (!this.node) return
     for (const id of audioAssetIds(tl, assets)) {
       if (this.uploaded.has(id)) continue
@@ -68,7 +76,7 @@ export class AudioPreview {
     }
   }
 
-  async play(at: number, tl: Timeline, assets: Map<string, MediaAsset>): Promise<void> {
+  async play(at: number, tl: TimelineV2, assets: Map<string, MediaAsset>): Promise<void> {
     try {
       await this.ensure()
       await this.ctx?.resume()

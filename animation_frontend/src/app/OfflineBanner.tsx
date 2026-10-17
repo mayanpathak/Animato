@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { WifiOff } from 'lucide-react'
+import { duration, ease } from '@/lib/motion'
 
 function subscribe(cb: () => void) {
   window.addEventListener('online', cb)
@@ -19,18 +20,26 @@ export function OfflineBanner() {
   )
   return (
     <AnimatePresence>
-      {!online ? (
-        <motion.div
-          role="status"
-          initial={{ y: -40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -40, opacity: 0 }}
-          className="fixed inset-x-0 top-0 z-[var(--z-toast)] flex items-center justify-center gap-2 bg-status-warning/15 py-1.5 text-xs font-medium text-status-warning backdrop-blur-md"
-        >
-          <WifiOff className="size-3.5" /> You are offline. Editing and export keep working; generating needs
-          a connection.
-        </motion.div>
-      ) : null}
+      {!online ? <SystemBanner icon={<WifiOff />}>{OFFLINE_TEXT}</SystemBanner> : null}
     </AnimatePresence>
+  )
+}
+
+export const OFFLINE_TEXT = "You're offline. Editing keeps working; new renders need a connection."
+
+/** A quiet, non-blocking line under the top of the window (plan 6.11). */
+export function SystemBanner({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <motion.div
+      role="status"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: duration.base, ease: ease.outExpo }}
+      className="fixed top-3 left-1/2 z-[var(--z-toast)] flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-surface-3 px-4 py-1.5 text-xs text-fg-muted shadow-md [&_svg]:size-3.5 [&_svg]:text-status-warning"
+    >
+      {icon}
+      {children}
+    </motion.div>
   )
 }

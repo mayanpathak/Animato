@@ -1,17 +1,27 @@
 import { useState, type ReactNode } from 'react'
-import { AudioLines, Gauge, MousePointerClick, Palette, Scissors, Type, Volume2 } from 'lucide-react'
+import {
+  AudioLines,
+  ChevronDown,
+  Gauge,
+  MousePointerClick,
+  Palette,
+  Scissors,
+  Type,
+  Volume2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Label, Select, Textarea } from '@/components/ui/field'
 import { Slider, Switch } from '@/components/ui/misc'
 import { toast } from '@/stores/toast'
 import { cn } from '@/lib/cn'
 import { useShallow } from 'zustand/react/shallow'
-import { selectedClip, useEditor } from '../store'
-import type { CaptionClip, MediaClip, TextAnimation, TextClip, Timeline } from '../model/timeline'
+import { selectedItem, useEditor } from '../store'
+import { BUILTIN_FONTS } from '../graphics/fonts'
+import type { CaptionsItem, MediaClipV2, TitleItem, TitleMotion, TrackRole } from '../model/timelineV2'
 import { measureLoudness } from '../media/client'
+import { normalizeGain, TARGET_DB } from '../engine/voice'
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
-const TARGET_DB = -16
 
 function Section({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
@@ -40,13 +50,27 @@ const pct = (v: number) => `${Math.round(v * 100)}%`
 const secs = (v: number) => `${v.toFixed(1)}s`
 const db = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(0)} dB`
 
-function MediaInspector({ clip, trackKind }: { clip: MediaClip; trackKind: string }) {
+function MediaInspector({
+  clip,
+  role,
+  visual,
+  fps,
+}: {
+  clip: MediaClipV2
+  role: TrackRole
+  visual: boolean
+  fps: number
+}) {
   const s = useEditor.getState()
   const asset = useEditor((st) => st.assets.get(clip.assetId))
   const [measuring, setMeasuring] = useState(false)
-  const up = (patch: Partial<MediaClip>, key: string) =>
-    s.updateClip<MediaClip>(clip.id, patch, `${key}-${clip.id}`)
-  const visual = trackKind === 'video'
+  const [moreAudio, setMoreAudio] = useState(false)
+  const up = (patch: Partial<MediaClipV2>, key: string) => s.updateClip(clip.id, patch, `${key}-${clip.id}`)
+  // Clip times are frames (Timeline v2); the controls speak seconds.
+  const sec = (f: number) => f / fps
+  const frames = (v: number) => Math.round(v * fps)
+  const duration = sec(clip.duration)
+  const inPoint = sec(clip.inPoint)
   const audible = asset?.hasAudio
 
   return (
@@ -78,27 +102,27 @@ function MediaInspector({ clip, trackKind }: { clip: MediaClip; trackKind: strin
           <Slider
             label="Fade in"
             min={0}
-            max={Math.min(5, clip.duration / 2)}
+            max={Math.min(5, duration / 2)}
             step={0.05}
-            value={clip.fadeIn}
+            value={sec(clip.fadeIn)}
             format={secs}
-            onChange={(v) => up({ fadeIn: v }, 'fadein')}
+            onChange={(v) => up({ fadeIn: frames(v) }, 'fadein')}
           />
         </Row>
         <Row label="Fade out">
           <Slider
             label="Fade out"
             min={0}
-            max={Math.min(5, clip.duration / 2)}
+            max={Math.min(5, duration / 2)}
             step={0.05}
-            value={clip.fadeOut}
+            value={sec(clip.fadeOut)}
             format={secs}
-            onChange={(v) => up({ fadeOut: v }, 'fadeout')}
+            onChange={(v) => up({ fadeOut: frames(v) }, 'fadeout')}
           />
         </Row>
-        <p className="font-mono text-2xs text-fg-faint">
-          Source {clip.offset.toFixed(2)}s → {(clip.offset + clip.duration * clip.speed).toFixed(2)}s · on
-          timeline {clip.duration.toFixed(2)}s
+        <p className="font-mono text-2xs text-fg-subtle">
+          Source {inPoint.toFixed(2)}s → {(inPoint + duration * clip.speed).toFixed(2)}s · on timeline{' '}
+          {duration.toFixed(2)}s
         </p>
       </Section>
       {visual ? (
@@ -206,9 +230,7 @@ function MediaInspector({ clip, trackKind }: { clip: MediaClip; trackKind: strin
             <Button
               variant="ghost"
               size="xs"
-              onClick={() =>
-                s.updateClip<MediaClip>(clip.id, { color: { brightness: 1, contrast: 1, saturation: 1 } })
-              }
+              onClick={() => s.updateClip(clip.id, { color: { brightness: 1, contrast: 1, saturation: 1 } })}
             >
               Reset color
             </Button>
@@ -244,11 +266,9 @@ function MediaInspector({ clip, trackKind }: { clip: MediaClip; trackKind: strin
               onClick={async () => {
                 setMeasuring(true)
                 try {
-                  const level = await measureLoudness(clip.assetId, clip.offset, clip.duration * clip.speed)
-                  const gain = Math.min(8, Math.max(0.1, 10 ** ((TARGET_DB - level) / 20)))
-                  s.updateClip<MediaClip>(clip.id, {
-                    audio: { ...clip.audio, normalizeGain: Math.round(gain * 1000) / 1000 },
-                  })
+                  const level = await measureLoudness(clip.assetId, inPoint, duration * clip.speed)
+                  const gain = normalizeGain(level)
+                  s.updateClip(clip.id, { audio: { ...clip.audio, normalizeGain: gain } })
                   toast.success(
                     'Loudness normalized',
                     `Measured ${level.toFixed(1)} dB, applied ${db(20 * Math.log10(gain))}.`,
@@ -271,10 +291,10 @@ function MediaInspector({ clip, trackKind }: { clip: MediaClip; trackKind: strin
               id={`gate-${clip.id}`}
               label="Noise gate"
               checked={clip.audio.gate}
-              onChange={(v) => s.updateClip<MediaClip>(clip.id, { audio: { ...clip.audio, gate: v } })}
+              onChange={(v) => s.updateClip(clip.id, { audio: { ...clip.audio, gate: v } })}
             />
           </div>
-          {trackKind !== 'voice' ? (
+          {role !== 'voice' ? (
             <div className="flex items-center justify-between">
               <Label htmlFor={`duck-${clip.id}`} className="mb-0 text-sm text-fg">
                 Duck under voice
@@ -283,51 +303,65 @@ function MediaInspector({ clip, trackKind }: { clip: MediaClip; trackKind: strin
                 id={`duck-${clip.id}`}
                 label="Duck under voice"
                 checked={clip.audio.duck}
-                onChange={(v) => s.updateClip<MediaClip>(clip.id, { audio: { ...clip.audio, duck: v } })}
+                onChange={(v) => s.updateClip(clip.id, { audio: { ...clip.audio, duck: v } })}
               />
             </div>
           ) : null}
-          <div className="grid grid-cols-3 gap-2">
-            {(['low', 'mid', 'high'] as const).map((band) => (
-              <div key={band}>
-                <Label className="mb-1 capitalize">{band}</Label>
-                <input
-                  type="range"
-                  aria-label={`EQ ${band}`}
-                  min={-12}
-                  max={12}
-                  step={1}
-                  value={clip.audio.eq[band]}
-                  onChange={(e) =>
-                    up(
-                      { audio: { ...clip.audio, eq: { ...clip.audio.eq, [band]: Number(e.target.value) } } },
-                      `eq-${band}`,
-                    )
-                  }
-                  className="w-full accent-accent"
-                />
-                <span className="font-mono text-2xs text-fg-subtle">{db(clip.audio.eq[band])}</span>
-              </div>
-            ))}
-          </div>
+          {/* EQ is rarely needed: under "More" (plan 9.1). */}
+          <button
+            type="button"
+            onClick={() => setMoreAudio((m) => !m)}
+            aria-expanded={moreAudio}
+            className="flex w-full items-center gap-2 text-sm text-fg-subtle hover:text-fg"
+            data-testid="audio-more"
+          >
+            More
+            <ChevronDown className={cn('ml-auto size-4 transition-transform', moreAudio && 'rotate-180')} />
+          </button>
+          {moreAudio ? (
+            <div className="grid grid-cols-3 gap-2">
+              {(['low', 'mid', 'high'] as const).map((band) => (
+                <div key={band}>
+                  <Label className="mb-1 capitalize">{band}</Label>
+                  <input
+                    type="range"
+                    aria-label={`EQ ${band}`}
+                    min={-12}
+                    max={12}
+                    step={1}
+                    value={clip.audio.eq[band]}
+                    onChange={(e) =>
+                      up(
+                        {
+                          audio: { ...clip.audio, eq: { ...clip.audio.eq, [band]: Number(e.target.value) } },
+                        },
+                        `eq-${band}`,
+                      )
+                    }
+                    className="w-full accent-accent"
+                  />
+                  <span className="font-mono text-2xs text-fg-subtle">{db(clip.audio.eq[band])}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </Section>
       ) : null}
     </>
   )
 }
 
-const FONTS = ['Inter', 'DejaVu Serif']
-const ANIMATIONS: { value: TextAnimation; label: string }[] = [
+const FONTS = BUILTIN_FONTS.map((f) => f.family)
+const ANIMATIONS: { value: TitleMotion; label: string }[] = [
   { value: 'none', label: 'None' },
   { value: 'fade', label: 'Fade' },
   { value: 'rise', label: 'Rise' },
   { value: 'pop', label: 'Pop' },
 ]
 
-function TextInspector({ clip }: { clip: TextClip }) {
+function TextInspector({ clip }: { clip: TitleItem }) {
   const s = useEditor.getState()
-  const up = (patch: Partial<TextClip>, key: string) =>
-    s.updateClip<TextClip>(clip.id, patch, `${key}-${clip.id}`)
+  const up = (patch: Partial<TitleItem>, key: string) => s.updateGraphic(clip.id, patch, `${key}-${clip.id}`)
   return (
     <Section title="Text" icon={<Type />}>
       <Row label="Text" htmlFor="text-content">
@@ -452,85 +486,69 @@ function TextInspector({ clip }: { clip: TextClip }) {
               key={a.value}
               size="xs"
               role="radio"
-              aria-checked={clip.animation === a.value}
-              variant={clip.animation === a.value ? 'secondary' : 'ghost'}
-              onClick={() => up({ animation: a.value }, 'anim')}
+              aria-checked={clip.enter === a.value}
+              variant={clip.enter === a.value ? 'secondary' : 'ghost'}
+              onClick={() => up({ enter: a.value }, 'anim')}
             >
               {a.label}
             </Button>
           ))}
         </div>
-        <p className="mt-1.5 text-2xs text-fg-faint">
-          Animation curves are evaluated by the Rust keyframe engine.
+        <p className="mt-1.5 text-2xs text-fg-subtle">
+          Animation curves are evaluated by render-engine’s keyframe evaluator.
         </p>
       </Row>
     </Section>
   )
 }
 
-function CaptionInspector({ clip, timeline }: { clip: CaptionClip; timeline: Timeline }) {
+/** Style of the captions graphic (all captions). Shown in the Captions panel. */
+export function CaptionStyleControls({ item }: { item: CaptionsItem }) {
   const s = useEditor.getState()
-  const style = timeline.captionStyle
+  const up = (patch: Partial<CaptionsItem>, key: string) => s.updateGraphic(item.id, patch, key)
   return (
-    <>
-      <Section title="Caption" icon={<Type />}>
-        <Row label="Text" htmlFor="caption-text">
-          <Textarea
-            id="caption-text"
-            value={clip.text}
-            rows={2}
-            className="min-h-0"
-            onChange={(e) => s.updateClip<CaptionClip>(clip.id, { text: e.target.value }, `cap-${clip.id}`)}
-          />
-        </Row>
-      </Section>
-      <Section title="Caption style (all captions)" icon={<Palette />}>
-        <Row label="Size">
-          <Slider
-            label="Caption size"
-            min={24}
-            max={120}
-            step={1}
-            value={style.size}
-            format={(v) => `${v}px`}
-            onChange={(v) =>
-              s.updateTimeline({ captionStyle: { ...style, size: v } }, 'Caption style', 'capsize')
-            }
-          />
-        </Row>
-        <Row label="Vertical position">
-          <Slider
-            label="Caption position"
-            min={0.1}
-            max={0.95}
-            value={style.y}
-            format={pct}
-            onChange={(v) => s.updateTimeline({ captionStyle: { ...style, y: v } }, 'Caption style', 'capy')}
-          />
-        </Row>
-        <Row label="Color" htmlFor="cap-color">
-          <input
-            id="cap-color"
-            type="color"
-            value={style.color.slice(0, 7)}
-            onChange={(e) =>
-              s.updateTimeline({ captionStyle: { ...style, color: e.target.value } }, 'Caption style', 'capc')
-            }
-            className="h-9 w-10 cursor-pointer rounded border border-line-strong bg-transparent"
-          />
-        </Row>
-      </Section>
-    </>
+    <Section title="Caption style (all captions)" icon={<Palette />}>
+      <Row label="Size">
+        <Slider
+          label="Caption size"
+          min={24}
+          max={120}
+          step={1}
+          value={item.size}
+          format={(v) => `${v}px`}
+          onChange={(v) => up({ size: v }, 'capsize')}
+        />
+      </Row>
+      <Row label="Vertical position">
+        <Slider
+          label="Caption position"
+          min={0.1}
+          max={0.95}
+          value={item.y}
+          format={pct}
+          onChange={(v) => up({ y: v }, 'capy')}
+        />
+      </Row>
+      <Row label="Color" htmlFor="cap-color">
+        <input
+          id="cap-color"
+          type="color"
+          value={item.color.slice(0, 7)}
+          onChange={(e) => up({ color: e.target.value }, 'capc')}
+          className="h-9 w-10 cursor-pointer rounded border border-line-strong bg-transparent"
+        />
+      </Row>
+    </Section>
   )
 }
 
 export function Inspector() {
-  const sel = useEditor(useShallow(selectedClip))
+  const sel = useEditor(useShallow(selectedItem))
   const timeline = useEditor((s) => s.timeline)
   if (!sel || !timeline) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <Scissors className="size-5 text-fg-faint" />
+        <Scissors className="size-5 text-fg-subtle" />
         <p className="mt-3 text-sm font-medium">Nothing selected</p>
         <p className="mt-1 text-xs text-fg-subtle">
           Select a clip on the timeline to adjust timing, transform, color, audio or text.
@@ -538,22 +556,27 @@ export function Inspector() {
       </div>
     )
   }
-  const { clip, trackKind } = sel
   return (
     <div className="h-full overflow-y-auto" data-testid="inspector">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
-        {clip.type === 'media' ? (
+        {sel.kind === 'media' ? (
           <Volume2 className="size-4 text-fg-subtle" />
         ) : (
           <Type className="size-4 text-fg-subtle" />
         )}
         <p className="truncate text-sm font-medium">
-          {clip.type === 'media' ? clip.name : clip.type === 'text' ? 'Text overlay' : 'Caption'}
+          {sel.kind === 'media' ? sel.clip.name : 'Text overlay'}
         </p>
       </div>
-      {clip.type === 'media' ? <MediaInspector clip={clip} trackKind={trackKind} /> : null}
-      {clip.type === 'text' ? <TextInspector clip={clip} /> : null}
-      {clip.type === 'caption' ? <CaptionInspector clip={clip} timeline={timeline} /> : null}
+      {sel.kind === 'media' ? (
+        <MediaInspector
+          clip={sel.clip}
+          role={sel.track.role}
+          visual={sel.track.type === 'video'}
+          fps={timeline.fps}
+        />
+      ) : null}
+      {sel.kind === 'title' ? <TextInspector clip={sel.item} /> : null}
     </div>
   )
 }

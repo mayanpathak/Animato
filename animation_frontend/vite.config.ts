@@ -11,9 +11,22 @@ export default defineConfig(({ mode }) => {
   const apiTarget = env.VITE_API_TARGET || 'http://localhost:5000'
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        // Open Graph needs absolute URLs: VITE_SITE_URL when set, else root-relative.
+        name: 'animato-site-url',
+        transformIndexHtml: (html) =>
+          html.replaceAll('%SITE_URL%', (env.VITE_SITE_URL ?? '').replace(/\/$/, '')),
+      },
+    ],
     resolve: {
-      alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        // The one WASM build (plan 18.2): @tooscut/render-engine imports it by name.
+        'animato-wasm': fileURLToPath(new URL('./src/wasm/pkg/animato_wasm.js', import.meta.url)),
+      },
     },
     worker: { format: 'es' },
     build: {
@@ -21,7 +34,6 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id: string) {
-            if (id.includes('node_modules/gsap')) return 'gsap'
             if (id.includes('node_modules/motion') || id.includes('node_modules/framer-motion'))
               return 'motion'
             if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router'))

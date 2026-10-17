@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { FileAudio, FileVideo, ImageIcon, Plus, Sparkles, Upload } from 'lucide-react'
+import { Clapperboard, FileAudio, FileVideo, ImageIcon, Plus, Sparkles, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/misc'
 import { useJobHistory, useOwner } from '@/lib/local/hooks'
@@ -13,6 +13,7 @@ import { importFile, type ImportStage } from '../media/client'
 import { importJobVideo } from '../projects'
 import { useEditor } from '../store'
 import { ASSET_MIME } from './Timeline'
+import { VideoAssets } from './VideoAssets'
 
 const ACCEPT =
   'video/mp4,video/quicktime,video/webm,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/webm,audio/ogg,image/png,image/jpeg,.mp4,.mov,.webm,.mp3,.wav,.m4a,.png,.jpg,.jpeg'
@@ -142,86 +143,101 @@ export function MediaPanel({ library }: { library: MediaAsset[] }) {
           </motion.div>
         ))}
       </AnimatePresence>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        <h3 className="mb-2 text-2xs font-semibold tracking-wide text-fg-faint uppercase">In this browser</h3>
-        {library.length === 0 ? (
-          <p className="rounded-lg border border-line bg-surface-1 p-3 text-xs text-fg-subtle">
-            No media yet. Import a file or add one of your renders below.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-2 gap-2" data-testid="media-library">
-            {library.map((a) => (
-              <li key={a.id}>
-                <div
-                  draggable
-                  onDragStart={(e) => {
-                    useEditor
-                      .getState()
-                      .setAssets([...new Map([...useEditor.getState().assets, [a.id, a]]).values()])
-                    e.dataTransfer.setData(ASSET_MIME, a.id)
-                    e.dataTransfer.effectAllowed = 'copy'
-                  }}
-                  className="group relative cursor-grab overflow-hidden rounded-lg border border-line bg-surface-2 active:cursor-grabbing"
-                  title={`${a.name} · ${a.demuxer} · ${formatBytes(a.size)}`}
-                >
-                  <div className="relative aspect-video bg-surface-3">
-                    {a.thumbnails[0] ? (
-                      <img
-                        src={a.thumbnails[0]}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="grid h-full place-items-center text-fg-faint [&_svg]:size-5">
-                        <KindIcon kind={a.kind} />
-                      </div>
-                    )}
-                    {a.duration ? (
-                      <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 font-mono text-[10px] text-white">
-                        {formatDuration(a.duration)}
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      aria-label={`Add ${a.name} to the timeline`}
-                      onClick={() => addAsset(a)}
-                      className="absolute top-1 right-1 grid size-6 place-items-center rounded-md bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 [&_svg]:size-3.5"
-                    >
-                      <Plus />
-                    </button>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <VideoAssets />
+        <div className="px-3 pb-3">
+          <h3 className="mb-2 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
+            In this browser
+          </h3>
+          {library.length === 0 ? (
+            <p className="rounded-lg border border-line bg-surface-1 p-3 text-xs text-fg-subtle">
+              No media yet. Import a file or add one of your renders below.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-2" data-testid="media-library">
+              {library.map((a) => (
+                <li key={a.id}>
+                  <div
+                    draggable
+                    onDragStart={(e) => {
+                      useEditor
+                        .getState()
+                        .setAssets([...new Map([...useEditor.getState().assets, [a.id, a]]).values()])
+                      e.dataTransfer.setData(ASSET_MIME, a.id)
+                      e.dataTransfer.effectAllowed = 'copy'
+                    }}
+                    className="group relative cursor-grab overflow-hidden rounded-lg border border-line bg-surface-2 active:cursor-grabbing"
+                    title={`${a.name} · ${a.demuxer} · ${formatBytes(a.size)}`}
+                  >
+                    <div className="relative aspect-video bg-surface-3">
+                      {a.thumbnails[0] ? (
+                        <img
+                          src={a.thumbnails[0]}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="grid h-full place-items-center text-fg-subtle [&_svg]:size-5">
+                          <KindIcon kind={a.kind} />
+                        </div>
+                      )}
+                      {a.duration ? (
+                        <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 font-mono text-[10px] text-white">
+                          {formatDuration(a.duration)}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-label={`Add ${a.name} to the timeline`}
+                        onClick={() => addAsset(a)}
+                        className="absolute top-1 right-1 grid size-6 place-items-center rounded-md bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 [&_svg]:size-3.5"
+                      >
+                        <Plus />
+                      </button>
+                      {a.kind !== 'audio' ? (
+                        <button
+                          type="button"
+                          aria-label={`Use ${a.name} as B-roll`}
+                          onClick={() => useEditor.getState().addBrollSlot(a)}
+                          className="absolute top-1 left-1 grid size-6 place-items-center rounded-md bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 [&_svg]:size-3.5"
+                        >
+                          <Clapperboard />
+                        </button>
+                      ) : null}
+                    </div>
+                    <p className="truncate px-2 py-1.5 text-2xs text-fg-muted">{a.name}</p>
                   </div>
-                  <p className="truncate px-2 py-1.5 text-2xs text-fg-muted">{a.name}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        <h3 className="mt-5 mb-2 flex items-center gap-1.5 text-2xs font-semibold tracking-wide text-fg-faint uppercase">
-          <Sparkles className="size-3" /> From your renders
-        </h3>
-        {jobs.data?.length ? (
-          <ul className="space-y-1.5">
-            {jobs.data.slice(0, 8).map((j) => (
-              <li
-                key={j.id}
-                className="flex items-center gap-2 rounded-lg border border-line bg-surface-1 p-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs">{j.prompt}</p>
-                  <p className="text-2xs text-fg-faint">
-                    {j.library} · {timeAgo(j.createdAt)}
-                  </p>
-                </div>
-                <Button size="xs" variant="secondary" onClick={() => void fromJob(j.id, j.prompt)}>
-                  Add
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-xs text-fg-subtle">Renders you generate in Create show up here.</p>
-        )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <h3 className="mt-5 mb-2 flex items-center gap-1.5 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
+            <Sparkles className="size-3" /> From your renders
+          </h3>
+          {jobs.data?.length ? (
+            <ul className="space-y-1.5">
+              {jobs.data.slice(0, 8).map((j) => (
+                <li
+                  key={j.id}
+                  className="flex items-center gap-2 rounded-lg border border-line bg-surface-1 p-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs">{j.prompt}</p>
+                    <p className="text-2xs text-fg-subtle">
+                      {j.library} · {timeAgo(j.createdAt)}
+                    </p>
+                  </div>
+                  <Button size="xs" variant="secondary" onClick={() => void fromJob(j.id, j.prompt)}>
+                    Add
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-fg-subtle">Renders you generate in Create show up here.</p>
+          )}
+        </div>
       </div>
     </div>
   )

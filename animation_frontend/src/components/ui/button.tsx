@@ -7,20 +7,22 @@ type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
 const variants: Record<Variant, string> = {
   primary:
-    'relative text-white bg-gradient-accent bg-[length:200%_100%] bg-left hover:bg-right shadow-glow [transition:background-position_600ms_var(--ease-out-expo),transform_160ms,box-shadow_240ms] disabled:shadow-none',
-  secondary: 'bg-surface-3 text-fg border border-line-strong hover:bg-surface-4 shadow-inner-highlight',
-  outline: 'border border-line-strong text-fg hover:bg-surface-2 hover:border-fg-faint',
+    'bg-accent-fill text-white shadow-sm shadow-inner-highlight hover:bg-accent-hover active:bg-accent-pressed disabled:bg-surface-4 disabled:text-fg-subtle disabled:shadow-none',
+  secondary: 'bg-surface-2 text-fg border border-line hover:bg-surface-3 hover:border-line-strong',
+  outline: 'border border-line-strong text-fg hover:bg-surface-2',
   ghost: 'text-fg-muted hover:text-fg hover:bg-surface-2',
-  danger: 'bg-status-failed/15 text-status-failed border border-status-failed/30 hover:bg-status-failed/25',
+  danger:
+    'bg-surface-2 text-status-failed border border-line hover:bg-status-failed/10 hover:border-status-failed/30',
   link: 'text-accent hover:text-fg underline-offset-4 hover:underline px-0',
 }
 
+// Heights 32 / 36 / 44 (plan 7.4); xs and xl for dense tools and marketing CTAs.
 const sizes: Record<Size, string> = {
-  xs: 'h-7 px-2.5 text-xs gap-1.5 rounded-sm',
-  sm: 'h-8 px-3 text-sm gap-1.5 rounded-md',
-  md: 'h-9 px-4 text-sm gap-2 rounded-md',
-  lg: 'h-11 px-5 text-base gap-2 rounded-lg',
-  xl: 'h-13 px-7 text-base gap-2.5 rounded-xl',
+  xs: 'h-7 px-2.5 text-xs gap-1.5 rounded-md',
+  sm: 'h-8 px-3 text-sm gap-1.5 rounded-control',
+  md: 'h-9 px-4 text-sm gap-2 rounded-control',
+  lg: 'h-11 px-5 text-base gap-2 rounded-control',
+  xl: 'h-13 px-7 text-base gap-2.5 rounded-full',
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -33,7 +35,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function buttonClass(variant: Variant = 'primary', size: Size = 'md', className?: string): string {
   return cn(
-    'inline-flex shrink-0 select-none items-center justify-center font-medium whitespace-nowrap transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out-quart active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 focus-visible:outline-2',
+    'inline-flex shrink-0 select-none items-center justify-center font-medium whitespace-nowrap transition-[background-color,color,border-color,box-shadow,transform] duration-[var(--duration-fast)] ease-out-quart active:scale-[0.98] active:duration-[var(--duration-instant)] disabled:cursor-not-allowed disabled:active:scale-100 [&_svg]:size-4 [&_svg]:shrink-0',
     variants[variant],
     sizes[size],
     className,
@@ -64,9 +66,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={loading || undefined}
       {...rest}
     >
+      {/* Loading keeps the label and the width: the spinner takes the icon's place. */}
       {loading ? <Spinner className="size-4" /> : leftIcon}
       {children}
-      {!loading && rightIcon}
+      {rightIcon ? <span className={loading ? 'invisible' : undefined}>{rightIcon}</span> : null}
     </button>
   )
 })
@@ -81,8 +84,8 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 const iconSizes = {
   xs: 'size-6 rounded-sm',
   sm: 'size-7 rounded-md',
-  md: 'size-8 rounded-md',
-  lg: 'size-10 rounded-lg',
+  md: 'size-8 rounded-control',
+  lg: 'size-10 rounded-control',
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
@@ -96,10 +99,10 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center transition-colors duration-150 disabled:opacity-40 [&_svg]:size-4',
+        'inline-flex shrink-0 items-center justify-center transition-[background-color,color,transform] duration-[var(--duration-fast)] active:scale-[0.96] disabled:opacity-40 [&_svg]:size-4',
         iconSizes[size],
         variant === 'ghost' && 'text-fg-muted hover:bg-surface-3 hover:text-fg',
-        variant === 'secondary' && 'bg-surface-3 text-fg hover:bg-surface-4 border border-line',
+        variant === 'secondary' && 'bg-surface-2 text-fg hover:bg-surface-3 border border-line',
         variant === 'outline' && 'border border-line-strong text-fg-muted hover:text-fg hover:bg-surface-2',
         active && 'bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent',
         className,

@@ -5,7 +5,7 @@
 // cookie travels with them and is never sent anywhere else. This code never
 // reads, stores or forwards the token. With VITE_USE_MOCKS=true the same
 // requests are answered in the browser by MSW (src/mocks); nothing here changes.
-import type { z } from 'zod'
+import type * as z from 'zod/mini'
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -51,12 +51,20 @@ export class ApiError extends Error {
 /** Fired on any 401 so the session store can log the UI out. */
 export const SESSION_LOST_EVENT = 'animato:session-lost'
 
+/** Fired when a call gets no usable answer (status 0), and when one gets through again. */
+export const SERVER_UNREACHABLE_EVENT = 'animato:server-unreachable'
+export const SERVER_REACHABLE_EVENT = 'animato:server-reachable'
+
+function signal(name: string): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(name))
+}
+
 /**
  * Calls the API and validates the JSON body against `schema`. Throws
  * `ApiError` for network failures, non-2xx answers, `success: false`, and
  * bodies that do not match the schema.
  */
-export async function request<S extends z.ZodType>(
+export async function request<S extends z.ZodMiniType>(
   schema: S,
   method: Method,
   path: string,
@@ -84,6 +92,7 @@ export async function request<S extends z.ZodType>(
       json = null
     }
   } catch {
+    signal(SERVER_UNREACHABLE_EVENT)
     throw new ApiError(0, UNREACHABLE)
   } finally {
     clearTimeout(timer)
@@ -91,7 +100,11 @@ export async function request<S extends z.ZodType>(
 
   // Not our API's shape: the dev proxy answering while the server is down,
   // or an HTML error page.
-  if (!isRecord(json)) throw new ApiError(0, UNREACHABLE)
+  if (!isRecord(json)) {
+    signal(SERVER_UNREACHABLE_EVENT)
+    throw new ApiError(0, UNREACHABLE)
+  }
+  signal(SERVER_REACHABLE_EVENT)
 
   let retryAfter: number | null = null
   if (res.status === 429) {
