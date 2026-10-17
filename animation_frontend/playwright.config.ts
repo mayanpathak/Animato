@@ -18,10 +18,15 @@ const SANDBOX_CHROMIUM = '/opt/pw-browsers/chromium'
 const executablePath =
   process.env.PW_CHROMIUM_PATH || (existsSync(SANDBOX_CHROMIUM) ? SANDBOX_CHROMIUM : undefined)
 
+// E2E_REAL=1 (npm run test:e2e:real): only the @real flow, against the local
+// stack you started yourself (Vite dev server + api_server + workers), no mocks.
+const REAL = Boolean(process.env.E2E_REAL)
+
 export default defineConfig({
   testDir: './e2e',
   // @slow tests (a full 1080×1920 export through SwiftShader, ~9 min) run with `npm run test:e2e:slow`.
-  grepInvert: process.env.PW_SLOW ? undefined : /@slow/,
+  grep: REAL ? /@real/ : undefined,
+  grepInvert: REAL ? undefined : process.env.PW_SLOW ? /@real/ : /@slow|@real/,
   outputDir: './test-results',
   timeout: 90_000,
   expect: { timeout: 15_000 },
@@ -30,7 +35,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: REAL ? process.env.E2E_BASE_URL || 'http://localhost:5173' : 'http://localhost:4173',
     trace: 'retain-on-failure',
     acceptDownloads: true,
     permissions: ['microphone'],
@@ -52,10 +57,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], channel: executablePath ? undefined : 'chromium' },
     },
   ],
-  webServer: {
-    command: 'npm run build:mocks && npx vite preview --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 240_000,
-  },
+  webServer: REAL
+    ? undefined
+    : {
+        command: 'npm run build:mocks && npx vite preview --port 4173 --strictPort',
+        url: 'http://localhost:4173',
+        reuseExistingServer: !process.env.CI,
+        timeout: 240_000,
+      },
 })

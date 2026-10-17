@@ -14,6 +14,7 @@ import { DraftView } from './DraftView'
 import { TakeView } from './TakeView'
 import { selectedTake } from './model'
 import { timelineOf } from '@/features/editor/projects'
+import { hasWebCodecs } from '@/lib/support'
 import { MAIN_VIDEO } from '@/features/editor/model/timelineV2'
 
 const Editor = lazy(() => import('@/features/editor/EditorPage'))
@@ -71,8 +72,11 @@ export default function VideoPage() {
   // The user's own clip (no takes) opens in Finish too, once it is on the main track.
   const ownClip =
     video.data && !take && timelineOf(video.data).timeline.clips.some((c) => c.trackId === MAIN_VIDEO)
+  // Without WebCodecs there is no preview or export: the take view plays the
+  // render and offers the original instead (plan 6.11).
   if (
     video.data &&
+    hasWebCodecs() &&
     (ownClip || (take?.status === 'Completed' && timelineOf(video.data).timeline.clips.length > 0))
   )
     return (

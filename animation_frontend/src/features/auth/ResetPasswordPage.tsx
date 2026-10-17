@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import * as z from 'zod/mini'
 import { ArrowLeft } from 'lucide-react'
 import { Button, buttonClass } from '@/components/ui/button'
 import { authApi } from '@/lib/api/auth'
@@ -16,10 +16,15 @@ const schema = z
   .object({
     password: z
       .string()
-      .refine((v) => passwordError(v) === null, 'Password must be between 8 and 72 characters'),
+      .check(z.refine((v) => passwordError(v) === null, 'Password must be between 8 and 72 characters')),
     confirm: z.string(),
   })
-  .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'The two passwords do not match' })
+  .check(
+    z.refine((v) => v.password === v.confirm, {
+      path: ['confirm'],
+      message: 'The two passwords do not match',
+    }),
+  )
 type Values = z.infer<typeof schema>
 
 const backToLogin = (

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import * as z from 'zod/mini'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { ApiError, errorMessage } from '@/lib/api/http'
@@ -16,13 +16,13 @@ import { useAfterAuth } from './afterAuth'
 const signupSchema = z.object({
   username: z
     .string()
-    .refine((v) => usernameError(v.trim()) === null, 'Username must be between 3 and 30 characters'),
+    .check(z.refine((v) => usernameError(v.trim()) === null, 'Username must be between 3 and 30 characters')),
   email: z
     .string()
-    .refine((v) => emailError(normaliseEmail(v)) === null, 'Please enter a valid email address'),
+    .check(z.refine((v) => emailError(normaliseEmail(v)) === null, 'Please enter a valid email address')),
   password: z
     .string()
-    .refine((v) => passwordError(v) === null, 'Password must be between 8 and 72 characters'),
+    .check(z.refine((v) => passwordError(v) === null, 'Password must be between 8 and 72 characters')),
 })
 type SignupValues = z.infer<typeof signupSchema>
 
@@ -137,9 +137,9 @@ function charCountOver(password: string): boolean {
 const loginSchema = z.object({
   email: z
     .string()
-    .refine((v) => emailError(normaliseEmail(v)) === null, 'Please enter a valid email address'),
+    .check(z.refine((v) => emailError(normaliseEmail(v)) === null, 'Please enter a valid email address')),
   // Same as the server: any non-empty password, so older short ones still work.
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().check(z.minLength(1, 'Password is required')),
 })
 type LoginValues = z.infer<typeof loginSchema>
 

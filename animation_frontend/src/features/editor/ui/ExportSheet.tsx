@@ -2,6 +2,7 @@
 // "Export all formats", a progress row per output with an ETA measured from
 // the real encode speed, then download, remix link and post text. Exports
 // render through the preview's frame pipeline and are kept in OPFS.
+import { reportIfStorageFull } from '@/lib/local/storageFull'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle2, ChevronDown, Copy, Download, Lightbulb, Link2, X } from 'lucide-react'
@@ -200,7 +201,15 @@ export function ExportSheet({
         triggerDownload(await readFile(result.path), out.fileName)
       } catch (e) {
         if (controller.signal.aborted) patch(i, { state: 'cancelled' })
-        else patch(i, { state: 'failed', error: e instanceof Error ? e.message : String(e) })
+        else
+          patch(i, {
+            state: 'failed',
+            error: reportIfStorageFull(e)
+              ? 'This browser is out of storage space.'
+              : e instanceof Error
+                ? e.message
+                : String(e),
+          })
       }
     }
     abort.current = null

@@ -168,3 +168,23 @@ cargo test --manifest-path crates/Cargo.toml -p animato-wasm -p tooscut-audio-en
   checked, not rebuilt.
 - e2e: `routes.spec.ts` checks the title, the tags and that the image is served.
 
+## P11 notes
+
+- Budgets (15.1), production build, Chromium, gzip: landing 207 KB, login 197 KB, pricing 180 KB (`npm run
+  measure:js`); app shell 232 KB in the e2e build (MSW included; not measured on production, needs a backend
+  session). **Not met:** landing 170 KB (react-dom + router 93 KB and motion 49 KB alone are 142 KB). Done: zod/mini
+  for API and form schemas, lazy app shell and redirects (landing 231 → 207 KB). `e2e/budgets.spec.ts` guards today's
+  sizes. **Not measured:** LCP on fast 4G, route-change paint, export memory (no Lighthouse or real device here).
+- Reliability (15.2): autosave 500 ms plus a flush when the tab is hidden; saves serialised (fixed a P8 race that could
+  restore an older timeline); storage-full toast to Settings → Storage with the five largest files.
+- Tests (15.3): degrade paths (no WebCodecs, no WebGPU), storage full, edit plans, budgets; `npm run test:e2e:real`
+  for the local stack (not run here: no backend in the sandbox).
+- Degrade (15.5): without WebCodecs the take view plays the render, offers the original and says why Finish is
+  missing; the export sheet no longer throws when WebCodecs is absent.
+- README rewritten for the current app; LOCAL_DEV.md section 8 (real-stack e2e). Light theme (optional) not built.
+  Windowed audio preview for hour-long sources (recorded in P4) not done.
+- typecheck, lint, build: pass. vitest 190. Playwright `npm run test:e2e` 52/52, `npm run test:e2e:slow` 2/2 (the
+  1080×1920 Finish export failed once in the run before the save fix and passed after it; the cause of that one
+  failure was not confirmed). cargo: animato-graphics 16, animato-wasm 3, offcut-mp4 24 + 12 (mux round trip),
+  audio-engine 46, tooscut-compositor 10, tooscut-types 30.
+

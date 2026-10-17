@@ -2,6 +2,7 @@
 // (never held whole in memory); the media worker then hashes, probes,
 // thumbnails and extracts PCM. Rebuilt from its call sites and the worker's
 // RPC surface after the folder was lost to the root `.gitignore` rule `media/`.
+import { reportIfStorageFull } from '@/lib/local/storageFull'
 import { fileHandle, removeFile } from '@/lib/local/opfs'
 import { mediaTable, uid, type MediaAsset } from '@/lib/local/models'
 import { recordCall, type EngineCall } from '@/wasm/stats'
@@ -87,6 +88,7 @@ export async function importFile(
     size = await copyIn(path, data, total, onProgress)
   } catch (e) {
     await removeFile(path)
+    if (reportIfStorageFull(e)) throw new Error('This browser is out of storage space.', { cause: e })
     throw e
   }
   const req: ImportRequest = {
@@ -120,7 +122,12 @@ export async function importFile(
     if (asset.jobId && !dupe.jobId) return mediaTable.put({ ...dupe, jobId: asset.jobId })
     return dupe
   }
-  return mediaTable.put(asset)
+  try {
+    return await mediaTable.put(asset)
+  } catch (e) {
+    if (reportIfStorageFull(e)) throw new Error('This browser is out of storage space.', { cause: e })
+    throw e
+  }
 }
 
 /** RMS loudness (dB) of a region of an asset's cached PCM. */

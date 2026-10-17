@@ -146,3 +146,16 @@ npm run test:e2e    # Playwright against `npm run build:mocks` (MSW answers the 
 
 The MSW mock exists only in that build. The demo account is `demo@animato.dev` / `animato-demo`, and the mock
 verification code is `123456`.
+
+## 8. One automated run against the real stack
+
+With everything from section 5 running and an account you have already verified:
+
+```bash
+cd animation_frontend
+E2E_EMAIL=<your test account> E2E_PASSWORD=<its password> npm run test:e2e:real
+```
+
+It logs in on the dev server (`E2E_BASE_URL`, default `http://localhost:5173`), creates a job, waits for the render
+(up to 25 minutes), opens Finish and exports an MP4. Pass the credentials in the environment only; never commit them.
+Without `E2E_REAL` (which the script sets) the test is not collected.

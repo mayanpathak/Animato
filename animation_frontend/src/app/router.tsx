@@ -1,9 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import { AppShell } from './AppShell'
 import { ProtectedRoute, PublicOnlyRoute, VerifyRoute } from './guards'
 import { FullPageSpinner } from '@/components/ui/spinner'
-import { CreateRedirect, EditRedirect, JobRedirect } from '@/features/videos/redirects'
 
 const Landing = lazy(() => import('@/features/landing/LandingPage'))
 const Pricing = lazy(() => import('@/features/landing/PricingPage'))
@@ -18,6 +16,13 @@ const VideoPage = lazy(() => import('@/features/videos/VideoPage'))
 const Brand = lazy(() => import('@/features/brand/BrandPage'))
 const Settings = lazy(() => import('@/features/settings/SettingsPage'))
 const NotFound = lazy(() => import('./NotFound'))
+// The signed-in shell (command palette, menus) and the old-route redirects
+// are not needed by the landing page: loaded with the first app route (15.1).
+const AppShell = lazy(() => import('./AppShell').then((m) => ({ default: m.AppShell })))
+const redirects = () => import('@/features/videos/redirects')
+const CreateRedirect = lazy(() => redirects().then((m) => ({ default: m.CreateRedirect })))
+const EditRedirect = lazy(() => redirects().then((m) => ({ default: m.EditRedirect })))
+const JobRedirect = lazy(() => redirects().then((m) => ({ default: m.JobRedirect })))
 
 function S({ children }: { children: ReactNode }) {
   return <Suspense fallback={<FullPageSpinner />}>{children}</Suspense>
@@ -117,13 +122,38 @@ export const router = createBrowserRouter([
         ),
       },
       // Old routes (plan 3.1): no link breaks.
-      { path: '/app/create', element: <CreateRedirect /> },
+      {
+        path: '/app/create',
+        element: (
+          <S>
+            <CreateRedirect />
+          </S>
+        ),
+      },
       { path: '/app/templates', element: <Navigate to="/app/new" replace /> },
       { path: '/app/projects', element: <Navigate to="/app" replace /> },
-      { path: '/app/projects/:id/edit', element: <EditRedirect /> },
-      { path: '/app/jobs/:id', element: <JobRedirect /> },
       {
-        element: <AppShell />,
+        path: '/app/projects/:id/edit',
+        element: (
+          <S>
+            <EditRedirect />
+          </S>
+        ),
+      },
+      {
+        path: '/app/jobs/:id',
+        element: (
+          <S>
+            <JobRedirect />
+          </S>
+        ),
+      },
+      {
+        element: (
+          <S>
+            <AppShell />
+          </S>
+        ),
         children: [
           {
             path: '/app',

@@ -5,7 +5,7 @@
 // cookie travels with them and is never sent anywhere else. This code never
 // reads, stores or forwards the token. With VITE_USE_MOCKS=true the same
 // requests are answered in the browser by MSW (src/mocks); nothing here changes.
-import type { z } from 'zod'
+import type * as z from 'zod/mini'
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -64,7 +64,7 @@ function signal(name: string): void {
  * `ApiError` for network failures, non-2xx answers, `success: false`, and
  * bodies that do not match the schema.
  */
-export async function request<S extends z.ZodType>(
+export async function request<S extends z.ZodMiniType>(
   schema: S,
   method: Method,
   path: string,

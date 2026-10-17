@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { reportIfStorageFull } from '@/lib/local/storageFull'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'motion/react'
 import {
@@ -100,20 +101,32 @@ function isTyping(el: EventTarget | null): boolean {
   )
 }
 
+let saving: Promise<void> = Promise.resolve()
+
 /**
  * Saves the editor's side of a video over the stored record: takes and B-roll
- * renders added meanwhile (another tab, "Generate a clip") are kept.
+ * renders added meanwhile (another tab, "Generate a clip") are kept. Saves run
+ * one at a time, so one never reads the record before another has written it
+ * (an asset-note save must not put back an older timeline).
  */
-async function saveEdit(proj: Project, patch: Partial<Project>): Promise<void> {
-  const stored = (await projectsTable.get(proj.id)) ?? proj
-  await projectsTable.put({
-    ...stored,
-    name: proj.name,
-    selectedTake: proj.selectedTake,
-    assets: proj.assets,
-    ...patch,
-    updatedAt: Date.now(),
+function saveEdit(proj: Project, patch: Partial<Project>): Promise<void> {
+  const run = saving.then(async () => {
+    const stored = (await projectsTable.get(proj.id)) ?? proj
+    // The record fields as they are now, not as they were when the save was scheduled.
+    const live = useEditor.getState().project
+    const now = live?.id === proj.id ? live : proj
+    await projectsTable.put({
+      ...stored,
+      name: now.name,
+      selectedTake: now.selectedTake,
+      assets: now.assets,
+      ...patch,
+      updatedAt: Date.now(),
+    })
   })
+  // The next save waits for this one whether it worked or not.
+  saving = run.catch(() => undefined)
+  return run
 }
 
 function LeftPanel({
@@ -342,8 +355,19 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
     if (owner) void loadLibrary(owner).then(setLibrary)
   }, [assetsMap, owner])
 
-  // Autosave: an instant crash snapshot in localStorage, then IndexedDB.
+  // Autosave (plan 15.2): an instant crash snapshot in localStorage, then
+  // IndexedDB 500 ms after the last change, or at once when the tab is hidden.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSave = useRef<(() => Promise<void>) | null>(null)
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState !== 'hidden' || !pendingSave.current) return
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      void pendingSave.current()
+    }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, [])
   useEffect(() => {
     const s = useEditor.getState()
     if (!s.project || !s.timeline || revision === 0) return
@@ -356,7 +380,8 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
       // storage full: the IndexedDB save below still runs
     }
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
+    const save = async () => {
+      pendingSave.current = null
       try {
         const firstVideo = tl.clips.find((c) => s.assets.get(c.assetId)?.kind !== 'audio')
         const thumb = firstVideo ? s.assets.get(firstVideo.assetId)?.thumbnails[0] : undefined
@@ -364,10 +389,13 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
         localStorage.removeItem(SNAPSHOT(proj.id))
         setSavedRevision(revision)
         setSaveError(false)
-      } catch {
+      } catch (e) {
+        reportIfStorageFull(e)
         setSaveError(true)
       }
-    }, 700)
+    }
+    pendingSave.current = save
+    saveTimer.current = setTimeout(() => void save(), 500)
   }, [revision])
 
   // Asset labels and notes are records, not edits: saved as they change, outside undo.
@@ -375,7 +403,14 @@ export default function EditorPage({ mode = 'timeline' }: { mode?: 'finish' | 't
   useEffect(() => {
     const proj = useEditor.getState().project
     if (!proj || !assetRefs) return
-    const t = setTimeout(() => void saveEdit(proj, {}).catch(() => setSaveError(true)), 500)
+    const t = setTimeout(
+      () =>
+        void saveEdit(proj, {}).catch((e: unknown) => {
+          reportIfStorageFull(e)
+          setSaveError(true)
+        }),
+      500,
+    )
     return () => clearTimeout(t)
   }, [assetRefs])
 

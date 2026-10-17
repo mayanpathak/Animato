@@ -36,6 +36,14 @@ export function Toaster() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">{t.title}</p>
               {t.body ? <p className="mt-0.5 text-xs text-fg-muted">{t.body}</p> : null}
+              {t.action ? (
+                <a
+                  href={t.action.href}
+                  className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
+                >
+                  {t.action.label}
+                </a>
+              ) : null}
             </div>
             <button
               type="button"

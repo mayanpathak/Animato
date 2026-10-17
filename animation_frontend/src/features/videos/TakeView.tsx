@@ -1,6 +1,7 @@
 // The selected take of a video, by state (plan 3.4): rendering, failed,
 // ready, ready-remote (import failed) and gone. Finish (P6) replaces the
 // ready view's body; the states and their data stay.
+import { hasWebCodecs, NO_WEBCODECS_TEXT } from '@/lib/support'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
@@ -138,6 +139,7 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
   const status = job.data?.status ?? take.status
   const [importState, setImportState] = useState<ImportState>('idle')
   const seenRunning = useRef(false)
+  const supported = hasWebCodecs()
   useTakeTitle(video.name, status)
 
   // Ready: celebrate quietly, notify if the tab is hidden, and prefetch the
@@ -160,7 +162,8 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
   useEffect(() => {
     if (status && !isFinished(status)) seenRunning.current = true
     if (status === 'Completed' && importState === 'idle') {
-      void startImport()
+      // Importing needs WebCodecs (probe, thumbnails); without it the render only plays here.
+      if (supported) void startImport()
       if (seenRunning.current) {
         toast.success('Your video is ready.')
         track('job_complete', { library: take.library })
@@ -288,15 +291,17 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
         />
       </motion.div>
       <div className="mt-6 flex flex-wrap items-center gap-2">
-        <Button
-          size="lg"
-          loading={importState === 'importing'}
-          disabled={importState === 'failed'}
-          onClick={() => navigate(`${ROUTES.video(video.id)}?mode=timeline`)}
-          data-testid="job-open-editor"
-        >
-          {importState === 'importing' ? 'Preparing…' : 'Open in editor'}
-        </Button>
+        {supported ? (
+          <Button
+            size="lg"
+            loading={importState === 'importing'}
+            disabled={importState === 'failed'}
+            onClick={() => navigate(`${ROUTES.video(video.id)}?mode=timeline`)}
+            data-testid="job-open-editor"
+          >
+            {importState === 'importing' ? 'Preparing…' : 'Open in editor'}
+          </Button>
+        ) : null}
         <a href={videoUrl} download className={buttonClass('ghost', 'lg')}>
           <Download /> Download original
         </a>
@@ -306,6 +311,18 @@ export function TakeView({ video, take }: { video: Project; take: Take }) {
           {data?.renderTimeMs != null ? ` · rendered in ${(data.renderTimeMs / 1000).toFixed(0)} s` : ''}
         </p>
       </div>
+      {!supported ? (
+        <div
+          role="note"
+          data-testid="no-webcodecs"
+          className="mt-6 rounded-xl border border-line bg-surface-1 px-5 py-4"
+        >
+          <p className="text-fg">{NO_WEBCODECS_TEXT}</p>
+          <p className="mt-1 text-sm text-fg-subtle">
+            The render plays here, and you can download the original.
+          </p>
+        </div>
+      ) : null}
       {importState === 'failed' ? (
         <div
           role="alert"

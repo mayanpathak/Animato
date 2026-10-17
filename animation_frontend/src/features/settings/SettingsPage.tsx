@@ -1,5 +1,5 @@
 // /app/settings (plan 6.9): Account, Preferences, Storage, Privacy, About.
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -16,9 +16,21 @@ import { useSession } from '@/stores/session'
 import { toast } from '@/stores/toast'
 import { deleteAllExports, deleteAllMedia, deleteEverythingLocal } from './storage'
 
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+  anchor,
+}: {
+  id: string
+  title: string
+  children: ReactNode
+  /** Linkable as /app/settings#anchor. */
+  anchor?: string
+}) {
   return (
     <section
+      id={anchor}
       aria-labelledby={id}
       className="border-t border-line py-10 first-of-type:border-t-0 first-of-type:pt-0"
     >
@@ -166,6 +178,17 @@ function Storage() {
   const mediaBytes = useMemo(() => (media.data ?? []).reduce((s, a) => s + a.size, 0), [media.data])
   const exportBytes = useMemo(() => (exportsQ.data ?? []).reduce((s, a) => s + a.size, 0), [exportsQ.data])
   const pct = usage.data?.quota ? usage.data.usage / usage.data.quota : 0
+  // What to delete first when the browser runs out of space (plan 15.2).
+  const largest = useMemo(
+    () =>
+      [
+        ...(media.data ?? []).map((a) => ({ key: a.id, name: a.name, kind: 'Media', size: a.size })),
+        ...(exportsQ.data ?? []).map((x) => ({ key: x.id, name: x.fileName, kind: 'Export', size: x.size })),
+      ]
+        .sort((a, b) => b.size - a.size)
+        .slice(0, 5),
+    [media.data, exportsQ.data],
+  )
 
   const refresh = () =>
     Promise.all(
@@ -180,7 +203,7 @@ function Storage() {
     )
 
   return (
-    <Section id="storage-h" title="Storage">
+    <Section id="storage-h" title="Storage" anchor="storage">
       <div>
         {usage.isPending ? (
           <Skeleton className="h-10" />
@@ -244,6 +267,20 @@ function Storage() {
           Delete media
         </Button>
       </Row>
+      {largest.length ? (
+        <div data-testid="largest-files">
+          <p className="text-sm text-fg">Largest files</p>
+          <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
+            {largest.map((f) => (
+              <li key={f.key} className="flex items-center gap-3 px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                <span className="text-2xs text-fg-subtle">{f.kind}</span>
+                <span className="w-20 text-right font-mono text-xs tabular-nums">{formatBytes(f.size)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <Row
         label="Everything local"
         hint="Videos, media, exports, brand kit and history for this account in this browser."
@@ -347,6 +384,11 @@ function About() {
 
 export default function SettingsPage() {
   useTitle('Settings')
+  // /app/settings#storage (the storage-full toast) lands on that section.
+  useEffect(() => {
+    const id = location.hash.slice(1)
+    if (id) requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }))
+  }, [])
   return (
     <div className="mx-auto max-w-3xl px-4 pt-8 pb-24 sm:px-6 sm:pt-12">
       <h1 className="mb-12 font-display text-4xl font-semibold tracking-tighter">Settings</h1>

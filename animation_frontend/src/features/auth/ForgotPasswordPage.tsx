@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import * as z from 'zod/mini'
 import { AnimatePresence, motion } from 'motion/react'
 import { ArrowLeft, MailCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ import { AuthBanner, AuthLayout, linkClass } from './AuthLayout'
 const schema = z.object({
   email: z
     .string()
-    .refine((v) => emailError(normaliseEmail(v)) === null, 'Please enter a valid email address'),
+    .check(z.refine((v) => emailError(normaliseEmail(v)) === null, 'Please enter a valid email address')),
 })
 type Values = z.infer<typeof schema>
 

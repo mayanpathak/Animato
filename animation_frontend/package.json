@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "measure:js": "node scripts/measure-js.mjs",
     "og:image": "node scripts/og-image.mjs",
     "build:mocks": "cross-env VITE_USE_MOCKS=true vite build",
     "typecheck": "tsc -b --noEmit",
@@ -15,6 +16,7 @@
     "preview": "vite preview",
     "wasm:build": "bash scripts/build-wasm.sh",
     "test:e2e": "playwright test",
+    "test:e2e:real": "cross-env E2E_REAL=1 playwright test --project=e2e --workers=1",
     "test:e2e:slow": "cross-env PW_SLOW=1 playwright test --grep @slow --workers=1",
     "screenshots": "playwright test --project=screenshots"
   },
